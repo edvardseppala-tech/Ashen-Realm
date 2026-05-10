@@ -1,0 +1,2960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Ashen Realm</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: #000; display: flex; justify-content: center; align-items: center;
+       height: 100vh; overflow: hidden; font-family: monospace; }
+canvas { display: block; image-rendering: pixelated; }
+</style>
+</head>
+<body>
+<canvas id="gameCanvas"></canvas>
+<script>
+'use strict';
+
+// ============================================================
+// CONSTANTS & TILE TYPES
+// ============================================================
+const TILE_SIZE = 32;
+const WORLD_W   = 260;
+const WORLD_H   = 200;
+const SCREEN_W  = 960;
+const SCREEN_H  = 640;
+
+const T = {
+  FLOOR:0, WALL:1, RUINS_FLOOR:2, RUINS_WALL:3,
+  FOREST_FLOOR:4, FOREST_TREE:5,
+  CASTLE_FLOOR:6, CASTLE_WALL:7,
+  FOG_GATE:8,     BOSS_FLOOR:9,
+  WATER:10, VILLAGE_FLOOR:11, VILLAGE_WALL:12, GRAVEYARD_FLOOR:13
+};
+
+// ============================================================
+// CONFIG OBJECTS — expand here to add content
+// ============================================================
+
+const ZONES = {
+  RUINS: {
+    name:'Crumbling Ruins',  bounds:{x:5,   y:38,  w:70,  h:64},
+    ambientColor:'#1a1510',  fogTint:'rgba(20,15,10,0.10)'
+  },
+  FOREST: {
+    name:'Darkroot Forest',  bounds:{x:70,  y:5,   w:100, h:90},
+    ambientColor:'#0a100a',  fogTint:'rgba(5,12,5,0.15)'
+  },
+  VILLAGE: {
+    name:'Ember Village',    bounds:{x:170, y:5,   w:70,  h:75},
+    ambientColor:'#12100a',  fogTint:'rgba(15,12,5,0.06)'
+  },
+  CASTLE: {
+    name:'Castle Approach',  bounds:{x:18,  y:112, w:202, h:58},
+    ambientColor:'#111111',  fogTint:'rgba(10,10,15,0.12)'
+  },
+  BOSS_ARENA: {
+    name:'Throne of Ashes',  bounds:{x:108, y:168, w:44,  h:29},
+    ambientColor:'#0a0505',  fogTint:'rgba(15,5,5,0.20)'
+  }
+};
+
+const PLAYER_CONFIG = {
+  maxHP:100, maxFP:60, maxStamina:100,
+  staminaRegen:22,
+  speed:180,
+  rollSpeed:290, rollDuration:0.28, rollStaminaCost:22, rollIFrames:0.22,
+  lightDmg:15,  lightStamina:14, lightDur:0.22,
+  heavyDmg:38,  heavyStamina:30, heavyDur:0.50,
+  attackCooldown:0.12,
+  flaskCharges:3, flaskHeal:50,
+  size:12,
+  startX:12*TILE_SIZE+16, startY:48*TILE_SIZE+16,
+};
+
+// Easy to add new enemy types — just drop a new key here
+const ENEMY_TYPES = {
+  GRUNT:{
+    name:'Hollowed Grunt', maxHP:60,  speed:80,
+    meleeDmg:12, attackRange:42, detRange:210,
+    attackCD:1.5, attackDur:0.35,
+    size:11, color:'#8B6914', darkColor:'#5a4008',
+    runesDrop:50, lootChance:0.2, behavior:'grunt'
+  },
+  ARCHER:{
+    name:'Skeletal Archer', maxHP:40, speed:55,
+    meleeDmg:10, attackRange:230, detRange:260,
+    attackCD:2.0, attackDur:0.45,
+    size:10, color:'#9a9a8a', darkColor:'#5a5a50',
+    runesDrop:75, lootChance:0.3, behavior:'archer',
+    projSpeed:240, backoff:160
+  },
+  GRAVE_KNIGHT:{
+    name:'Grave Knight', maxHP:110, speed:65,
+    meleeDmg:18, attackRange:46, detRange:220,
+    attackCD:2.0, attackDur:0.42,
+    size:12, color:'#5a5c6a', darkColor:'#2a2c38',
+    runesDrop:140, lootChance:0.25, behavior:'grunt'
+  },
+  BOSS:{
+    name:'The Ashen King', maxHP:500, speed:95,
+    meleeDmg:28, attackRange:85, detRange:700,
+    attackCD:1.8, attackDur:0.55,
+    size:28, color:'#c8a060', darkColor:'#8a6030',
+    runesDrop:3000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.6, p2DmgMult:1.5, p2Threshold:0.5,
+    slamDmg:40, slamRange:110, slamDelay:0.9
+  }
+};
+
+// Easy to add new consumable items
+const ITEMS = {
+  GOLDEN_TEAR:{
+    id:'golden_tear', name:'Golden Tear', color:'#FFD700', glow:'#FFA500',
+    effect:'flask', value:1
+  },
+  RUNE_ARC:{
+    id:'rune_arc', name:'Rune Arc', color:'#a0c8ff', glow:'#4080ff',
+    effect:'runes', value:500
+  }
+};
+
+// ============================================================
+// EQUIPMENT ITEMS — add new gear here
+// ============================================================
+// Rarity tiers: 'common' (white), 'uncommon' (blue), 'rare' (gold)
+// Slots: 'weapon' | 'armor' | 'ring' | 'talisman'
+// Bonuses: damage, defense, hp, stamina (all additive to base stats)
+const EQUIPMENT_ITEMS = {
+  // --- WEAPONS ---
+  IRON_SWORD:{
+    id:'IRON_SWORD', name:'Iron Sword', slot:'weapon', rarity:'common',
+    bonuses:{damage:10,defense:0,hp:0,stamina:0}, desc:'+10 ATK'
+  },
+  HOLLOW_BLADE:{
+    id:'HOLLOW_BLADE', name:'Hollow Blade', slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:20,defense:0,hp:0,stamina:12}, desc:'+20 ATK  +12 STA'
+  },
+  ASHEN_GREATSWORD:{
+    id:'ASHEN_GREATSWORD', name:'Ashen Greatsword', slot:'weapon', rarity:'rare',
+    bonuses:{damage:38,defense:4,hp:0,stamina:0}, desc:'+38 ATK  +4 DEF'
+  },
+  // --- ARMOR ---
+  LEATHER_ARMOR:{
+    id:'LEATHER_ARMOR', name:'Leather Armor', slot:'armor', rarity:'common',
+    bonuses:{damage:0,defense:8,hp:20,stamina:0}, desc:'+8 DEF  +20 HP'
+  },
+  CHAIN_MAIL:{
+    id:'CHAIN_MAIL', name:'Chain Mail', slot:'armor', rarity:'uncommon',
+    bonuses:{damage:0,defense:18,hp:40,stamina:-10}, desc:'+18 DEF  +40 HP  -10 STA'
+  },
+  ASHEN_PLATE:{
+    id:'ASHEN_PLATE', name:'Ashen Plate', slot:'armor', rarity:'rare',
+    bonuses:{damage:6,defense:28,hp:60,stamina:0}, desc:'+28 DEF  +60 HP  +6 ATK'
+  },
+  // --- RINGS ---
+  STONE_RING:{
+    id:'STONE_RING', name:'Stone Ring', slot:'ring', rarity:'common',
+    bonuses:{damage:0,defense:0,hp:0,stamina:20}, desc:'+20 STA'
+  },
+  CRIMSON_RING:{
+    id:'CRIMSON_RING', name:'Crimson Ring', slot:'ring', rarity:'uncommon',
+    bonuses:{damage:6,defense:0,hp:25,stamina:0}, desc:'+25 HP  +6 ATK'
+  },
+  SOVEREIGN_RING:{
+    id:'SOVEREIGN_RING', name:'Sovereign Ring', slot:'ring', rarity:'rare',
+    bonuses:{damage:12,defense:6,hp:30,stamina:15}, desc:'+12 ATK  +6 DEF  +30 HP  +15 STA'
+  },
+  // --- TALISMANS ---
+  WOODEN_TALISMAN:{
+    id:'WOODEN_TALISMAN', name:'Wooden Talisman', slot:'talisman', rarity:'common',
+    bonuses:{damage:0,defense:3,hp:10,stamina:0}, desc:'+10 HP  +3 DEF'
+  },
+  EMBER_TALISMAN:{
+    id:'EMBER_TALISMAN', name:'Ember Talisman', slot:'talisman', rarity:'rare',
+    bonuses:{damage:14,defense:0,hp:0,stamina:18}, desc:'+14 ATK  +18 STA'
+  },
+};
+
+// ============================================================
+// LOOT TABLES — define drops per enemy type and per zone (chests)
+// ============================================================
+// Each entry: { item: EQUIPMENT_ITEMS key, chance: 0-1 }
+// Multiple entries can drop (first successful roll wins per kill)
+const LOOT_TABLES = {
+  // Enemy drops
+  GRUNT:  [
+    {item:'IRON_SWORD',     chance:0.08},
+    {item:'LEATHER_ARMOR',  chance:0.06},
+    {item:'WOODEN_TALISMAN',chance:0.05},
+  ],
+  ARCHER: [
+    {item:'STONE_RING',     chance:0.09},
+    {item:'WOODEN_TALISMAN',chance:0.07},
+    {item:'HOLLOW_BLADE',   chance:0.04},
+  ],
+  BOSS: [
+    {item:'ASHEN_GREATSWORD',chance:1.0},
+    {item:'ASHEN_PLATE',     chance:1.0},
+    {item:'EMBER_TALISMAN',  chance:1.0},
+  ],
+  // Graveyard knight drops
+  GRAVE_KNIGHT: [
+    {item:'CHAIN_MAIL',    chance:0.10},
+    {item:'HOLLOW_BLADE',  chance:0.08},
+    {item:'STONE_RING',    chance:0.07},
+  ],
+  // Zone chest tables
+  RUINS:  [
+    {item:'IRON_SWORD',     chance:0.6},
+    {item:'LEATHER_ARMOR',  chance:0.5},
+    {item:'STONE_RING',     chance:0.5},
+    {item:'WOODEN_TALISMAN',chance:0.5},
+  ],
+  FOREST: [
+    {item:'HOLLOW_BLADE',   chance:0.5},
+    {item:'CHAIN_MAIL',     chance:0.5},
+    {item:'CRIMSON_RING',   chance:0.4},
+    {item:'STONE_RING',     chance:0.3},
+  ],
+  CASTLE: [
+    {item:'ASHEN_GREATSWORD',chance:0.4},
+    {item:'ASHEN_PLATE',     chance:0.4},
+    {item:'EMBER_TALISMAN',  chance:0.4},
+    {item:'SOVEREIGN_RING',  chance:0.35},
+  ],
+  VILLAGE: [
+    {item:'WOODEN_TALISMAN', chance:0.7},
+    {item:'STONE_RING',      chance:0.6},
+    {item:'LEATHER_ARMOR',   chance:0.5},
+    {item:'IRON_SWORD',      chance:0.4},
+  ],
+};
+
+// ============================================================
+// GAME STATE
+// ============================================================
+const GS = {
+  phase:'title',  // 'title' | 'playing' | 'bonfire_rest'
+  bonfireRestTimer:0,
+  bonfireRestName:'',
+  time:0,
+
+  player:{
+    x:PLAYER_CONFIG.startX, y:PLAYER_CONFIG.startY,
+    hp:PLAYER_CONFIG.maxHP, fp:PLAYER_CONFIG.maxFP, stamina:PLAYER_CONFIG.maxStamina,
+    level:1, runes:0, flaskCharges:PLAYER_CONFIG.flaskCharges,
+    vx:0, vy:0, facing:{x:1,y:0},
+    isRolling:false, rollTimer:0, rollITimer:0, rollDx:0, rollDy:0,
+    isInvincible:false,
+    isAttacking:false, attackType:null, attackTimer:0, attackCooldown:0,
+    isDead:false, deathTimer:0,
+    bonfireX:PLAYER_CONFIG.startX, bonfireY:PLAYER_CONFIG.startY,
+    bloodstainX:null, bloodstainY:null, bloodstainRunes:0,
+    hitFlash:0,               // red flash timer when taking damage
+    staminaEmpty:0,           // flash timer when stamina is empty
+    prevLevel:1,              // for level-up detection
+    combo:0, comboTimer:0,    // consecutive hit tracking
+    equipment:{ weapon:null, armor:null, ring:null, talisman:null },
+    inventory:[],             // array of EQUIPMENT_ITEMS keys
+    equipCursor:0,            // selected row in equipment menu
+  },
+
+  camera:{ x:0, y:0 },
+
+  enemies:[], projectiles:[], particles:[], items:[], npcs:[],
+  quest:{ phase:0, found:[false,false,false] },
+  // quest phases: 0=not started  1=active  2=all found  3=rewarded
+  slamIndicators:[],          // AOE warning circles for boss slam
+  bonfires:[], chests:[],
+
+  bossActive:false, bossDefeated:false, bossRef:null,
+
+  currentZone:'RUINS', discoveredZones:new Set(['RUINS']),
+
+  messages:[],  // {text, type, timer, max}
+
+  flags:{ fogGateEntered:false, bossArenaOpen:false },
+  // TODO: quest flags, NPC states, shop inventory
+
+  tileMap:null,
+};
+
+// ============================================================
+// INPUT MANAGER
+// ============================================================
+const Input = {
+  keys:{}, pressed:{}, released:{},
+  init(){
+    window.addEventListener('keydown', e=>{
+      if(!this.keys[e.code]) this.pressed[e.code]=true;
+      this.keys[e.code]=true;
+      const game=['Space','KeyW','KeyS','KeyA','KeyD','KeyJ','KeyK','KeyE','KeyF',
+                  'ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape','Tab','KeyR','KeyT'];
+      if(game.includes(e.code)) e.preventDefault();
+    });
+    window.addEventListener('keyup', e=>{ this.keys[e.code]=false; this.released[e.code]=true; });
+  },
+  clear(){ this.pressed={}; this.released={}; },
+  down(c){ return !!this.keys[c]; },
+  just(c){ return !!this.pressed[c]; },
+  anyKey(){ return Object.keys(this.pressed).length > 0; },
+};
+
+// ============================================================
+// CANVAS / RENDERER UTILITIES
+// ============================================================
+const canvas = document.getElementById('gameCanvas');
+const ctx    = canvas.getContext('2d');
+canvas.width  = SCREEN_W;
+canvas.height = SCREEN_H;
+ctx.imageSmoothingEnabled = false;
+
+const R = {
+  rect(x,y,w,h,c)          { ctx.fillStyle=c; ctx.fillRect(x,y,w,h); },
+  rectA(x,y,w,h,c,a)       { ctx.globalAlpha=a; ctx.fillStyle=c; ctx.fillRect(x,y,w,h); ctx.globalAlpha=1; },
+  // pixel dot (2×2 block) — used for minimap dots
+  dot(x,y,c)                { ctx.fillStyle=c; ctx.fillRect(x-1,y-1,3,3); },
+  text(t,x,y,c,sz=14,align='left'){
+    ctx.fillStyle=c; ctx.font=`${sz}px monospace`;
+    ctx.textAlign=align; ctx.textBaseline='alphabetic'; ctx.fillText(t,x,y);
+  },
+  bold(t,x,y,c,sz=14,align='left'){
+    ctx.fillStyle=c; ctx.font=`bold ${sz}px monospace`;
+    ctx.textAlign=align; ctx.textBaseline='alphabetic'; ctx.fillText(t,x,y);
+  },
+  shadow(t,x,y,c,sc,sz=16,align='center'){
+    ctx.font=`bold ${sz}px monospace`; ctx.textAlign=align; ctx.textBaseline='alphabetic';
+    ctx.fillStyle=sc; ctx.fillText(t,x+2,y+2);
+    ctx.fillStyle=c;  ctx.fillText(t,x,y);
+  },
+  // GBC-style bar: thick 2px black border, flat fill, 1px top highlight
+  bar(x,y,w,h,cur,max,fill,bg='#111'){
+    ctx.fillStyle='#000'; ctx.fillRect(x-2,y-2,w+4,h+4);
+    ctx.fillStyle=bg; ctx.fillRect(x,y,w,h);
+    const fw=Math.max(0,(cur/max)*w)|0;
+    ctx.fillStyle=fill; ctx.fillRect(x,y,fw,h);
+    ctx.fillStyle='rgba(255,255,255,0.18)'; ctx.fillRect(x,y,fw,1);
+  },
+  // GBC-style panel: solid black border, flat dark bg
+  panel(x,y,w,h,bg='#0a0a0a'){
+    ctx.fillStyle='#000'; ctx.fillRect(x-2,y-2,w+4,h+4);
+    ctx.fillStyle=bg; ctx.fillRect(x,y,w,h);
+  },
+  // Stepped pixel vignette — no gradients
+  vignette(){
+    const S=SCREEN_W, H=SCREEN_H;
+    ctx.fillStyle='rgba(0,0,0,0.60)'; ctx.fillRect(0,0,S,16); ctx.fillRect(0,H-16,S,16);
+    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,16,S,10); ctx.fillRect(0,H-26,S,10);
+    ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,26,S,10); ctx.fillRect(0,H-36,S,10);
+    ctx.fillStyle='rgba(0,0,0,0.60)'; ctx.fillRect(0,0,16,H); ctx.fillRect(S-16,0,16,H);
+    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(16,0,10,H); ctx.fillRect(S-26,0,10,H);
+  },
+};
+
+// CRT scanline overlay — drawn last each frame
+function drawScanlines(){
+  ctx.globalAlpha=0.09;
+  ctx.fillStyle='#000';
+  for(let y=0;y<SCREEN_H;y+=2) ctx.fillRect(0,y,SCREEN_W,1);
+  ctx.globalAlpha=1;
+}
+
+// ============================================================
+// SCREEN FX — shake & flash
+// ============================================================
+const ScreenFX = {
+  sx:0, sy:0,                 // current shake offset
+  shakeMag:0, shakeTimer:0,
+  flashAlpha:0, flashColor:'#fff', flashTimer:0, flashDur:0.3,
+
+  shake(mag=6, dur=0.22){ this.shakeMag=mag; this.shakeTimer=dur; },
+  flash(color='#fff', alpha=0.35, dur=0.25){
+    this.flashColor=color; this.flashAlpha=alpha; this.flashTimer=dur; this.flashDur=dur;
+  },
+
+  update(dt){
+    if(this.shakeTimer>0){
+      this.shakeTimer-=dt;
+      const t=Math.max(0,this.shakeTimer/0.22);
+      this.sx=(Math.random()-0.5)*this.shakeMag*t*2;
+      this.sy=(Math.random()-0.5)*this.shakeMag*t*2;
+    } else { this.sx=0; this.sy=0; }
+    if(this.flashTimer>0) this.flashTimer-=dt;
+  },
+
+  apply()  { ctx.save(); ctx.translate(this.sx, this.sy); ctx.imageSmoothingEnabled=false; },
+  restore(){ ctx.restore(); ctx.imageSmoothingEnabled=false; },
+
+  drawFlash(){
+    if(this.flashTimer<=0) return;
+    const a=(this.flashTimer/this.flashDur)*this.flashAlpha;
+    ctx.fillStyle=this.flashColor; ctx.globalAlpha=a;
+    ctx.fillRect(0,0,SCREEN_W,SCREEN_H); ctx.globalAlpha=1;
+  },
+};
+
+// ============================================================
+// FLOATING DAMAGE NUMBERS
+// ============================================================
+const DmgNums = {
+  _list:[],
+
+  add(x, y, val, color='#FFD060', big=false){
+    this._list.push({
+      x, y, vy:-55-Math.random()*30, vx:(Math.random()-0.5)*28,
+      val: big ? val : val,
+      color, sz: big?20:13,
+      life: big?1.2:0.75, max: big?1.2:0.75,
+    });
+  },
+
+  update(dt){
+    for(let i=this._list.length-1;i>=0;i--){
+      const n=this._list[i];
+      n.x+=n.vx*dt; n.y+=n.vy*dt; n.vy+=40*dt;
+      n.life-=dt;
+      if(n.life<=0) this._list.splice(i,1);
+    }
+  },
+
+  draw(cx,cy){
+    for(const n of this._list){
+      const a=Math.min(1,(n.life/n.max)*2);
+      ctx.globalAlpha=a;
+      ctx.font=`bold ${n.sz}px monospace`; ctx.textAlign='center';
+      ctx.fillStyle='#000000'; ctx.fillText(n.val,n.x-cx+1,n.y-cy+1);
+      ctx.fillStyle=n.color;  ctx.fillText(n.val,n.x-cx,n.y-cy);
+    }
+    ctx.globalAlpha=1;
+  },
+};
+
+// ============================================================
+// STATS — calculates effective player stats from base + equipment
+// ============================================================
+const Stats = {
+  _sum(key){ let v=0; for(const id of Object.values(GS.player.equipment)) if(id) v+=EQUIPMENT_ITEMS[id].bonuses[key]||0; return v; },
+  damage()    { return this._sum('damage');   },
+  defense()   { return this._sum('defense');  },
+  maxHP()     { return PLAYER_CONFIG.maxHP     + this._sum('hp');      },
+  maxStamina(){ return PLAYER_CONFIG.maxStamina + this._sum('stamina'); },
+};
+
+// ============================================================
+// WORLD / MAP
+// ============================================================
+const World = {
+  map:[],
+
+  generate(){
+    // Fill entire world with impassable void
+    for(let y=0;y<WORLD_H;y++){ this.map[y]=[]; for(let x=0;x<WORLD_W;x++) this.map[y][x]=T.WALL; }
+    // Carve zones in order (later calls overwrite earlier for overlaps)
+    this._ruins();
+    this._forest();
+    this._village();
+    this._castle();
+    this._graveyard();
+    this._bossArena();
+    this._connectors();
+    this._waterAndBridge();
+    // Fog gate at end of castle central corridor
+    for(let fx=127;fx<=131;fx++){
+      this._set(fx,164,T.FOG_GATE); this._set(fx,165,T.FOG_GATE); this._set(fx,166,T.FOG_GATE);
+    }
+    this._border();
+    GS.tileMap=this.map;
+  },
+
+  _set(tx,ty,tile){ if(tx>=0&&tx<WORLD_W&&ty>=0&&ty<WORLD_H) this.map[ty][tx]=tile; },
+  _fill(tx,ty,tw,th,tile){ for(let dy=0;dy<th;dy++) for(let dx=0;dx<tw;dx++) this._set(tx+dx,ty+dy,tile); },
+
+  // Carve through any impassable tile — used for corridors
+  _carve(tx,ty,tw,th,floor){
+    for(let dy=0;dy<th;dy++) for(let dx=0;dx<tw;dx++){
+      const t=this.map[ty+dy][tx+dx];
+      if(t===T.WALL||t===T.RUINS_WALL||t===T.FOREST_TREE||t===T.CASTLE_WALL)
+        this._set(tx+dx,ty+dy,floor);
+    }
+  },
+
+  _ruins(){
+    const b=ZONES.RUINS.bounds; // x:5 y:38 w:70 h:64
+    this._fill(b.x,b.y,b.w,b.h,T.RUINS_FLOOR);
+
+    // Irregular western cliff edge (stepped, not a straight wall)
+    for(let ty=b.y;ty<b.y+b.h;ty++){
+      const d=1+((ty*13+7)%5);
+      for(let i=0;i<d;i++) this._set(b.x+i,ty,T.WALL);
+    }
+
+    // Wall clusters forming interconnected rooms
+    // (coords relative to b.x, b.y)
+    const walls=[
+      // North row
+      [7,1,5,3],[15,2,4,4],[24,1,5,3],[34,2,4,4],[43,1,5,3],[53,2,4,4],[61,1,5,3],
+      // Row 2
+      [8,7,4,3],[17,8,3,3],[27,7,4,3],[37,8,3,3],[47,7,4,3],[56,8,3,3],[62,7,4,3],
+      // Row 3
+      [7,13,3,3],[18,13,4,3],[29,12,5,3],[39,13,3,3],[49,12,4,3],[58,13,3,3],
+      // Row 4
+      [8,19,4,2],[19,19,3,3],[28,18,5,2],[38,19,4,2],[48,18,3,3],[57,19,4,2],[63,18,3,3],
+      // Row 5
+      [7,24,3,3],[17,24,4,3],[27,23,3,3],[36,24,4,2],[46,23,5,3],[56,24,3,3],[62,23,4,3],
+      // Row 6
+      [8,30,4,3],[18,30,3,3],[27,29,4,3],[37,30,5,2],[47,29,4,3],[57,30,3,3],
+      // Row 7 (near south / bridge approach)
+      [7,36,3,3],[16,36,4,2],[26,35,3,3],[35,36,4,3],[45,35,5,2],[54,36,4,3],[62,35,3,4],
+      // Row 8
+      [8,42,4,3],[19,42,3,3],[29,41,4,3],[39,42,3,3],[49,41,4,2],[58,42,3,3],
+      // Southern section near bridge
+      [7,48,3,3],[17,48,4,3],[28,47,3,3],[38,48,4,3],[48,47,3,3],[57,48,4,3],
+      [8,54,4,2],[19,54,3,3],[28,53,4,3],[38,54,3,3],[48,53,4,3],[57,54,4,2],
+      [7,59,3,3],[17,59,4,3],[27,58,3,3],[36,59,4,3],[46,58,5,3],[56,59,4,3],
+    ];
+    for(const[wx,wy,ww,wh] of walls) this._fill(b.x+wx,b.y+wy,ww,wh,T.RUINS_WALL);
+
+    // Clear main corridors — 2-tile wide horizontal and vertical paths
+    const bx=b.x, by=b.y;
+    // Horizontal corridors at row offsets 11, 28, 46
+    for(let x=bx+4;x<bx+b.w-1;x++){
+      this._set(x,by+11,T.RUINS_FLOOR); this._set(x,by+12,T.RUINS_FLOOR);
+      this._set(x,by+28,T.RUINS_FLOOR); this._set(x,by+29,T.RUINS_FLOOR);
+      this._set(x,by+46,T.RUINS_FLOOR); this._set(x,by+47,T.RUINS_FLOOR);
+    }
+    // Vertical corridors at col offsets 22 and 50
+    for(let y=by+2;y<by+b.h-1;y++){
+      this._set(bx+22,y,T.RUINS_FLOOR); this._set(bx+23,y,T.RUINS_FLOOR);
+      this._set(bx+50,y,T.RUINS_FLOOR); this._set(bx+51,y,T.RUINS_FLOOR);
+    }
+  },
+
+  _forest(){
+    const b=ZONES.FOREST.bounds; // x:70 y:5 w:100 h:90
+    // Start fully packed with trees, then carve winding paths
+    this._fill(b.x,b.y,b.w,b.h,T.FOREST_TREE);
+    const lf=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.FOREST_FLOOR);
+
+    // Main east-west paths at local y≈20, y≈42, y≈65
+    lf(0,18,100,4); lf(0,40,100,4); lf(0,63,100,4);
+
+    // Main north-south arteries
+    lf(15,0,4,90);  // western column (abs x≈85)
+    lf(40,0,4,90);  // center-west   (abs x≈110)
+    lf(62,0,4,90);  // center-east   (abs x≈132) — castle connector
+    lf(84,0,4,90);  // eastern column (abs x≈154) — village connector
+
+    // Bonfire clearing (local 40,40 → abs 110,45) — open 14×14 area
+    lf(36,36,16,12);
+
+    // Dead-end exploration pockets
+    lf(4,4,6,12);    // NW dead end
+    lf(22,6,5,10);   // N pocket
+    lf(50,2,7,14);   // N-center pocket
+    lf(73,5,5,11);   // NE pocket
+    lf(9,26,5,10);   // W-mid pocket
+    lf(52,28,5,8);   // mid pocket
+    lf(76,24,5,12);  // E-mid pocket
+    lf(18,52,5,8);   // SW pocket
+    lf(48,55,5,6);   // south pocket
+    lf(72,50,5,8);   // SE pocket
+    lf(25,72,6,8);   // deep S pocket
+
+    // Village connector entry (local x=95-99, y=18-46 → open east border)
+    lf(95,16,5,32);
+    // Ruins entry (local x=0-7, y=50-68 → open west border)
+    lf(0,50,8,20);
+    // Castle connector south exit (local x=58-68, y=78-89)
+    lf(58,76,14,14);
+    // Ruined bridge approach from forest south (local x=38-48, y=80-89)
+    lf(36,80,14,10);
+  },
+
+  _village(){
+    const b=ZONES.VILLAGE.bounds; // x:170 y:5 w:70 h:75
+    this._fill(b.x,b.y,b.w,b.h,T.VILLAGE_FLOOR);
+
+    // Irregular natural eastern border
+    for(let ty=b.y;ty<b.y+b.h;ty++){
+      const d=1+((ty*11+5)%4);
+      for(let i=0;i<d;i++) this._set(b.x+b.w-1-i,ty,T.WALL);
+    }
+    // Irregular southern border
+    for(let tx=b.x;tx<b.x+b.w;tx++){
+      const d=1+((tx*7+3)%4);
+      for(let i=0;i<d;i++) this._set(tx,b.y+b.h-1-i,T.WALL);
+    }
+
+    // Building 1 — Inn:  tx=173-183, ty=8-15 (11×8)
+    for(let dx=0;dx<11;dx++) for(let dy=0;dy<8;dy++){
+      const tx=173+dx, ty=8+dy;
+      const door=(dx>=4&&dx<=6&&dy===7);
+      if((dx===0||dx===10||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+    }
+    // Building 2 — House: tx=186-194, ty=7-13 (9×7)
+    for(let dx=0;dx<9;dx++) for(let dy=0;dy<7;dy++){
+      const tx=186+dx, ty=7+dy;
+      const door=(dx>=3&&dx<=5&&dy===6);
+      if((dx===0||dx===8||dy===0||dy===6)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+    }
+    // Building 3 — Forge: tx=200-209, ty=9-16 (10×8)
+    for(let dx=0;dx<10;dx++) for(let dy=0;dy<8;dy++){
+      const tx=200+dx, ty=9+dy;
+      const door=(dx>=3&&dx<=5&&dy===7);
+      if((dx===0||dx===9||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+    }
+    // Building 4 — Church: tx=179-192, ty=38-49 (14×12)
+    for(let dx=0;dx<14;dx++) for(let dy=0;dy<12;dy++){
+      const tx=179+dx, ty=38+dy;
+      const door=(dx>=5&&dx<=8&&dy===11);
+      if((dx===0||dx===13||dy===0||dy===11)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+    }
+
+    // Village well — 2×2 block near center square
+    this._fill(200,44,2,2,T.VILLAGE_WALL);
+
+    // Low decorative fences along the main path (single-tile thick)
+    for(let tx=175;tx<=186;tx++) this._set(tx,22,T.VILLAGE_WALL); // north fence
+    for(let tx=175;tx<=186;tx++) this._set(tx,35,T.VILLAGE_WALL); // south fence
+    // Open gate gap in fences
+    for(let tx=179;tx<=182;tx++){ this._set(tx,22,T.VILLAGE_FLOOR); this._set(tx,35,T.VILLAGE_FLOOR); }
+  },
+
+  _castle(){
+    const b=ZONES.CASTLE.bounds; // x:18 y:112 w:202 h:58
+    this._fill(b.x,b.y,b.w,b.h,T.CASTLE_FLOOR);
+
+    // Crenellated ramparts on all four sides
+    for(let x=b.x;x<b.x+b.w;x++){
+      if(Math.floor((x-b.x)/6)%3!==1){
+        this._set(x,b.y,T.CASTLE_WALL); this._set(x,b.y+b.h-1,T.CASTLE_WALL);
+      }
+    }
+    for(let y=b.y;y<b.y+b.h;y++){
+      if(Math.floor((y-b.y)/5)%3!==1){
+        this._set(b.x,y,T.CASTLE_WALL); this._set(b.x+b.w-1,y,T.CASTLE_WALL);
+      }
+    }
+
+    // Interior structural walls with gate openings
+    const walls=[
+      // Three east-west dividers
+      [8,10,38,2],[60,10,38,2],[112,10,38,2],[163,10,32,2],
+      [8,24,38,2],[60,24,38,2],[112,24,38,2],[163,24,32,2],
+      [8,38,38,2],[60,38,38,2],[112,38,38,2],[163,38,32,2],
+      // North-south pillars with gate gaps
+      [22,4,2,16],[22,24,2,16],[22,42,2,14],
+      [48,4,2,12],[48,18,2,12],[48,34,2,12],[48,48,2,8],
+      [82,4,2,16],[82,24,2,16],[82,42,2,14],
+      [112,4,2,12],[112,18,2,12],[112,34,2,12],[112,48,2,8],
+      [148,4,2,16],[148,24,2,16],[148,42,2,14],
+      [175,4,2,12],[175,18,2,12],[175,34,2,12],[175,48,2,8],
+    ];
+    for(const[wx,wy,ww,wh] of walls) this._fill(b.x+wx,b.y+wy,ww,wh,T.CASTLE_WALL);
+
+    // Central corridor leading to fog gate (x=125-133, full height)
+    for(let y=b.y;y<b.y+b.h;y++)
+      for(let x=125;x<=133;x++) this._set(x,y,T.CASTLE_FLOOR);
+  },
+
+  _graveyard(){
+    // Graveyard occupies northwest castle corner
+    const gx=23, gy=117, gw=48, gh=44;
+    this._fill(gx,gy,gw,gh,T.GRAVEYARD_FLOOR);
+
+    // Stone fence (CASTLE_WALL border) with two gate openings
+    for(let x=gx;x<gx+gw;x++){
+      const southGate=(x>=37&&x<=40);
+      this._set(x,gy,T.CASTLE_WALL);
+      if(!southGate) this._set(x,gy+gh-1,T.CASTLE_WALL);
+    }
+    for(let y=gy;y<gy+gh;y++){
+      const eastGate=(y>=140&&y<=143);
+      this._set(gx,y,T.CASTLE_WALL);
+      if(!eastGate) this._set(gx+gw-1,y,T.CASTLE_WALL);
+    }
+
+    // Grave markers — rows of 2×3 headstones
+    const graves=[
+      [2,4],[8,4],[14,4],[20,4],[27,4],[33,4],[39,4],
+      [2,11],[8,11],[14,11],[20,11],[27,11],[33,11],[39,11],
+      [2,18],[8,18],[14,18],[20,18],[27,18],[33,18],[39,18],
+      [2,26],[8,26],[14,26],[20,26],[27,26],[33,26],
+      [2,33],[8,33],[14,33],[20,33],[27,33],[33,33],
+    ];
+    for(const[gvx,gvy] of graves){
+      const ax=gx+gvx, ay=gy+gvy;
+      this._set(ax,ay,T.CASTLE_WALL);     this._set(ax+1,ay,T.CASTLE_WALL);
+      this._set(ax,ay+1,T.CASTLE_WALL);   this._set(ax+1,ay+1,T.CASTLE_WALL);
+      this._set(ax,ay+2,T.CASTLE_WALL); // pointed top
+    }
+  },
+
+  _bossArena(){
+    const b=ZONES.BOSS_ARENA.bounds; // x:108 y:168 w:44 h:29
+    this._fill(b.x,b.y,b.w,b.h,T.CASTLE_WALL);
+    const cx=b.x+b.w/2, cy=b.y+b.h/2, r=b.w/2-2;
+    for(let y=b.y;y<b.y+b.h;y++) for(let x=b.x;x<b.x+b.w;x++)
+      if(Math.hypot(x-cx,y-cy)<r) this._set(x,y,T.BOSS_FLOOR);
+    // Entrance from fog gate corridor
+    for(let fy=b.y;fy<=b.y+2;fy++){
+      this._set(128,fy,T.BOSS_FLOOR); this._set(129,fy,T.BOSS_FLOOR); this._set(130,fy,T.BOSS_FLOOR);
+    }
+  },
+
+  _connectors(){
+    // 1. Ruins ↔ Forest — eastern corridor x=67-77, y=55-102
+    this._carve(67,55,10,47,T.RUINS_FLOOR);
+    // Forest entry side (y=55-94)
+    for(let cy=55;cy<=94;cy++) for(let cx=70;cx<=77;cx++) this._set(cx,cy,T.FOREST_FLOOR);
+
+    // 2. Forest ↔ Castle — south corridor x=128-140, y=90-115
+    this._carve(128,90,12,26,T.FOREST_FLOOR);
+    // Castle-side floor
+    for(let cy=112;cy<=117;cy++) for(let cx=128;cx<=140;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
+
+    // 3. Forest ↔ Village — east passage x=166-173, y=22-50
+    this._carve(166,22,10,30,T.FOREST_FLOOR);
+    for(let cy=22;cy<=50;cy++) for(let cx=170;cx<=175;cx++) this._set(cx,cy,T.VILLAGE_FLOOR);
+
+    // 4. Ruins south approach to bridge x=46-54, y=96-103
+    this._carve(46,96,10,8,T.RUINS_FLOOR);
+
+    // 5. Castle north from bridge x=46-54, y=112-120
+    for(let cy=112;cy<=120;cy++) for(let cx=46;cx<=54;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
+
+    // 6. Ruined bridge approach from forest side x=36-48, y=95-103
+    this._carve(36,95,14,9,T.FOREST_FLOOR);
+  },
+
+  _waterAndBridge(){
+    // River strip between ruins/forest and castle
+    for(let cy=103;cy<=113;cy++) for(let cx=18;cx<=220;cx++) this._set(cx,cy,T.WATER);
+    // Ruins bridge — 8 tiles wide, stone walkway
+    for(let cy=103;cy<=113;cy++) for(let cx=46;cx<=54;cx++) this._set(cx,cy,T.RUINS_FLOOR);
+    // Bridge guard rails (wall blocks flanking bridge)
+    for(let cy=103;cy<=113;cy++){
+      this._set(45,cy,T.RUINS_WALL); this._set(55,cy,T.RUINS_WALL);
+    }
+    // Forest side: secondary crossing near castle connector — stepping stones
+    for(let cy=103;cy<=113;cy++) for(let cx=130;cx<=138;cx++) this._set(cx,cy,T.FOREST_FLOOR);
+  },
+
+  _border(){
+    for(let x=0;x<WORLD_W;x++){ this.map[0][x]=T.WALL; this.map[WORLD_H-1][x]=T.WALL; }
+    for(let y=0;y<WORLD_H;y++){ this.map[y][0]=T.WALL; this.map[y][WORLD_W-1]=T.WALL; }
+  },
+
+  tile(wx,wy){
+    const tx=wx/TILE_SIZE|0, ty=wy/TILE_SIZE|0;
+    if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return T.WALL;
+    return this.map[ty][tx];
+  },
+
+  passable(t){
+    return t!==T.WALL&&t!==T.RUINS_WALL&&t!==T.FOREST_TREE&&
+           t!==T.CASTLE_WALL&&t!==T.WATER&&t!==T.VILLAGE_WALL;
+  },
+
+  canMove(wx,wy,r){
+    const pts=[[-r,-r],[r,-r],[-r,r],[r,r],[0,-r],[0,r],[-r,0],[r,0]];
+    for(const[ox,oy] of pts) if(!this.passable(this.tile(wx+ox,wy+oy))) return false;
+    return true;
+  },
+
+  zoneAt(wx,wy){
+    const tx=wx/TILE_SIZE, ty=wy/TILE_SIZE;
+    const order=['BOSS_ARENA','VILLAGE','FOREST','RUINS','CASTLE'];
+    for(const id of order){
+      const b=ZONES[id].bounds;
+      if(tx>=b.x&&tx<b.x+b.w&&ty>=b.y&&ty<b.y+b.h) return id;
+    }
+    return 'RUINS';
+  },
+
+  draw(cx,cy){
+    const tx0=Math.max(0,(cx/TILE_SIZE)|0),    ty0=Math.max(0,(cy/TILE_SIZE)|0);
+    const tx1=Math.min(WORLD_W,Math.ceil((cx+SCREEN_W)/TILE_SIZE)+1);
+    const ty1=Math.min(WORLD_H,Math.ceil((cy+SCREEN_H)/TILE_SIZE)+1);
+    const now=Date.now();
+    for(let ty=ty0;ty<ty1;ty++) for(let tx=tx0;tx<tx1;tx++){
+      const sx=tx*TILE_SIZE-cx, sy=ty*TILE_SIZE-cy;
+      this._drawTile(this.map[ty][tx],sx,sy,tx,ty,now);
+    }
+  },
+
+  _drawTile(tile,sx,sy,tx,ty,now){
+    // All tiles drawn on a 16×16 pixel grid at 2× scale (no arcs, no gradients)
+    const S=TILE_SIZE; // 32 — two 2px blocks per pixel-art pixel
+    switch(tile){
+      case T.FLOOR:
+        ctx.fillStyle='#1e1a18'; ctx.fillRect(sx,sy,S,S);
+        // subtle 2-tone checker
+        ctx.fillStyle='#191510';
+        if((tx+ty)%2===0){ ctx.fillRect(sx,sy,16,16); ctx.fillRect(sx+16,sy+16,16,16); }
+        break;
+      case T.WALL:
+        ctx.fillStyle='#0d0d0d'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#161616'; ctx.fillRect(sx+2,sy+2,28,12);
+        ctx.fillStyle='#111';    ctx.fillRect(sx+2,sy+16,28,12);
+        ctx.fillStyle='#060606'; ctx.fillRect(sx,sy,S,2);
+        break;
+      case T.RUINS_FLOOR:
+        ctx.fillStyle=((tx+ty)%2===0)?'#302820':'#2a2218'; ctx.fillRect(sx,sy,S,S);
+        // pixel crack detail
+        if((tx*7+ty*3)%13===0){
+          ctx.fillStyle='#1a1510';
+          ctx.fillRect(sx+6,sy+8,2,10);
+          ctx.fillRect(sx+8,sy+14,4,2);
+        }
+        break;
+      case T.RUINS_WALL:
+        ctx.fillStyle='#4a3f36'; ctx.fillRect(sx,sy,S,S);
+        // mortar lines (2px dark rows)
+        ctx.fillStyle='#2a2018';
+        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy+14,S,2); ctx.fillRect(sx,sy+28,S,2);
+        // stone highlights
+        ctx.fillStyle='#5e5248';
+        ctx.fillRect(sx+2,sy+2,12,10); ctx.fillRect(sx+18,sy+2,10,10);
+        ctx.fillRect(sx+8,sy+16,14,10);
+        break;
+      case T.FOREST_FLOOR:
+        ctx.fillStyle=((tx+ty)%3===0)?'#141a12':'#1a2218'; ctx.fillRect(sx,sy,S,S);
+        if((tx*5+ty*7)%15===0){
+          ctx.fillStyle='#1f2e1a';
+          ctx.fillRect(sx+4,sy+20,2,6); ctx.fillRect(sx+10,sy+16,2,8); ctx.fillRect(sx+18,sy+22,2,4);
+        }
+        break;
+      case T.FOREST_TREE:
+        ctx.fillStyle='#0a1008'; ctx.fillRect(sx,sy,S,S);
+        // trunk (pixel rect)
+        ctx.fillStyle='#2a1a08'; ctx.fillRect(sx+12,sy+18,8,14);
+        // canopy layers (stepped pixel blocks, no arcs)
+        ctx.fillStyle='#0d1a0d'; ctx.fillRect(sx+4,sy+4,24,16);
+        ctx.fillStyle='#0f200f'; ctx.fillRect(sx+2,sy+8,28,10);
+        ctx.fillStyle='#162416'; ctx.fillRect(sx+8,sy+4,16,12);
+        ctx.fillStyle='#102010'; ctx.fillRect(sx+12,sy+2,8,6);
+        break;
+      case T.CASTLE_FLOOR:
+        ctx.fillStyle=((tx+ty)%2===0)?'#222':'#1e1e1e'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#161616';
+        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        break;
+      case T.CASTLE_WALL:
+        ctx.fillStyle='#2e2e2e'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#3d3d3d'; ctx.fillRect(sx+2,sy+2,28,12);
+        ctx.fillStyle='#444';    ctx.fillRect(sx+4,sy+4,24,4);
+        ctx.fillStyle='#1a1a1a'; ctx.fillRect(sx,sy+28,S,4);
+        break;
+      case T.FOG_GATE:{
+        ctx.fillStyle='#100820'; ctx.fillRect(sx,sy,S,S);
+        // animated scrolling pixel strips (frame-stepped, no sin)
+        const frame=(now/160|0)%16;
+        ctx.fillStyle='rgba(80,30,150,0.55)'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='rgba(100,50,180,0.35)';
+        ctx.fillRect(sx+2, sy+(frame)%32,      6, 16);
+        ctx.fillRect(sx+12,sy+(frame+10)%32,   6, 14);
+        ctx.fillRect(sx+22,sy+(frame+6)%32,    6, 18);
+        ctx.fillStyle='rgba(140,80,220,0.20)';
+        ctx.fillRect(sx+6, sy+(32-frame)%32,   4, 12);
+        ctx.fillRect(sx+18,sy+(32-frame+8)%32, 4, 10);
+        break;}
+      case T.BOSS_FLOOR:{
+        ctx.fillStyle='#180808'; ctx.fillRect(sx,sy,S,S);
+        if((tx+ty)%4===0){
+          // flicker via frame count, no sin
+          ctx.fillStyle=(now/500|0)%2?'rgba(160,70,10,0.18)':'rgba(120,50,8,0.12)';
+          ctx.fillRect(sx+6,sy+6,S-12,S-12);
+        }
+        break;}
+      case T.WATER:{
+        const wf=(now/250|0)%4;
+        ctx.fillStyle='#060e1c'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='rgba(15,40,90,0.7)'; ctx.fillRect(sx,sy,S,S);
+        // Animated ripple lines
+        ctx.fillStyle='rgba(30,70,150,0.45)';
+        const wy0=(ty*7+wf*4)%S;
+        ctx.fillRect(sx,sy+wy0,S,2); ctx.fillRect(sx,sy+(wy0+14)%S,S,2);
+        ctx.fillStyle='rgba(60,120,200,0.20)';
+        ctx.fillRect(sx,sy+(wy0+7)%S,S,1);
+        // Foam highlight on tile edge
+        ctx.fillStyle='rgba(80,130,210,0.15)';
+        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        break;}
+      case T.VILLAGE_FLOOR:{
+        ctx.fillStyle=((tx+ty)%2===0)?'#2e2618':'#34281e'; ctx.fillRect(sx,sy,S,S);
+        // Cobblestone grid lines
+        ctx.fillStyle='#201a10';
+        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Occasional grass sprout
+        if((tx*9+ty*7)%23===0){
+          ctx.fillStyle='#2a3018';
+          ctx.fillRect(sx+8,sy+20,2,6); ctx.fillRect(sx+20,sy+10,2,4);
+        }
+        break;}
+      case T.VILLAGE_WALL:{
+        ctx.fillStyle='#78624a'; ctx.fillRect(sx,sy,S,S);
+        // Mortar lines
+        ctx.fillStyle='#3c3020';
+        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy+14,S,2); ctx.fillRect(sx,sy+28,S,2);
+        // Stone blocks (warm, lighter than ruins)
+        ctx.fillStyle='#9a7e5e';
+        ctx.fillRect(sx+2,sy+2,14,10); ctx.fillRect(sx+20,sy+2,8,10);
+        ctx.fillRect(sx+6,sy+16,16,10);
+        // Top highlights
+        ctx.fillStyle='#b09070';
+        ctx.fillRect(sx+2,sy+2,12,1); ctx.fillRect(sx+20,sy+2,6,1);
+        ctx.fillRect(sx+6,sy+16,14,1);
+        break;}
+      case T.GRAVEYARD_FLOOR:{
+        ctx.fillStyle=((tx+ty)%3===0)?'#0e1210':'#121610'; ctx.fillRect(sx,sy,S,S);
+        // Damp mossy patches
+        if((tx*5+ty*11)%19===0){
+          ctx.fillStyle='#182018';
+          ctx.fillRect(sx+4,sy+8,4,4); ctx.fillRect(sx+18,sy+20,5,3);
+        }
+        // Muddy crack detail
+        if((tx*11+ty*3)%17===0){
+          ctx.fillStyle='#0a0c0a';
+          ctx.fillRect(sx+8,sy+12,2,8); ctx.fillRect(sx+10,sy+16,4,2);
+        }
+        break;}
+      default:
+        ctx.fillStyle='#1a1a1a'; ctx.fillRect(sx,sy,S,S);
+    }
+  },
+};
+
+// ============================================================
+// PARTICLE SYSTEM
+// ============================================================
+const Particles = {
+  _p: GS.particles,
+
+  embers(x,y,n=2){
+    for(let i=0;i<n;i++) this._p.push({
+      type:'ember', x, y,
+      vx:(Math.random()-0.5)*65, vy:-Math.random()*85-20,
+      life:0.9+Math.random()*0.6, max:1.5,
+      sz:1.5+Math.random()*2.5,
+      color:Math.random()>0.5?'#FF6020':'#FFB040',
+    });
+  },
+
+  sparks(x,y,n=8){
+    for(let i=0;i<n;i++){
+      const a=(Math.PI*2*i/n)+Math.random()*0.5, spd=70+Math.random()*90;
+      this._p.push({type:'spark',x,y, vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+        life:0.25+Math.random()*0.2, max:0.45, sz:2+Math.random()*2,
+        color:Math.random()>0.5?'#FFD060':'#FF8020'});
+    }
+  },
+
+  heal(x,y,n=8){
+    for(let i=0;i<n;i++){
+      const a=(Math.PI*2*i/n);
+      this._p.push({type:'rune',x,y, vx:Math.cos(a)*45,vy:Math.sin(a)*45-20,
+        life:0.7,max:0.7,sz:3,color:'#60FF60'});
+    }
+  },
+
+  death(x,y,color,n=18){
+    for(let i=0;i<n;i++){
+      const a=Math.random()*Math.PI*2, spd=25+Math.random()*110;
+      this._p.push({type:'death',
+        x:x+(Math.random()-0.5)*18, y:y+(Math.random()-0.5)*18,
+        vx:Math.cos(a)*spd,vy:Math.sin(a)*spd,
+        life:0.6+Math.random()*0.8, max:1.4, sz:3+Math.random()*5, color});
+    }
+  },
+
+  rune(x,y){
+    for(let i=0;i<8;i++){
+      const a=Math.PI*2*i/8;
+      this._p.push({type:'rune',x,y, vx:Math.cos(a)*55,vy:Math.sin(a)*55-25,
+        life:0.7,max:0.7,sz:4,color:'#c8a060'});
+    }
+  },
+
+  update(dt){
+    for(let i=this._p.length-1;i>=0;i--){
+      const p=this._p[i];
+      p.x+=p.vx*dt; p.y+=p.vy*dt; p.life-=dt;
+      if(p.type==='ember')       { p.vy+=18*dt; p.vx*=0.98; }
+      else if(p.type==='spark')  { p.vx*=0.84; p.vy*=0.84; }
+      else if(p.type==='death')  { p.vx*=0.91; p.vy*=0.91; }
+      if(p.life<=0) this._p.splice(i,1);
+    }
+  },
+
+  draw(cx,cy){
+    for(const p of this._p){
+      const a=Math.max(0,p.life/p.max);
+      const sx=(p.x-cx)|0, sy=(p.y-cy)|0;
+      const s=Math.max(1,p.sz|0);
+      ctx.globalAlpha=a; ctx.fillStyle=p.color;
+      ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+    }
+    ctx.globalAlpha=1;
+  },
+};
+
+// ============================================================
+// BONFIRE SYSTEM
+// ============================================================
+const Bonfires = {
+  list: GS.bonfires,
+
+  init(){
+    this.list.push(
+      {id:0, x:10*TILE_SIZE+16, y:48*TILE_SIZE+16, lit:true,  name:'Ruins Bonfire'},
+      {id:1, x:57*TILE_SIZE+16, y:90*TILE_SIZE+16, lit:false, name:'Deep Ruins Bonfire'},
+      {id:2, x:111*TILE_SIZE+16,y:45*TILE_SIZE+16, lit:false, name:'Forest Bonfire'},
+      {id:3, x:205*TILE_SIZE+16,y:46*TILE_SIZE+16, lit:false, name:'Village Bonfire'},
+      {id:4, x:152*TILE_SIZE+16,y:148*TILE_SIZE+16,lit:false, name:'Castle Bonfire'}
+    );
+    const p=GS.player;
+    p.bonfireX=this.list[0].x; p.bonfireY=this.list[0].y;
+  },
+
+  interact(px,py){
+    for(const bf of this.list)
+      if(Math.hypot(px-bf.x,py-bf.y)<50){ this.rest(bf); return true; }
+    return false;
+  },
+
+  rest(bf){
+    bf.lit=true;
+    const p=GS.player;
+    p.hp=Stats.maxHP(); p.fp=PLAYER_CONFIG.maxFP; p.stamina=Stats.maxStamina();
+    p.flaskCharges=PLAYER_CONFIG.flaskCharges;
+    p.bonfireX=bf.x; p.bonfireY=bf.y;
+    Enemies.respawnAll();
+    // Bonfire rest overlay
+    GS.phase='bonfire_rest';
+    GS.bonfireRestTimer=2.5;
+    GS.bonfireRestName=bf.name;
+    ScreenFX.flash('#FFA020', 0.45, 0.6);
+    for(let i=0;i<25;i++) Particles.embers(bf.x, bf.y);
+  },
+
+  update(dt){
+    for(const bf of this.list)
+      if(bf.lit && Math.random()<0.25) Particles.embers(bf.x,bf.y,1);
+  },
+
+  draw(cx,cy){
+    for(const bf of this.list){
+      const sx=(bf.x-cx)|0, sy=(bf.y-cy)|0;
+      if(sx<-60||sx>SCREEN_W+60||sy<-60||sy>SCREEN_H+60) continue;
+      const now=Date.now();
+      // Stone base — flat pixel rects, no ellipse
+      ctx.fillStyle='#1e1818'; ctx.fillRect(sx-12,sy+6,24,4);
+      ctx.fillStyle='#3a3030'; ctx.fillRect(sx-10,sy+2,20,6);
+      ctx.fillStyle='#504848'; ctx.fillRect(sx-8, sy-2, 16,6);
+      ctx.fillStyle='#5e5252'; ctx.fillRect(sx-6, sy-4,  4,4);
+      ctx.fillStyle='#5e5252'; ctx.fillRect(sx+2, sy-4,  4,4);
+      if(bf.lit){
+        // Animated pixel flame (4-frame cycle via integer time)
+        const frame=(now/100|0)%4;
+        // Outer glow (flat rect, no radial gradient)
+        ctx.globalAlpha=0.18; ctx.fillStyle='#FF8020';
+        ctx.fillRect(sx-16,sy-16,32,24);
+        ctx.globalAlpha=1;
+        // Flame shapes per frame (outer orange)
+        ctx.fillStyle='#FF5010';
+        const F=[
+          [[sx-4,sy-4,8,6],[sx-3,sy-10,6,8],[sx-2,sy-16,4,8]],
+          [[sx-5,sy-4,10,6],[sx-4,sy-10,8,8],[sx-2,sy-17,5,9]],
+          [[sx-4,sy-4,8,6],[sx-3,sy-11,6,9],[sx-1,sy-16,3,8]],
+          [[sx-5,sy-4,10,6],[sx-3,sy-10,7,8],[sx-2,sy-16,4,7]],
+        ][frame];
+        for(const[fx,fy,fw,fh] of F) ctx.fillRect(fx,fy,fw,fh);
+        // Inner flame (gold)
+        ctx.fillStyle='#FFB020';
+        ctx.fillRect(sx-2,sy-4,4,4); ctx.fillRect(sx-2,sy-10,4,6); ctx.fillRect(sx-1,sy-14,2,5);
+        // Core (bright)
+        ctx.fillStyle='#FFE070';
+        ctx.fillRect(sx-1,sy-6,2,4); ctx.fillRect(sx-1,sy-10,2,4);
+        ctx.fillStyle='#FFFFF0'; ctx.fillRect(sx-1,sy-12,2,2);
+      } else {
+        // Unlit — ash pile
+        ctx.fillStyle='#2a1a0a'; ctx.fillRect(sx-4,sy-2,8,4);
+        ctx.fillStyle='#1a1208'; ctx.fillRect(sx-2,sy-4,4,2);
+      }
+      // Interaction prompt
+      if(GS.phase==='playing'){
+        const dist=Math.hypot(GS.player.x-bf.x,GS.player.y-bf.y);
+        if(dist<55) R.text('[E] Rest',sx,sy-(bf.lit?34:24),'#c8a060',10,'center');
+      }
+    }
+  },
+};
+
+// ============================================================
+// CHEST SYSTEM
+// ============================================================
+const RARITY_COLOR = { common:'#c0c0d0', uncommon:'#4878e8', rare:'#FFD040' };
+const RARITY_GLOW  = { common:'#888898', uncommon:'#2850b8', rare:'#c8a010' };
+const RARITY_LABEL = { common:'Common',  uncommon:'Uncommon', rare:'Rare'   };
+
+function _makeDropItem(itemKey, x, y){
+  const def=EQUIPMENT_ITEMS[itemKey]; if(!def) return null;
+  return { ...def, equipId:itemKey, isEquipment:true,
+           x, y, pt:0, collected:false,
+           color:RARITY_COLOR[def.rarity]||'#c0c0d0',
+           glow: RARITY_GLOW[def.rarity]||'#888898' };
+}
+
+const Chests = {
+  list: GS.chests,
+
+  init(){
+    const pos=[
+      // Ruins — standard
+      {tx:23,ty:50,zone:'RUINS'}, {tx:52,ty:62,zone:'RUINS'},
+      // Ruins — HIDDEN: far western dead-end behind cliff face
+      {tx:8, ty:92,zone:'RUINS'},
+      // Forest — standard
+      {tx:88,ty:22,zone:'FOREST'}, {tx:113,ty:65,zone:'FOREST'},
+      // Forest — HIDDEN: northeast corner near village connector, off main path
+      {tx:163,ty:8, zone:'FOREST'},
+      // Castle — standard
+      {tx:55,ty:130,zone:'CASTLE'}, {tx:195,ty:148,zone:'CASTLE'},
+      // Village — gift from villagers, back of the church
+      {tx:186,ty:43,zone:'VILLAGE'},
+    ];
+    for(const p of pos)
+      this.list.push({x:p.tx*TILE_SIZE+16, y:p.ty*TILE_SIZE+16, zone:p.zone, opened:false});
+  },
+
+  interact(px,py){
+    for(const c of this.list){
+      if(c.opened) continue;
+      if(Math.hypot(px-c.x,py-c.y)<44){ this._open(c); return true; }
+    }
+    return false;
+  },
+
+  _open(chest){
+    chest.opened=true;
+    const table=LOOT_TABLES[chest.zone]||[];
+    const candidates=table.filter(e=>Math.random()<e.chance);
+    if(candidates.length){
+      const entry=candidates[Math.floor(Math.random()*candidates.length)];
+      const drop=_makeDropItem(entry.item, chest.x+(Math.random()-0.5)*20, chest.y+(Math.random()-0.5)*20);
+      if(drop){ GS.items.push(drop); UI.msg(`${RARITY_LABEL[drop.rarity]}: ${drop.name}`,'item',2.5); }
+    } else {
+      UI.msg('Empty Chest','rune',1.5);
+    }
+    Particles.sparks(chest.x,chest.y,14);
+    ScreenFX.flash('#c8a060',0.15,0.3);
+  },
+
+  draw(cx,cy){
+    for(const c of this.list){
+      const sx=(c.x-cx)|0, sy=(c.y-cy)|0;
+      if(sx<-40||sx>SCREEN_W+40||sy<-40||sy>SCREEN_H+40) continue;
+      if(c.opened){
+        // Open — flat lid leaning back
+        ctx.fillStyle='#2a1a08'; ctx.fillRect(sx-12,sy-2,24,8);
+        ctx.fillStyle='#1a1006'; ctx.fillRect(sx-10,sy-8,20,6);
+        ctx.fillStyle='#3a2410'; ctx.fillRect(sx-8,sy-6,16,4);
+      } else {
+        // Closed chest body
+        ctx.fillStyle='#3a2010'; ctx.fillRect(sx-12,sy,24,10);
+        // Lid
+        ctx.fillStyle='#4e2e14'; ctx.fillRect(sx-12,sy-10,24,11);
+        ctx.fillStyle='#6a4020'; ctx.fillRect(sx-10,sy-8,20,5);
+        // Gold trim
+        ctx.fillStyle='#a07828';
+        ctx.fillRect(sx-12,sy-10,24,2); ctx.fillRect(sx-12,sy,24,2);
+        ctx.fillRect(sx-12,sy-10,2,22); ctx.fillRect(sx+10,sy-10,2,22);
+        // Latch
+        ctx.fillStyle='#c8a030'; ctx.fillRect(sx-3,sy-2,6,6);
+        ctx.fillStyle='#FFD040'; ctx.fillRect(sx-1,sy,2,2);
+        // Interaction prompt
+        if(GS.phase==='playing'){
+          const dist=Math.hypot(GS.player.x-c.x,GS.player.y-c.y);
+          if(dist<54) R.text('[E] Open',sx,sy-18,'#c8a060',10,'center');
+        }
+      }
+    }
+  },
+};
+
+// ============================================================
+// PLAYER SYSTEM
+// ============================================================
+let atkHitbox=null; // {x,y,w,h,dmg,type,timer,hit:Set}
+
+const Player = {
+  update(dt){
+    const p=GS.player;
+    if(p.isDead){ this._updateDeath(dt); return; }
+    // Timers
+    if(p.hitFlash>0)     p.hitFlash    -=dt;
+    if(p.staminaEmpty>0) p.staminaEmpty-=dt;
+    if(p.combo>0){ p.comboTimer-=dt; if(p.comboTimer<=0){ p.combo=0; } }
+    this._move(dt);
+    this._roll(dt);
+    this._attack(dt);
+    this._staminaRegen(dt);
+    this._interact();
+    this._flask();
+    this._checkZone();
+    this._checkFogGate();
+    this._checkItems();
+    // Level-up detection
+    const newLevel=Math.floor(p.runes/500)+1;
+    if(newLevel>p.prevLevel){ p.prevLevel=newLevel; p.level=newLevel; UI.msg(`LEVEL UP — Lv.${newLevel}`,'levelup',2.5); ScreenFX.flash('#c8a060',0.3,0.4); }
+  },
+
+  _move(dt){
+    const p=GS.player;
+    if(p.isRolling) return;
+    const root=p.isAttacking&&p.attackType==='heavy';
+    let dx=0, dy=0;
+    if(!root){
+      if(Input.down('KeyW')||Input.down('ArrowUp'))    dy-=1;
+      if(Input.down('KeyS')||Input.down('ArrowDown'))  dy+=1;
+      if(Input.down('KeyA')||Input.down('ArrowLeft'))  dx-=1;
+      if(Input.down('KeyD')||Input.down('ArrowRight')) dx+=1;
+    }
+    if(dx||dy){
+      const len=Math.sqrt(dx*dx+dy*dy); dx/=len; dy/=len;
+      p.facing.x=dx; p.facing.y=dy;
+    }
+    const spd=p.isAttacking ? PLAYER_CONFIG.speed*0.35 : PLAYER_CONFIG.speed;
+    const nx=p.x+dx*spd*dt, ny=p.y+dy*spd*dt;
+    if(World.canMove(nx,p.y,PLAYER_CONFIG.size-1)) p.x=nx;
+    if(World.canMove(p.x,ny,PLAYER_CONFIG.size-1)) p.y=ny;
+  },
+
+  _roll(dt){
+    const p=GS.player;
+    if(p.isRolling){
+      p.rollTimer-=dt; p.rollITimer-=dt;
+      const prog=1-(p.rollTimer/PLAYER_CONFIG.rollDuration);
+      const spd=PLAYER_CONFIG.rollSpeed*(1-prog*0.5);
+      const nx=p.x+p.rollDx*spd*dt, ny=p.y+p.rollDy*spd*dt;
+      if(World.canMove(nx,p.y,PLAYER_CONFIG.size-3)) p.x=nx;
+      if(World.canMove(p.x,ny,PLAYER_CONFIG.size-3)) p.y=ny;
+      p.isInvincible=(p.rollITimer>0);
+      if(p.rollTimer<=0){ p.isRolling=false; p.isInvincible=false; }
+      return;
+    }
+    if(Input.just('Space')&&!p.isAttacking){
+      if(p.stamina>=PLAYER_CONFIG.rollStaminaCost){
+        p.stamina-=PLAYER_CONFIG.rollStaminaCost;
+        p.isRolling=true;
+        p.rollTimer=PLAYER_CONFIG.rollDuration;
+        p.rollITimer=PLAYER_CONFIG.rollIFrames;
+        let dx=0, dy=0;
+        if(Input.down('KeyW')||Input.down('ArrowUp'))    dy-=1;
+        if(Input.down('KeyS')||Input.down('ArrowDown'))  dy+=1;
+        if(Input.down('KeyA')||Input.down('ArrowLeft'))  dx-=1;
+        if(Input.down('KeyD')||Input.down('ArrowRight')) dx+=1;
+        if(!dx&&!dy){ dx=p.facing.x; dy=p.facing.y; }
+        const l=Math.sqrt(dx*dx+dy*dy)||1;
+        p.rollDx=dx/l; p.rollDy=dy/l;
+      } else {
+        p.staminaEmpty=0.4; // flash stamina bar
+      }
+    }
+  },
+
+  _attack(dt){
+    const p=GS.player;
+    if(p.attackCooldown>0) p.attackCooldown-=dt;
+    if(p.isAttacking){
+      p.attackTimer-=dt;
+      if(atkHitbox){ this._syncHitbox(); this._checkHits(); atkHitbox.timer-=dt; if(atkHitbox.timer<=0) atkHitbox=null; }
+      if(p.attackTimer<=0){ p.isAttacking=false; atkHitbox=null; }
+      return;
+    }
+    if(p.attackCooldown>0) return;
+    if(Input.just('KeyJ')&&p.stamina>=PLAYER_CONFIG.lightStamina){
+      p.stamina-=PLAYER_CONFIG.lightStamina; p.isAttacking=true; p.attackType='light';
+      p.attackTimer=PLAYER_CONFIG.lightDur; p.attackCooldown=PLAYER_CONFIG.attackCooldown;
+      this._makeHitbox('light');
+    } else if(Input.just('KeyK')&&p.stamina>=PLAYER_CONFIG.heavyStamina){
+      p.stamina-=PLAYER_CONFIG.heavyStamina; p.isAttacking=true; p.attackType='heavy';
+      p.attackTimer=PLAYER_CONFIG.heavyDur; p.attackCooldown=PLAYER_CONFIG.attackCooldown;
+      this._makeHitbox('heavy');
+    } else if((Input.just('KeyJ')||Input.just('KeyK'))&&p.stamina<PLAYER_CONFIG.lightStamina){
+      p.staminaEmpty=0.4;
+    }
+  },
+
+  _makeHitbox(type){
+    const p=GS.player;
+    const range=type==='light'?52:72, w=type==='light'?34:56;
+    atkHitbox={
+      x:p.x+p.facing.x*range-w/2, y:p.y+p.facing.y*range-w/2,
+      w,h:w, dmg:(type==='light'?PLAYER_CONFIG.lightDmg:PLAYER_CONFIG.heavyDmg)+Stats.damage(),
+      type, timer:type==='light'?PLAYER_CONFIG.lightDur:PLAYER_CONFIG.heavyDur,
+      hit:new Set()
+    };
+    this._checkHits();
+  },
+
+  _syncHitbox(){
+    if(!atkHitbox) return;
+    const p=GS.player;
+    const range=atkHitbox.type==='light'?52:72, w=atkHitbox.w;
+    atkHitbox.x=p.x+p.facing.x*range-w/2;
+    atkHitbox.y=p.y+p.facing.y*range-w/2;
+  },
+
+  _checkHits(){
+    if(!atkHitbox) return;
+    const hx=atkHitbox.x+atkHitbox.w/2, hy=atkHitbox.y+atkHitbox.h/2;
+    const p=GS.player;
+    for(const e of GS.enemies){
+      if(e.isDead||atkHitbox.hit.has(e.id)) continue;
+      if(Math.hypot(e.x-hx,e.y-hy)<atkHitbox.w/2+e.size){
+        Enemies.damage(e, atkHitbox.dmg, p.facing.x, p.facing.y);
+        atkHitbox.hit.add(e.id);
+        Particles.sparks(e.x,e.y,8);
+        // Combo tracking
+        p.combo++; p.comboTimer=2.0;
+        if(p.combo===3) UI.msg('COMBO x3','combo',1.0);
+        else if(p.combo===5) UI.msg('COMBO x5','combo',1.2);
+        else if(p.combo>=8) UI.msg(`COMBO x${p.combo}`,'combo',1.2);
+      }
+    }
+  },
+
+  _staminaRegen(dt){
+    const p=GS.player;
+    if(!p.isRolling&&!p.isAttacking)
+      p.stamina=Math.min(Stats.maxStamina(), p.stamina+PLAYER_CONFIG.staminaRegen*dt);
+  },
+
+  _interact(){
+    if(!Input.just('KeyE')) return;
+    const p=GS.player;
+    if(Bonfires.interact(p.x,p.y)) return;
+    if(Chests.interact(p.x,p.y)) return;
+    if(Quest.interactElder(p.x,p.y)) return;
+    // Bloodstain recovery
+    if(p.bloodstainX!==null && Math.hypot(p.x-p.bloodstainX,p.y-p.bloodstainY)<32){
+      p.runes+=p.bloodstainRunes;
+      UI.msg(`Recovered ${p.bloodstainRunes} Runes`,'rune',2);
+      Particles.rune(p.x,p.y);
+      p.bloodstainX=null; p.bloodstainY=null; p.bloodstainRunes=0;
+    }
+    // TODO: NPC interaction, shop, lore items
+  },
+
+  _flask(){
+    const p=GS.player;
+    if(!Input.just('KeyF')||p.flaskCharges<=0||p.hp>=Stats.maxHP()) return;
+    p.flaskCharges--;
+    p.hp=Math.min(Stats.maxHP(), p.hp+PLAYER_CONFIG.flaskHeal);
+    UI.msg(`+${PLAYER_CONFIG.flaskHeal} HP`,'heal',1.2);
+    Particles.heal(p.x,p.y-10,8);
+    ScreenFX.flash('#40a040',0.18,0.3);
+  },
+
+  _checkZone(){
+    const p=GS.player;
+    const z=World.zoneAt(p.x,p.y);
+    if(z!==GS.currentZone){
+      GS.currentZone=z; GS.discoveredZones.add(z);
+      if(ZONES[z]) UI.msg(ZONES[z].name,'zone',3);
+      ScreenFX.flash('#ffffff',0.12,0.5);
+    }
+  },
+
+  _checkFogGate(){
+    const p=GS.player;
+    if(GS.flags.fogGateEntered) return;
+    if(World.tile(p.x,p.y)===T.FOG_GATE){
+      GS.flags.fogGateEntered=true;
+      Enemies.spawnBoss();
+      UI.msg('THE ASHEN KING AWAKENS','boss',4);
+      ScreenFX.flash('#6020a0',0.6,1.0);
+      ScreenFX.shake(8,0.5);
+    }
+  },
+
+  _checkItems(){
+    const p=GS.player;
+    for(const item of GS.items){
+      if(item.collected) continue;
+      if(Math.hypot(p.x-item.x,p.y-item.y)<20){
+        item.collected=true;
+        if(item.isEquipment){
+          p.inventory.push(item.equipId);
+          UI.msg(`${RARITY_LABEL[EQUIPMENT_ITEMS[item.equipId]?.rarity||'common']}: ${item.name}`,'item',2);
+        } else if(item.effect==='flask'){ p.flaskCharges=Math.min(9,p.flaskCharges+item.value); UI.msg(`+1 ${item.name}`,'item',2); }
+        else if(item.effect==='runes'){ p.runes+=item.value; UI.msg(`+${item.value} Runes`,'rune',2); }
+        Particles.rune(p.x,p.y);
+      }
+    }
+  },
+
+  takeDamage(dmg){
+    const p=GS.player;
+    if(p.isInvincible||p.isDead) return;
+    const actual=Math.max(1, dmg-Stats.defense());
+    p.hp-=actual; p.hitFlash=0.25;
+    Particles.sparks(p.x,p.y,10);
+    ScreenFX.shake(5,0.18);
+    DmgNums.add(p.x,p.y-20, `-${Math.ceil(dmg)}`, '#FF4040');
+    if(p.hp<=0){ p.hp=0; this._die(); }
+  },
+
+  _die(){
+    const p=GS.player;
+    p.isDead=true; p.deathTimer=3.5;
+    p.bloodstainX=p.x; p.bloodstainY=p.y;
+    p.bloodstainRunes=p.runes; p.runes=0;
+    p.combo=0; p.comboTimer=0;
+    atkHitbox=null;
+    Particles.death(p.x,p.y,'#a03020',28);
+    UI.msg('YOU DIED','death',4);
+    ScreenFX.shake(10,0.4);
+  },
+
+  _updateDeath(dt){
+    const p=GS.player; p.deathTimer-=dt;
+    if(p.deathTimer<=0) this._respawn();
+  },
+
+  _respawn(){
+    const p=GS.player;
+    p.isDead=false; p.hp=Stats.maxHP(); p.fp=PLAYER_CONFIG.maxFP; p.stamina=Stats.maxStamina();
+    p.flaskCharges=PLAYER_CONFIG.flaskCharges;
+    p.x=p.bonfireX; p.y=p.bonfireY;
+    p.isRolling=false; p.isAttacking=false; p.isInvincible=false;
+    p.hitFlash=0; p.combo=0;
+    atkHitbox=null;
+    Enemies.respawnAll();
+    GS.messages=GS.messages.filter(m=>m.type!=='death');
+  },
+
+  draw(cx,cy){
+    const p=GS.player;
+    const sx=(p.x-cx)|0, sy=(p.y-cy)|0;
+    const baseA=p.isDead?Math.max(0,p.deathTimer/2):1;
+    ctx.globalAlpha=baseA;
+
+    // Roll ghost trail (chunky rects)
+    if(p.isRolling){
+      for(let i=3;i>=1;i--){
+        ctx.globalAlpha=baseA*(0.14-i*0.04);
+        ctx.fillStyle='#607080';
+        ctx.fillRect((sx-p.rollDx*i*9)|0-5,(sy-p.rollDy*i*9)|0-5,10,10);
+      }
+      ctx.globalAlpha=baseA;
+    }
+
+    // I-frame glow (solid border rect, no arc)
+    if(p.isInvincible){
+      ctx.fillStyle='#3060a0';
+      ctx.fillRect(sx-16,sy-20,32,36);
+    }
+
+    // Hit flash border
+    if(p.hitFlash>0){
+      ctx.fillStyle='#FF2020';
+      ctx.fillRect(sx-16,sy-20,32,36);
+    }
+
+    // Shadow (flat rect)
+    ctx.globalAlpha=baseA*0.4; ctx.fillStyle='#000';
+    ctx.fillRect(sx-10,sy+10,20,4);
+    ctx.globalAlpha=baseA;
+
+    // Legs
+    ctx.fillStyle=p.isRolling?'#2a3a4a':'#404850';
+    ctx.fillRect(sx-7,sy+2,5,8); ctx.fillRect(sx+2,sy+2,5,8);
+
+    // --- Derive colors from equipped armor ---
+    const eqArmor=p.equipment.armor;
+    let bodyMain, bodyShade, pauldronCol, legCol;
+    if(eqArmor==='LEATHER_ARMOR'){
+      bodyMain  = p.isRolling?'#6a4830':p.isAttacking?'#9a6820':'#7a5838';
+      bodyShade = p.isAttacking?'#b07828':'#5a3820';
+      pauldronCol='#4a2810';
+      legCol    ='#4a3020';
+    } else if(eqArmor==='CHAIN_MAIL'){
+      bodyMain  = p.isRolling?'#5a6068':p.isAttacking?'#9a8820':'#848c90';
+      bodyShade = p.isAttacking?'#b09828':'#606870';
+      pauldronCol='#505860';
+      legCol    ='#484e54';
+    } else if(eqArmor==='ASHEN_PLATE'){
+      bodyMain  = p.isRolling?'#303438':p.isAttacking?'#887010':'#3c4044';
+      bodyShade = p.isAttacking?'#a08820':'#28282e';
+      pauldronCol='#222226';
+      legCol    ='#2a2c30';
+    } else {
+      // Unarmored defaults
+      bodyMain  = p.isRolling?'#4a5a6a':p.isAttacking?'#8a7820':'#707880';
+      bodyShade = p.isAttacking?'#a09028':'#505860';
+      pauldronCol='#505860';
+      legCol    ='#404850';
+    }
+
+    // Legs (color overridden by armor)
+    ctx.fillStyle=p.isRolling?'#2a3a4a':legCol;
+    ctx.fillRect(sx-7,sy+2,5,8); ctx.fillRect(sx+2,sy+2,5,8);
+
+    // Torso / armor
+    ctx.fillStyle=bodyMain; ctx.fillRect(sx-9,sy-6,18,10);
+    // Pauldrons
+    ctx.fillStyle=pauldronCol;
+    ctx.fillRect(sx-12,sy-6,5,6); ctx.fillRect(sx+7,sy-6,5,6);
+
+    // Chain mail — horizontal ring lines across torso
+    if(eqArmor==='CHAIN_MAIL'){
+      ctx.fillStyle='rgba(0,0,0,0.25)';
+      ctx.fillRect(sx-9,sy-3,18,1); ctx.fillRect(sx-9,sy,18,1);
+    }
+    // Ashen plate — gold trim lines
+    if(eqArmor==='ASHEN_PLATE'){
+      ctx.fillStyle='#a08020';
+      ctx.fillRect(sx-9,sy-6,18,1);   // top trim
+      ctx.fillRect(sx-9,sy+3,18,1);   // bottom trim
+      ctx.fillRect(sx-12,sy-6,5,1);   // left pauldron trim
+      ctx.fillRect(sx+7,sy-6,5,1);    // right pauldron trim
+    }
+
+    // Head
+    ctx.fillStyle='#b0a878'; ctx.fillRect(sx-5,sy-16,10,10);
+    // Helmet top
+    ctx.fillStyle='#808070'; ctx.fillRect(sx-6,sy-18,12,4);
+    // Ashen plate — full visor (dark face plate)
+    if(eqArmor==='ASHEN_PLATE'){
+      ctx.fillStyle='#1c1c22'; ctx.fillRect(sx-5,sy-16,10,10);
+      ctx.fillStyle='#a08020'; ctx.fillRect(sx-6,sy-18,12,4); // gold helm
+      ctx.fillStyle='#a08020'; ctx.fillRect(sx-5,sy-14,10,1); // visor slit trim
+    }
+    // Eyes
+    ctx.fillStyle='#100808';
+    ctx.fillRect(sx-4,sy-13,3,2); ctx.fillRect(sx+1,sy-13,3,2);
+    // Eye glow (tarnished amber)
+    ctx.fillStyle=p.isAttacking?'#FFB020':'#a08040';
+    ctx.fillRect(sx-3,sy-13,2,2); ctx.fillRect(sx+2,sy-13,2,2);
+
+    // Talisman — small hanging bead on lower torso
+    if(p.equipment.talisman){
+      const talCol = p.equipment.talisman==='EMBER_TALISMAN'?'#e84010':
+                     p.equipment.talisman==='WOODEN_TALISMAN'?'#7a4818':'#888898';
+      ctx.fillStyle='#1a1a1a'; ctx.fillRect(sx-1,sy+3,2,4);  // cord
+      ctx.fillStyle=talCol;    ctx.fillRect(sx-2,sy+6,4,3);  // bead
+    }
+
+    // Ring — tiny colored pip on wrist (right side)
+    if(p.equipment.ring){
+      const ringCol= p.equipment.ring==='SOVEREIGN_RING'?'#FFD040':
+                     p.equipment.ring==='CRIMSON_RING'?'#e02020':'#c0c8d8';
+      ctx.fillStyle=ringCol; ctx.fillRect(sx+8,sy,3,2);
+    }
+
+    // Facing indicator (2px dot on correct edge)
+    if(!p.isDead){
+      ctx.fillStyle='#e8d880';
+      const fd=11;
+      ctx.fillRect((sx+Math.round(p.facing.x*fd))-1,(sy+Math.round(p.facing.y*fd))-1,2,2);
+    }
+
+    // ---- WEAPON ----
+    // Visual varies by equipped weapon:
+    //   null/unarmed  → short rusty dagger
+    //   IRON_SWORD    → standard straight sword (gray-blue)
+    //   HOLLOW_BLADE  → longer, cold steel with blue tint
+    //   ASHEN_GREATSWORD → wide two-hander, ash-gray + ember glow
+    if(!p.isDead){
+      const eqWeapon=p.equipment.weapon;
+      const facingAngle=Math.atan2(p.facing.y,p.facing.x);
+      ctx.save();
+      ctx.translate(sx,sy);
+      ctx.rotate(facingAngle);
+      ctx.globalAlpha=baseA;
+
+      if(p.isAttacking){
+        const dur=p.attackType==='light'?PLAYER_CONFIG.lightDur:PLAYER_CONFIG.heavyDur;
+        const prog=Math.min(1,1-(p.attackTimer/dur));
+        const half=p.attackType==='light'?0.85:1.15;
+        const swingAngle=-half+prog*half*2;
+        ctx.rotate(swingAngle);
+
+        if(eqWeapon==='ASHEN_GREATSWORD'){
+          // Wide greatsword — large & ember-glowing
+          ctx.globalAlpha=baseA*0.35; ctx.fillStyle='#e04010';
+          ctx.fillRect(8,-10,44,18);             // big ember glow
+          ctx.globalAlpha=baseA;
+          ctx.fillStyle='#5a3010'; ctx.fillRect(4,-3,9,6);   // handle (longer)
+          ctx.fillStyle='#c07820'; ctx.fillRect(11,-7,6,13); // wide crossguard
+          ctx.fillStyle='#484858'; ctx.fillRect(17,-6,36,11); // blade base
+          ctx.fillStyle='#888898'; ctx.fillRect(17,-4,34,7);  // blade body
+          ctx.fillStyle='#c8cce0'; ctx.fillRect(17,-3,32,3);  // bright face
+          ctx.fillStyle='#f0f4ff'; ctx.fillRect(17,-3,30,1);  // gleam
+          ctx.fillStyle='#a8aab8'; ctx.fillRect(51,-3,6,6);   // wide tip
+        } else if(eqWeapon==='HOLLOW_BLADE'){
+          // Long cold-steel blade — narrow, icy blue tint
+          ctx.globalAlpha=baseA*0.20; ctx.fillStyle='#4060c0';
+          ctx.fillRect(8,-5,34,8);               // cold glow
+          ctx.globalAlpha=baseA;
+          ctx.fillStyle='#6a4020'; ctx.fillRect(6,-2,6,4);   // handle
+          ctx.fillStyle='#6870a0'; ctx.fillRect(10,-4,4,8);  // blue guard
+          ctx.fillStyle='#505878'; ctx.fillRect(14,-3,30,5); // blade base (narrower)
+          ctx.fillStyle='#8890b8'; ctx.fillRect(14,-2,28,3); // blade face
+          ctx.fillStyle='#c0d0f0'; ctx.fillRect(14,-2,26,1); // cold gleam
+          ctx.fillStyle='#a0a8c0'; ctx.fillRect(42,-1,4,3);  // tip
+        } else if(eqWeapon==='IRON_SWORD'||eqWeapon===null){
+          // Standard iron sword / unarmed fallback (original look)
+          if(p.attackType==='heavy'){
+            ctx.globalAlpha=baseA*0.30; ctx.fillStyle='#c08020';
+            ctx.fillRect(10,-8,36,14);
+            ctx.globalAlpha=baseA;
+            ctx.fillStyle='#6a4020'; ctx.fillRect(6,-2,7,5);
+            ctx.fillStyle='#a07830'; ctx.fillRect(11,-5,5,10);
+            ctx.fillStyle='#7878a0'; ctx.fillRect(16,-4,32,7);
+            ctx.fillStyle='#b0b4cc'; ctx.fillRect(16,-3,30,5);
+            ctx.fillStyle='#e8eeff'; ctx.fillRect(16,-2,28,2);
+            ctx.fillStyle='#d0d8f0'; ctx.fillRect(46,-2,4,4);
+          } else {
+            ctx.globalAlpha=baseA*0.22; ctx.fillStyle='#a09060';
+            ctx.fillRect(8,-6,28,10);
+            ctx.globalAlpha=baseA;
+            ctx.fillStyle='#6a4020'; ctx.fillRect(6,-2,6,4);
+            ctx.fillStyle='#906820'; ctx.fillRect(10,-4,4,7);
+            ctx.fillStyle='#707090'; ctx.fillRect(14,-3,24,5);
+            ctx.fillStyle='#a8acc8'; ctx.fillRect(14,-2,22,3);
+            ctx.fillStyle='#dce4f8'; ctx.fillRect(14,-2,20,1);
+            ctx.fillStyle='#c0c8e0'; ctx.fillRect(36,-1,4,3);
+          }
+        } else {
+          // No weapon — small dagger jab
+          ctx.globalAlpha=baseA*0.15; ctx.fillStyle='#806020';
+          ctx.fillRect(6,-4,16,7);
+          ctx.globalAlpha=baseA;
+          ctx.fillStyle='#5a3010'; ctx.fillRect(5,-1,5,3);   // stub handle
+          ctx.fillStyle='#804818'; ctx.fillRect(9,-2,3,5);   // guard
+          ctx.fillStyle='#907060'; ctx.fillRect(12,-2,14,4); // short rusty blade
+          ctx.fillStyle='#c0a888'; ctx.fillRect(12,-2,12,2); // face
+        }
+      } else {
+        // ---- Resting pose ----
+        ctx.rotate(0.42);
+        if(eqWeapon==='ASHEN_GREATSWORD'){
+          // Two-hander rested upright (bigger, ember-tinted)
+          ctx.fillStyle='#5a3010'; ctx.fillRect(5,-2,9,5);   // thick handle
+          ctx.fillStyle='#c07820'; ctx.fillRect(12,-5,5,9);  // crossguard
+          ctx.fillStyle='#484858'; ctx.fillRect(17,-3,28,5); // blade base
+          ctx.fillStyle='#888898'; ctx.fillRect(17,-2,26,3); // blade body
+          ctx.fillStyle='#c8cce0'; ctx.fillRect(17,-2,24,1); // gleam
+        } else if(eqWeapon==='HOLLOW_BLADE'){
+          // Long blade — narrower and longer at rest
+          ctx.fillStyle='#6a4020'; ctx.fillRect(6,-1,6,3);
+          ctx.fillStyle='#6870a0'; ctx.fillRect(10,-3,4,6);  // blue guard
+          ctx.fillStyle='#505878'; ctx.fillRect(14,-1,22,3); // longer blade
+          ctx.fillStyle='#8890b8'; ctx.fillRect(14,-1,20,1); // gleam
+        } else if(eqWeapon===null){
+          // Unarmed / dagger — short stub
+          ctx.fillStyle='#5a3010'; ctx.fillRect(6,-1,4,2);
+          ctx.fillStyle='#804818'; ctx.fillRect(9,-1,3,3);
+          ctx.fillStyle='#907060'; ctx.fillRect(12,-1,10,2);
+          ctx.fillStyle='#b09070'; ctx.fillRect(12,-1,8,1);
+        } else {
+          // IRON_SWORD default resting
+          ctx.fillStyle='#6a4020'; ctx.fillRect(6,-1,6,3);
+          ctx.fillStyle='#806828'; ctx.fillRect(10,-2,4,5);
+          ctx.fillStyle='#585870'; ctx.fillRect(14,-1,16,3);
+          ctx.fillStyle='#8890a8'; ctx.fillRect(14,-1,14,1);
+        }
+      }
+      ctx.restore();
+    }
+
+    ctx.globalAlpha=1;
+
+    // Attack hitbox (pixel outline)
+    if(atkHitbox){
+      ctx.globalAlpha=0.22;
+      ctx.fillStyle=atkHitbox.type==='light'?'#FFE080':'#FF8040';
+      ctx.fillRect(atkHitbox.x-cx,atkHitbox.y-cy,atkHitbox.w,atkHitbox.h);
+      ctx.globalAlpha=1;
+      ctx.fillStyle=atkHitbox.type==='light'?'#FFD040':'#FF6020';
+      // Pixel outline (4 edge rects)
+      const hx=atkHitbox.x-cx, hy=atkHitbox.y-cy, hw=atkHitbox.w, hh=atkHitbox.h;
+      ctx.fillRect(hx,hy,hw,1); ctx.fillRect(hx,hy+hh-1,hw,1);
+      ctx.fillRect(hx,hy,1,hh); ctx.fillRect(hx+hw-1,hy,1,hh);
+    }
+
+    // Bloodstain (pixel cross)
+    if(p.bloodstainX!==null){
+      const bsx=(p.bloodstainX-cx)|0, bsy=(p.bloodstainY-cy)|0;
+      if(bsx>-25&&bsx<SCREEN_W+25&&bsy>-25&&bsy<SCREEN_H+25){
+        ctx.fillStyle='#660000';
+        ctx.fillRect(bsx-10,bsy-2,20,4); ctx.fillRect(bsx-2,bsy-10,4,20);
+        ctx.fillStyle='#aa1818';
+        ctx.fillRect(bsx-6,bsy-1,12,2); ctx.fillRect(bsx-1,bsy-6,2,12);
+        const dist=Math.hypot(p.x-p.bloodstainX,p.y-p.bloodstainY);
+        if(dist<90) R.text(`[E] Recover ${p.bloodstainRunes} Runes`,bsx,bsy-16,'#c8a060',10,'center');
+      }
+    }
+  },
+};
+
+// ============================================================
+// ENEMY SYSTEM
+// ============================================================
+let eidCtr=0;
+const Enemies = {
+  spawnCfg:[],
+
+  init(){
+    this.spawnCfg=[
+      // ---- Crumbling Ruins ----
+      {t:'GRUNT', x:16,y:51},{t:'GRUNT', x:28,y:44},{t:'GRUNT', x:42,y:52},
+      {t:'GRUNT', x:55,y:46},{t:'GRUNT', x:20,y:72},{t:'GRUNT', x:38,y:80},
+      {t:'GRUNT', x:60,y:76},{t:'GRUNT', x:48,y:62},{t:'GRUNT', x:25,y:88},
+      {t:'ARCHER',x:35,y:65},{t:'ARCHER',x:55,y:85},{t:'ARCHER',x:62,y:56},
+
+      // ---- Darkroot Forest ----
+      {t:'GRUNT', x:80,y:20},{t:'GRUNT', x:95,y:28},{t:'GRUNT', x:118,y:14},
+      {t:'GRUNT', x:140,y:32},{t:'GRUNT', x:158,y:22},{t:'GRUNT', x:82,y:52},
+      {t:'GRUNT', x:108,y:48},{t:'GRUNT', x:132,y:58},{t:'GRUNT', x:155,y:46},
+      {t:'GRUNT', x:88,y:66},{t:'GRUNT', x:120,y:70},
+      {t:'ARCHER',x:98,y:38},{t:'ARCHER',x:148,y:44},{t:'ARCHER',x:165,y:28},
+
+      // ---- Castle Approach ----
+      {t:'GRUNT', x:35,y:120},{t:'GRUNT', x:62,y:118},{t:'GRUNT', x:88,y:125},
+      {t:'GRUNT', x:118,y:120},{t:'GRUNT', x:148,y:128},{t:'GRUNT', x:178,y:122},
+      {t:'GRUNT', x:205,y:118},{t:'GRUNT', x:50,y:152},{t:'GRUNT', x:98,y:148},
+      {t:'GRUNT', x:155,y:158},{t:'GRUNT', x:185,y:152},{t:'GRUNT', x:215,y:145},
+      {t:'ARCHER',x:75,y:140},{t:'ARCHER',x:138,y:145},{t:'ARCHER',x:198,y:138},
+
+      // ---- Graveyard (northwest of castle — tougher Grave Knights) ----
+      {t:'GRAVE_KNIGHT',x:30,y:122},{t:'GRAVE_KNIGHT',x:42,y:130},
+      {t:'GRAVE_KNIGHT',x:55,y:125},{t:'GRAVE_KNIGHT',x:35,y:148},
+      {t:'GRAVE_KNIGHT',x:50,y:155},{t:'GRAVE_KNIGHT',x:62,y:140},
+      {t:'ARCHER',       x:28,y:142},{t:'ARCHER',       x:58,y:132},
+      // TODO: add elite knights, mages, etc.
+    ];
+    this.respawnAll();
+  },
+
+  spawn(type, x, y, isBoss=false){
+    const cfg=ENEMY_TYPES[type]; if(!cfg) return null;
+    const e={
+      id:eidCtr++, type, cfg, isBoss,
+      x:x*TILE_SIZE+16+(Math.random()-0.5)*10,
+      y:y*TILE_SIZE+16+(Math.random()-0.5)*10,
+      hp:cfg.maxHP, maxHP:cfg.maxHP, size:cfg.size,
+      isDead:false, deathTimer:0,
+      state:'idle', stateTimer:2+Math.random()*2, prevState:'idle',
+      patrolAngle:Math.random()*Math.PI*2, patrolTimer:0,
+      patrolTX:x*TILE_SIZE+16, patrolTY:y*TILE_SIZE+16,
+      spawnX:x*TILE_SIZE+16,   spawnY:y*TILE_SIZE+16,
+      attackCD:Math.random()*cfg.attackCD, attackTimer:0, isAttacking:false,
+      hitFlash:0,           // white flash on hit
+      knockVx:0, knockVy:0, // knockback velocity
+      stagger:0,            // stagger timer (can't attack)
+      aggroShown:false,     // "!" was shown
+      phase:1, runesGiven:false,
+      // Boss-specific
+      slamCD:0, slamPending:false, slamTimer:0, slamX:0, slamY:0,
+    };
+    GS.enemies.push(e); return e;
+  },
+
+  spawnBoss(){
+    if(GS.bossDefeated) return;
+    const b=ZONES.BOSS_ARENA.bounds;
+    const boss=this.spawn('BOSS', b.x+b.w/2|0, b.y+b.h/2|0, true);
+    if(boss){
+      boss.x=(b.x+b.w/2)*TILE_SIZE;
+      boss.y=(b.y+b.h/2)*TILE_SIZE;
+      GS.bossRef=boss; GS.bossActive=true;
+    }
+  },
+
+  respawnAll(){
+    GS.enemies=GS.enemies.filter(e=>e.isBoss&&!e.isDead);
+    GS.slamIndicators=[];
+    for(const s of this.spawnCfg) this.spawn(s.t,s.x,s.y);
+  },
+
+  // dmg — amount; kx,ky — knockback direction
+  damage(e, dmg, kx=0, ky=0){
+    if(e.isDead) return;
+    e.hp-=dmg; e.hitFlash=0.15; e.stagger=0.12;
+    // Knockback (bosses get reduced knockback)
+    const kStr=e.isBoss?18:55;
+    e.knockVx=kx*kStr; e.knockVy=ky*kStr;
+    DmgNums.add(e.x, e.y-e.size-10, Math.ceil(dmg), e.isBoss?'#FF8020':'#FFD060', e.isBoss);
+    if(e.state==='idle'||e.state==='patrol'){ e.state='chase'; }
+    if(e.hp<=0){ e.hp=0; this.kill(e); }
+  },
+
+  kill(e){
+    e.isDead=true; e.state='dead'; e.deathTimer=1.5;
+    if(!e.runesGiven){
+      e.runesGiven=true;
+      GS.player.runes+=e.cfg.runesDrop;
+      GS.player.level=Math.floor(GS.player.runes/500)+1;
+      Particles.rune(e.x,e.y);
+      this._dropItem(e);
+    }
+    if(e.isBoss){
+      GS.bossDefeated=true; GS.bossActive=false; GS.flags.bossArenaOpen=true;
+      UI.msg('GREAT ENEMY FELLED','boss_won',6);
+      ScreenFX.flash('#FFD060',0.6,1.2); ScreenFX.shake(12,0.6);
+      for(let i=0;i<8;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*90,e.y+(Math.random()-0.5)*70),i*200);
+    }
+    Particles.death(e.x,e.y,e.cfg.color,14);
+  },
+
+  _dropItem(e){
+    const table=LOOT_TABLES[e.type]; if(!table) return;
+    for(const entry of table){
+      if(Math.random()<entry.chance){
+        const drop=_makeDropItem(entry.item, e.x+(Math.random()-0.5)*30, e.y+(Math.random()-0.5)*30);
+        if(drop) GS.items.push(drop);
+        break; // one drop per kill
+      }
+    }
+  },
+
+  update(dt){
+    const p=GS.player;
+    for(let i=GS.enemies.length-1;i>=0;i--){
+      const e=GS.enemies[i];
+      if(e.isDead){ e.deathTimer-=dt; if(e.deathTimer<=0&&!e.isBoss) GS.enemies.splice(i,1); continue; }
+      // Phase 2 check
+      if(e.isBoss&&e.phase===1&&e.hp/e.maxHP<=ENEMY_TYPES.BOSS.p2Threshold){
+        e.phase=2;
+        UI.msg('PHASE II','boss',2.5);
+        ScreenFX.flash('#FF3010',0.55,0.8); ScreenFX.shake(12,0.5);
+        Particles.death(e.x,e.y,'#FF6020',40);
+      }
+      // Knockback decay
+      e.knockVx*=Math.pow(0.05,dt); e.knockVy*=Math.pow(0.05,dt);
+      const nx=e.x+e.knockVx*dt, ny=e.y+e.knockVy*dt;
+      if(World.canMove(nx,e.y,e.size)) e.x=nx;
+      if(World.canMove(e.x,ny,e.size)) e.y=ny;
+      if(e.hitFlash>0) e.hitFlash-=dt;
+      if(e.stagger>0) e.stagger-=dt;
+      if(e.slamCD>0) e.slamCD-=dt;
+      // Slam pending countdown
+      if(e.slamPending){
+        e.slamTimer-=dt;
+        if(e.slamTimer<=0){
+          e.slamPending=false;
+          this._executeSlamAOE(e,p);
+        }
+      }
+      this._ai(e,p,dt);
+    }
+    // Update slam indicator circles
+    for(let i=GS.slamIndicators.length-1;i>=0;i--){
+      const s=GS.slamIndicators[i]; s.timer-=dt;
+      if(s.timer<=0) GS.slamIndicators.splice(i,1);
+    }
+    this._updateProjectiles(dt);
+  },
+
+  _ai(e,p,dt){
+    if(e.stagger>0) return;
+    if(p.isDead&&e.state!=='idle'){ e.state='patrol'; return; }
+    const dist=Math.hypot(p.x-e.x,p.y-e.y);
+    const cfg=e.cfg;
+    const spdM=(e.phase===2&&cfg.p2SpeedMult)?cfg.p2SpeedMult:1;
+    if(e.attackCD>0) e.attackCD-=dt;
+    if(e.isAttacking){ e.attackTimer-=dt; if(e.attackTimer<=0) e.isAttacking=false; }
+
+    // Aggro indicator
+    if(e.state!=='chase'&&e.state!=='attack') e.aggroShown=false;
+
+    switch(e.state){
+      case 'idle':
+        e.stateTimer-=dt;
+        if(dist<cfg.detRange){ e.state='chase'; e.aggroShown=false; }
+        else if(e.stateTimer<=0){ e.state='patrol'; e.patrolTimer=2+Math.random()*3; }
+        break;
+      case 'patrol':
+        if(dist<cfg.detRange){ e.state='chase'; e.aggroShown=false; break; }
+        e.patrolTimer-=dt;
+        if(e.patrolTimer<=0){
+          e.patrolAngle+=(Math.random()-0.5)*Math.PI;
+          const pd=60+Math.random()*60;
+          e.patrolTX=e.spawnX+Math.cos(e.patrolAngle)*pd;
+          e.patrolTY=e.spawnY+Math.sin(e.patrolAngle)*pd;
+          e.patrolTimer=2+Math.random()*3;
+        }
+        this._moveToward(e,e.patrolTX,e.patrolTY,cfg.speed*0.45*spdM,dt);
+        break;
+      case 'chase':
+        if(!e.aggroShown){ e.aggroShown=true; e.aggroTimer=0.8; }
+        if(e.aggroTimer>0) e.aggroTimer-=dt;
+        if(dist>cfg.detRange*1.6){ e.state='idle'; e.stateTimer=2; break; }
+        if(cfg.behavior==='archer'){
+          if(dist<cfg.backoff){
+            const dx=e.x-p.x, dy=e.y-p.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+            this._moveToward(e,e.x+dx/l*100,e.y+dy/l*100,cfg.speed*spdM,dt);
+          }
+          if(dist<cfg.attackRange&&e.attackCD<=0&&!e.isAttacking) this._attack(e,p,spdM);
+        } else {
+          if(dist>cfg.attackRange) this._moveToward(e,p.x,p.y,cfg.speed*spdM,dt);
+          else e.state='attack';
+        }
+        break;
+      case 'attack':
+        if(dist>cfg.attackRange*1.4){ e.state='chase'; break; }
+        if(e.attackCD<=0&&!e.isAttacking) this._attack(e,p,spdM);
+        // Boss: slam in phase 2
+        if(e.isBoss&&e.phase===2&&e.slamCD<=0&&!e.slamPending&&dist<cfg.attackRange*2){
+          this._initSlam(e,p);
+        }
+        break;
+    }
+  },
+
+  _moveToward(e,tx,ty,spd,dt){
+    const dx=tx-e.x, dy=ty-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+    const nx=e.x+(dx/l)*spd*dt, ny=e.y+(dy/l)*spd*dt;
+    if(World.canMove(nx,e.y,e.size)) e.x=nx;
+    if(World.canMove(e.x,ny,e.size)) e.y=ny;
+  },
+
+  _attack(e,p,spdM){
+    const cfg=e.cfg;
+    const dmgM=(e.phase===2&&cfg.p2DmgMult)?cfg.p2DmgMult:1;
+    e.isAttacking=true; e.attackTimer=cfg.attackDur; e.attackCD=cfg.attackCD;
+    if(cfg.behavior==='archer'){
+      const dx=p.x-e.x, dy=p.y-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+      GS.projectiles.push({
+        x:e.x, y:e.y, vx:(dx/l)*cfg.projSpeed, vy:(dy/l)*cfg.projSpeed,
+        dmg:cfg.meleeDmg*dmgM, sz:5, life:3, color:'#c0c060'
+      });
+    } else {
+      if(Math.hypot(p.x-e.x,p.y-e.y)<cfg.attackRange+14){
+        Player.takeDamage(cfg.meleeDmg*dmgM);
+        if(e.isBoss) Particles.sparks(e.x,e.y,20);
+      }
+    }
+  },
+
+  // Boss phase-2 telegraphed ground slam
+  _initSlam(e,p){
+    const cfg=e.cfg;
+    e.slamPending=true;
+    e.slamTimer=cfg.slamDelay||0.9;
+    e.slamCD=3.5;
+    e.slamX=p.x; e.slamY=p.y;
+    // Visual warning circle
+    GS.slamIndicators.push({
+      x:p.x, y:p.y, r:0, maxR:cfg.slamRange||110,
+      timer:cfg.slamDelay||0.9, max:cfg.slamDelay||0.9
+    });
+    Particles.sparks(e.x,e.y,12);
+  },
+
+  _executeSlamAOE(e,p){
+    const cfg=e.cfg;
+    const range=cfg.slamRange||110;
+    const dmgM=(e.phase===2&&cfg.p2DmgMult)?cfg.p2DmgMult:1;
+    ScreenFX.shake(14,0.5);
+    ScreenFX.flash('#FF2000',0.35,0.3);
+    Particles.sparks(e.slamX,e.slamY,20);
+    for(let i=0;i<5;i++) Particles.death(e.slamX+(Math.random()-0.5)*range, e.slamY+(Math.random()-0.5)*range,'#FF4020',5);
+    if(!p.isDead&&!p.isInvincible&&Math.hypot(p.x-e.slamX,p.y-e.slamY)<range){
+      Player.takeDamage((cfg.slamDmg||40)*dmgM);
+    }
+  },
+
+  _updateProjectiles(dt){
+    const p=GS.player;
+    for(let i=GS.projectiles.length-1;i>=0;i--){
+      const pr=GS.projectiles[i];
+      pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
+      if(pr.life<=0||!World.passable(World.tile(pr.x,pr.y))){
+        Particles.sparks(pr.x,pr.y,4); GS.projectiles.splice(i,1); continue;
+      }
+      if(!p.isDead&&!p.isInvincible&&Math.hypot(p.x-pr.x,p.y-pr.y)<PLAYER_CONFIG.size+pr.sz){
+        Player.takeDamage(pr.dmg); Particles.sparks(pr.x,pr.y,6); GS.projectiles.splice(i,1);
+      }
+    }
+  },
+
+  draw(cx,cy){
+    // Slam warning indicators — square pixel outline (no arcs)
+    for(const s of GS.slamIndicators){
+      const sx=(s.x-cx)|0, sy=(s.y-cy)|0;
+      const prog=1-(s.timer/s.max);
+      const R2=s.maxR*prog|0;
+      const a=0.15+prog*0.45;
+      ctx.globalAlpha=a*0.18; ctx.fillStyle='#FF2000';
+      ctx.fillRect(sx-R2,sy-R2,R2*2,R2*2);
+      ctx.globalAlpha=a; ctx.fillStyle='#FF2000';
+      // 4-edge pixel outline
+      ctx.fillRect(sx-R2,sy-R2,R2*2,2); ctx.fillRect(sx-R2,sy+R2-2,R2*2,2);
+      ctx.fillRect(sx-R2,sy-R2,2,R2*2); ctx.fillRect(sx+R2-2,sy-R2,2,R2*2);
+      ctx.globalAlpha=1;
+    }
+
+    // Items — pixel diamond shape, no arcs
+    for(const item of GS.items){
+      if(item.collected) continue;
+      const sx=(item.x-cx)|0, sy=(item.y-cy)|0;
+      if(sx<-25||sx>SCREEN_W+25||sy<-25||sy>SCREEN_H+25) continue;
+      item.pt=(item.pt||0)+0.05;
+      const bob=Math.sin(item.pt)*3|0;
+      // Glow (solid rect, no gradient)
+      ctx.globalAlpha=0.25; ctx.fillStyle=item.glow;
+      ctx.fillRect(sx-10,sy-10+bob,20,20);
+      ctx.globalAlpha=1;
+      // Diamond body (3 stacked rects)
+      ctx.fillStyle=item.color;
+      ctx.fillRect(sx-2,sy-8+bob,4,14);
+      ctx.fillRect(sx-5,sy-4+bob,10,6);
+      ctx.fillRect(sx-7,sy-1+bob,14,2);
+      // Highlight
+      ctx.fillStyle='#ffffff'; ctx.fillRect(sx-1,sy-6+bob,2,3);
+    }
+
+    // Enemies
+    for(const e of GS.enemies) this._drawEnemy(e,cx,cy);
+
+    // Projectiles — pixel square + 1-pixel trail
+    for(const pr of GS.projectiles){
+      const sx=(pr.x-cx)|0, sy=(pr.y-cy)|0;
+      if(sx<-20||sx>SCREEN_W+20||sy<-20||sy>SCREEN_H+20) continue;
+      const s=Math.max(2,pr.sz|0);
+      // Trail
+      ctx.globalAlpha=0.4; ctx.fillStyle='#FFD060';
+      ctx.fillRect((sx-pr.vx*0.022)|0-(s>>1),(sy-pr.vy*0.022)|0-(s>>1),s,s);
+      // Body
+      ctx.globalAlpha=1; ctx.fillStyle=pr.color||'#c0c060';
+      ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+    }
+  },
+
+  _drawEnemy(e,cx,cy){
+    const sx=(e.x-cx)|0, sy=(e.y-cy)|0;
+    if(sx<-80||sx>SCREEN_W+80||sy<-80||sy>SCREEN_H+80) return;
+    const a=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+
+    // Shadow (flat rect, no ellipse)
+    ctx.globalAlpha=a*0.35; ctx.fillStyle='#000';
+    ctx.fillRect(sx-e.size,sy+e.size-3,e.size*2,4);
+    ctx.globalAlpha=a;
+
+    if(e.isBoss) this._drawBoss(e,sx,sy);
+    else if(e.cfg.behavior==='archer') this._drawArcher(e,sx,sy);
+    else this._drawGrunt(e,sx,sy);
+
+    // Hit flash — solid white rect, no arc
+    if(e.hitFlash>0){
+      ctx.globalAlpha=a*Math.min(1,e.hitFlash/0.1);
+      ctx.fillStyle='#FFFFFF';
+      ctx.fillRect(sx-e.size,sy-e.size*2|0,e.size*2,e.size*2+6);
+      ctx.globalAlpha=a;
+    }
+
+    ctx.globalAlpha=1;
+
+    // HP bar (GBC style via updated R.bar)
+    if(!e.isDead){
+      const bw=e.isBoss?60:34, bh=e.isBoss?6:3;
+      R.bar(sx-bw/2|0, sy-e.size-16|0, bw, bh, e.hp, e.maxHP,
+            e.phase===2?'#CC2000':'#882010','#1a0000');
+    }
+
+    // Aggro "!" indicator
+    if(e.aggroShown&&e.aggroTimer>0&&!e.isDead){
+      const a2=Math.min(1,e.aggroTimer/0.5);
+      ctx.globalAlpha=a2;
+      ctx.font='bold 14px monospace'; ctx.textAlign='center'; ctx.fillStyle='#FFD040';
+      ctx.fillText('!',sx,sy-e.size-20);
+      ctx.globalAlpha=1;
+    }
+  },
+
+  _drawGrunt(e,sx,sy){
+    const col=e.isAttacking?'#c87020':e.cfg.color;
+    // Legs
+    ctx.fillStyle=e.cfg.darkColor;
+    ctx.fillRect(sx-6,sy+4,5,7); ctx.fillRect(sx+1,sy+4,5,7);
+    // Body
+    ctx.fillStyle=col; ctx.fillRect(sx-7,sy-6,14,12);
+    // Shoulder guards
+    ctx.fillStyle=e.cfg.darkColor;
+    ctx.fillRect(sx-10,sy-6,5,5); ctx.fillRect(sx+5,sy-6,5,5);
+    // Head (skull)
+    ctx.fillStyle='#786010'; ctx.fillRect(sx-5,sy-16,10,10);
+    // Eyes
+    ctx.fillStyle='#FF2000';
+    ctx.fillRect(sx-4,sy-13,3,3); ctx.fillRect(sx+1,sy-13,3,3);
+    // Weapon — chunky sword (2 rects)
+    ctx.fillStyle='#888'; ctx.fillRect(sx+9,sy-16,3,18);
+    ctx.fillStyle='#aaa'; ctx.fillRect(sx+6,sy-8,9,2); // crossguard
+  },
+
+  _drawArcher(e,sx,sy){
+    const col=e.isAttacking?'#d0d0a0':e.cfg.color;
+    // Legs (thinner frame)
+    ctx.fillStyle=e.cfg.darkColor;
+    ctx.fillRect(sx-5,sy+4,4,7); ctx.fillRect(sx+1,sy+4,4,7);
+    // Body
+    ctx.fillStyle=col; ctx.fillRect(sx-6,sy-6,12,11);
+    // Head (skull — hollow eyes)
+    ctx.fillStyle='#9a9a88'; ctx.fillRect(sx-4,sy-15,9,9);
+    ctx.fillStyle='#1a1a1a';
+    ctx.fillRect(sx-3,sy-13,3,3); ctx.fillRect(sx+1,sy-13,3,3);
+    ctx.fillStyle='#50a050'; // eerie green eye glow
+    ctx.fillRect(sx-2,sy-12,2,2); ctx.fillRect(sx+2,sy-12,2,2);
+    // Bow — pixel L-shape
+    ctx.fillStyle='#8B6914';
+    ctx.fillRect(sx+7,sy-12,3,22); // stave
+    ctx.fillRect(sx+8,sy-12,6,2); // top nock
+    ctx.fillRect(sx+8,sy+8,6,2);  // bottom nock
+    // Arrow if attacking
+    if(e.isAttacking){
+      ctx.fillStyle='#c8c050'; ctx.fillRect(sx+10,sy-2,10,1);
+      ctx.fillStyle='#808040'; ctx.fillRect(sx+18,sy-2,3,1);
+    }
+  },
+
+  _drawBoss(e,sx,sy){
+    const r=e.size, p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+
+    // Flat aura rect (no radial gradient)
+    ctx.globalAlpha=ba*0.14; ctx.fillStyle=p2?'#FF2000':'#c8a060';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4);
+    ctx.globalAlpha=ba;
+
+    // Lower body / legs
+    ctx.fillStyle=p2?'#3a1008':'#7a5020';
+    ctx.fillRect(sx-22,sy+12,14,20); ctx.fillRect(sx+8,sy+12,14,20);
+
+    // Main torso (wide)
+    ctx.fillStyle=p2?'#7a1a08':'#b89040';
+    ctx.fillRect(sx-22,sy-18,44,32);
+
+    // Shoulder plates
+    ctx.fillStyle=p2?'#5a1005':'#906830';
+    ctx.fillRect(sx-32,sy-16,12,14); ctx.fillRect(sx+20,sy-16,12,14);
+
+    // Head
+    ctx.fillStyle=p2?'#501008':'#907030';
+    ctx.fillRect(sx-15,sy-36,30,20);
+
+    // Crown gems (5 pixel squares across top)
+    ctx.fillStyle=p2?'#FF5010':'#FFD040';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-12+i*6,sy-40,4,5);
+
+    // Eyes (large, glowing)
+    const ec=p2?'#FF0000':'#FFA000';
+    ctx.fillStyle=ec;
+    ctx.fillRect(sx-12,sy-30,8,6); ctx.fillRect(sx+4,sy-30,8,6);
+    ctx.globalAlpha=ba*0.4; ctx.fillStyle=ec;
+    ctx.fillRect(sx-14,sy-32,12,10); ctx.fillRect(sx+2,sy-32,12,10);
+    ctx.globalAlpha=ba;
+
+    // Greatsword — 3 stacked rects (blade, edge, crossguard)
+    ctx.fillStyle=p2?'#CC3010':'#9090a8';
+    ctx.fillRect(sx+r+4,sy-r-24,7,r*2+34);
+    ctx.fillStyle=p2?'#FF6020':'#d0d0e0';
+    ctx.fillRect(sx+r+5,sy-r-24,2,r*2+34); // edge gleam
+    ctx.fillStyle='#806028';
+    ctx.fillRect(sx+r,sy-r-2,18,5); // crossguard
+
+    // Slam windup — pixel square flash, no arc
+    if(e.slamPending){
+      const t=1-(e.slamTimer/(ENEMY_TYPES.BOSS.slamDelay||0.9));
+      ctx.globalAlpha=ba*t*0.45; ctx.fillStyle='#FF2000';
+      ctx.fillRect(sx-r*2,sy-r*2,r*4,2); ctx.fillRect(sx-r*2,sy+r*2,r*4,2);
+      ctx.fillRect(sx-r*2,sy-r*2,2,r*4); ctx.fillRect(sx+r*2,sy-r*2,2,r*4);
+      ctx.globalAlpha=ba;
+    }
+  },
+};
+
+// ============================================================
+// CAMERA  — lerp follow with shake offset applied externally
+// ============================================================
+const Camera = {
+  x:0, y:0,
+  update(dt){
+    const p=GS.player;
+    const tx=Math.max(0,Math.min(WORLD_W*TILE_SIZE-SCREEN_W, p.x-SCREEN_W/2));
+    const ty=Math.max(0,Math.min(WORLD_H*TILE_SIZE-SCREEN_H, p.y-SCREEN_H/2));
+    const ease=1-Math.pow(0.04,dt);
+    this.x+=(tx-this.x)*ease;
+    this.y+=(ty-this.y)*ease;
+  },
+};
+
+// ============================================================
+// VILLAGE — peaceful NPCs, no combat, purely visual walkers
+// ============================================================
+const Village = {
+  list: GS.npcs,
+
+  // NPC appearance configs
+  _defs:[
+    {tx:183,ty:30,color:'#8a6840',hair:'#2a1808',name:'Villager'},
+    {tx:199,ty:32,color:'#7a6070',hair:'#1a0a0a',name:'Elder'},
+    {tx:212,ty:28,color:'#607050',hair:'#302010',name:'Herbalist'},
+    {tx:196,ty:56,color:'#9a7050',hair:'#1a1008',name:'Blacksmith'},
+    {tx:222,ty:42,color:'#7080a0',hair:'#0a0c18',name:'Wanderer'},
+  ],
+
+  init(){
+    for(const d of this._defs){
+      this.list.push({
+        x:d.tx*TILE_SIZE+16, y:d.ty*TILE_SIZE+16,
+        vx:(Math.random()-0.5)*20, vy:(Math.random()-0.5)*20,
+        color:d.color, hair:d.hair, name:d.name,
+        facing:1,
+        wanderTimer:Math.random()*4,
+        idleTimer:0,
+      });
+    }
+  },
+
+  update(dt){
+    const vb=ZONES.VILLAGE.bounds;
+    const px0=(vb.x+2)*TILE_SIZE, px1=(vb.x+vb.w-4)*TILE_SIZE;
+    const py0=(vb.y+2)*TILE_SIZE, py1=(vb.y+vb.h-4)*TILE_SIZE;
+    for(const n of this.list){
+      n.wanderTimer-=dt;
+      if(n.wanderTimer<=0){
+        if(Math.random()<0.3){
+          // Brief idle pause
+          n.vx=0; n.vy=0; n.wanderTimer=1+Math.random()*2;
+        } else {
+          const a=Math.random()*Math.PI*2, spd=16+Math.random()*14;
+          n.vx=Math.cos(a)*spd; n.vy=Math.sin(a)*spd;
+          n.wanderTimer=2+Math.random()*4;
+        }
+      }
+      const nx=n.x+n.vx*dt, ny=n.y+n.vy*dt;
+      if(World.canMove(nx,n.y,7)&&nx>px0&&nx<px1){ n.x=nx; if(n.vx!==0) n.facing=n.vx>0?1:-1; }
+      else { n.vx=-n.vx*0.5; n.wanderTimer=0.5; }
+      if(World.canMove(n.x,ny,7)&&ny>py0&&ny<py1) n.y=ny;
+      else { n.vy=-n.vy*0.5; n.wanderTimer=0.5; }
+    }
+  },
+
+  draw(cx,cy){
+    for(const n of this.list){
+      const sx=(n.x-cx)|0, sy=(n.y-cy)|0;
+      if(sx<-24||sx>SCREEN_W+24||sy<-24||sy>SCREEN_H+24) continue;
+      // Shadow
+      ctx.globalAlpha=0.28; ctx.fillStyle='#000';
+      ctx.fillRect(sx-7,sy+8,14,3);
+      ctx.globalAlpha=1;
+      // Legs
+      ctx.fillStyle='#383840'; ctx.fillRect(sx-5,sy+2,4,7); ctx.fillRect(sx+1,sy+2,4,7);
+      // Body / tunic
+      ctx.fillStyle=n.color; ctx.fillRect(sx-7,sy-6,14,9);
+      // Head
+      ctx.fillStyle='#c4a880'; ctx.fillRect(sx-4,sy-15,8,9);
+      // Hair
+      ctx.fillStyle=n.hair; ctx.fillRect(sx-4,sy-17,8,4);
+      // Eyes
+      ctx.fillStyle='#100808';
+      const ex=n.facing>0?sx+1:sx-3;
+      ctx.fillRect(ex,sy-12,2,2);
+      // Name label (faint, only when player is nearby)
+      const dist=Math.hypot(n.x-GS.player.x,n.y-GS.player.y);
+      if(dist<80) R.text(n.name,sx,sy-24,'#a09068',8,'center');
+    }
+  },
+};
+
+// ============================================================
+// QUEST SYSTEM — "The Elder's Request"
+// ============================================================
+const Quest = {
+  // Fragment world positions (tile→pixel)
+  _frags:[
+    { tx:27*32+16, ty:49*32+16, label:'Tome Fragment I',   hint:'in the Crumbling Ruins'    },
+    { tx:82*32+16, ty:36*32+16, label:'Tome Fragment II',  hint:'deep in the Darkroot Forest'},
+    { tx:28*32+16, ty:126*32+16,label:'Tome Fragment III', hint:'inside the Graveyard'       },
+  ],
+
+  get q(){ return GS.quest; },
+
+  // Elder is Village.list[1]
+  get elder(){ return Village.list[1]||null; },
+
+  init(){
+    // fragments are purely in-module; no GS.items needed
+  },
+
+  // Called from Player._interact()
+  interactElder(px,py){
+    const e=this.elder; if(!e) return false;
+    if(Math.hypot(px-e.x,py-e.y)>55) return false;
+    const q=this.q;
+    if(q.phase===0){
+      q.phase=1;
+      UI.msg("Elder: 'My Ashen Tome was shattered. Find its 3 Fragments — Ruins, Forest, Graveyard.'",'rune',6);
+      UI.msg("Quest started: The Elder's Request",'item',3);
+      ScreenFX.flash('#c8a020',0.25,0.8);
+    } else if(q.phase===1){
+      const n=q.found.filter(Boolean).length;
+      const next=this._frags.find((_,i)=>!q.found[i]);
+      UI.msg(`Elder: '${3-n} fragment${3-n>1?'s':''} remain... seek one ${next?next.hint:'.'}'`,'rune',4);
+    } else if(q.phase===2){
+      q.phase=3;
+      GS.player.runes+=2000;
+      GS.player.inventory.push('SOVEREIGN_RING');
+      UI.msg("Elder: 'You have my eternal gratitude, Ashen One.'",'rune',5);
+      UI.msg("Reward: +2000 Runes",'rune',3);
+      UI.msg("Rare: Sovereign Ring",'item',3.5);
+      ScreenFX.flash('#FFD040',0.4,1.2);
+      Particles.rune(e.x,e.y);
+    } else if(q.phase===3){
+      UI.msg("Elder: 'May the flames guide you. The tome is whole again.'",'rune',3);
+    }
+    return true;
+  },
+
+  // Called once per frame during 'playing' phase
+  update(dt){
+    const q=this.q; if(q.phase!==1) return;
+    const p=GS.player;
+    this._frags.forEach((f,i)=>{
+      if(q.found[i]) return;
+      if(Math.hypot(p.x-f.tx,p.y-f.ty)<30){
+        q.found[i]=true;
+        UI.msg(`Found: ${f.label}`,'item',3);
+        Particles.sparks(f.tx,f.ty,12);
+        ScreenFX.flash('#c8a020',0.3,0.5);
+        const done=q.found.every(Boolean);
+        if(done){ q.phase=2; UI.msg("All fragments recovered! Return to the Elder in the Village.",'rune',5); }
+        else {
+          const next=this._frags.find((_,j)=>!q.found[j]);
+          if(next) UI.msg(`Next: ${next.hint}`,'rune',3);
+        }
+      }
+    });
+  },
+
+  draw(cx,cy){
+    const q=this.q;
+    // Draw uncollected fragments
+    if(q.phase===1){
+      const now=Date.now();
+      this._frags.forEach((f,i)=>{
+        if(q.found[i]) return;
+        const sx=(f.tx-cx)|0, sy=(f.ty-cy)|0;
+        if(sx<-40||sx>SCREEN_W+40||sy<-40||sy>SCREEN_H+40) return;
+        // Pulsing glow
+        const pulse=(now/400|0)%2;
+        ctx.globalAlpha=0.20+pulse*0.12; ctx.fillStyle='#FFD040';
+        ctx.fillRect(sx-12,sy-12,24,24);
+        ctx.globalAlpha=1;
+        // Orb — layered rects (no arc)
+        ctx.fillStyle='#6a4010'; ctx.fillRect(sx-6,sy-6,12,12);
+        ctx.fillStyle='#c8900a'; ctx.fillRect(sx-5,sy-5,10,10);
+        ctx.fillStyle='#f0c040'; ctx.fillRect(sx-4,sy-4,8,8);
+        ctx.fillStyle='#ffe880'; ctx.fillRect(sx-3,sy-3,4,4);
+        ctx.fillStyle='#fffff0'; ctx.fillRect(sx-2,sy-2,2,2);
+        // Floating rune marks (2px pixel cross)
+        ctx.fillStyle='rgba(255,220,80,0.6)';
+        ctx.fillRect(sx-8,sy,4,2); ctx.fillRect(sx+4,sy,4,2);
+        ctx.fillRect(sx,sy-8,2,4); ctx.fillRect(sx,sy+4,2,4);
+        // Label
+        R.text(f.label,sx,sy-16,'#c8a060',8,'center');
+      });
+    }
+    // Elder talk prompt
+    const e=this.elder;
+    if(e&&q.phase!==3){
+      const sx=(e.x-cx)|0, sy=(e.y-cy)|0;
+      if(Math.hypot(GS.player.x-e.x,GS.player.y-e.y)<60)
+        R.text('[E] Talk',sx,sy-32,'#c8a060',10,'center');
+    }
+    // Minimap fragment dots (shown during active quest)
+    if(q.phase===1){
+      const mw=100,mh=66,mx=SCREEN_W-mw-8,my=36;
+      const scx=mw/(WORLD_W*TILE_SIZE), scy=mh/(WORLD_H*TILE_SIZE);
+      this._frags.forEach((f,i)=>{
+        if(q.found[i]) return;
+        const ex=(mx+f.tx*scx)|0, ey=(my+f.ty*scy)|0;
+        ctx.fillStyle='#FFD040'; ctx.fillRect(ex-2,ey-2,4,4);
+      });
+    }
+  },
+
+  drawHUD(){
+    const q=this.q; if(q.phase===0||q.phase===3) return;
+    const n=q.found.filter(Boolean).length;
+    if(q.phase===1){
+      R.text(`QUEST  Tome Fragments  ${n} / 3`,8,SCREEN_H-54,'#b89040',9,'left');
+      // Small fragment pips
+      for(let i=0;i<3;i++){
+        ctx.fillStyle=q.found[i]?'#FFD040':'#403020';
+        ctx.fillRect(8+i*14,SCREEN_H-44,10,4);
+      }
+    } else if(q.phase===2){
+      R.text('QUEST  Return to the Elder',8,SCREEN_H-54,'#FFD040',9,'left');
+    }
+  },
+};
+
+// ============================================================
+// EQUIPMENT MENU
+// ============================================================
+const Equipment = {
+  SLOTS: ['weapon','armor','ring','talisman'],
+  SLOT_LABEL: {weapon:'WEAPON',armor:'ARMOR',ring:'RING',talisman:'TALISMAN'},
+  SLOT_KEY:   {weapon:'[W]',  armor:'[A]',  ring:'[R]', talisman:'[T]'},
+
+  equip(idx){
+    const p=GS.player;
+    if(idx<0||idx>=p.inventory.length) return;
+    const id=p.inventory[idx];
+    const item=EQUIPMENT_ITEMS[id]; if(!item) return;
+    const slot=item.slot;
+    if(p.equipment[slot]) p.inventory.push(p.equipment[slot]); // swap old to inv
+    p.equipment[slot]=id;
+    p.inventory.splice(idx,1);
+    p.equipCursor=Math.min(p.equipCursor, Math.max(0,p.inventory.length-1));
+    // Clamp HP/Stamina to new max
+    p.hp=Math.min(p.hp, Stats.maxHP());
+    p.stamina=Math.min(p.stamina, Stats.maxStamina());
+    UI.msg(`Equipped: ${item.name}`,'item',1.5);
+  },
+
+  unequip(slot){
+    const p=GS.player;
+    if(!p.equipment[slot]) return;
+    p.inventory.push(p.equipment[slot]);
+    p.equipment[slot]=null;
+  },
+
+  handleInput(){
+    const p=GS.player;
+    const len=p.inventory.length;
+    if(Input.just('ArrowUp'))   p.equipCursor=Math.max(0,p.equipCursor-1);
+    if(Input.just('ArrowDown')) p.equipCursor=Math.min(Math.max(0,len-1),p.equipCursor+1);
+    if(Input.just('KeyE'))      this.equip(p.equipCursor);
+    if(Input.just('KeyW'))      this.unequip('weapon');
+    if(Input.just('KeyA'))      this.unequip('armor');
+    if(Input.just('KeyR'))      this.unequip('ring');
+    if(Input.just('KeyT'))      this.unequip('talisman');
+  },
+
+  draw(){
+    // Dark overlay
+    R.rectA(0,0,SCREEN_W,SCREEN_H,'#000',0.82);
+
+    const PX=SCREEN_W/2-270|0, PY=50, PW=540, PH=520;
+    // Outer border + panel bg
+    ctx.fillStyle='#000'; ctx.fillRect(PX-4,PY-4,PW+8,PH+8);
+    ctx.fillStyle='#080604'; ctx.fillRect(PX,PY,PW,PH);
+    // Title bar
+    ctx.fillStyle='#0e0a06'; ctx.fillRect(PX,PY,PW,26);
+    R.shadow('EQUIPMENT',SCREEN_W/2,PY+18,'#c8a060','#000',14,'center');
+    ctx.fillStyle='#2a1c0c'; ctx.fillRect(PX,PY+26,PW,1);
+
+    const p=GS.player;
+
+    // ---- LEFT COLUMN: equipped slots (x=PX+12) ----
+    const LX=PX+12, SH=58;
+    R.text('EQUIPPED',LX+90,PY+42,'#604828',8,'center');
+    for(let i=0;i<this.SLOTS.length;i++){
+      const slot=this.SLOTS[i];
+      const sy2=PY+50+i*SH;
+      const eqId=p.equipment[slot];
+      const item=eqId?EQUIPMENT_ITEMS[eqId]:null;
+      // Slot box
+      ctx.fillStyle='#000'; ctx.fillRect(LX,sy2,200,SH-4);
+      ctx.fillStyle=item?'#120e06':'#0a0a0a'; ctx.fillRect(LX+2,sy2+2,196,SH-8);
+      // Slot header
+      R.text(`${this.SLOT_KEY[slot]} ${this.SLOT_LABEL[slot]}`,LX+8,sy2+12,'#3c2e18',8);
+      if(item){
+        // Rarity strip (4px left edge)
+        ctx.fillStyle=RARITY_COLOR[item.rarity]; ctx.fillRect(LX+2,sy2+2,4,SH-8);
+        R.text(item.name,LX+14,sy2+28,RARITY_COLOR[item.rarity],11);
+        R.text(item.desc||'',LX+14,sy2+42,'#706050',8);
+      } else {
+        R.text('— empty —',LX+14,sy2+30,'#282820',10);
+      }
+    }
+
+    // ---- STATS BOX (below slots) ----
+    const STY=PY+50+this.SLOTS.length*SH+6;
+    ctx.fillStyle='#000'; ctx.fillRect(LX,STY,200,82);
+    ctx.fillStyle='#0c0a06'; ctx.fillRect(LX+2,STY+2,196,78);
+    R.text('PLAYER STATS',LX+100,STY+13,'#604828',8,'center');
+    ctx.fillStyle='#1a1208'; ctx.fillRect(LX+2,STY+16,196,1);
+    const mHP=Stats.maxHP(), mST=Stats.maxStamina(), dmg=Stats.damage(), def=Stats.defense();
+    R.text(`HP       ${Math.ceil(p.hp)} / ${mHP}`, LX+10,STY+30,'#cc6060',9);
+    R.text(`Stamina  ${Math.ceil(p.stamina)} / ${mST}`, LX+10,STY+44,'#60a030',9);
+    R.text(`Attack   base + ${dmg}`,                 LX+10,STY+58,'#c8a060',9);
+    R.text(`Defense  base + ${def}`,                 LX+10,STY+72,'#6090c0',9);
+
+    // ---- RIGHT COLUMN: inventory list (x=PX+228) ----
+    const RX=PX+228;
+    R.text('INVENTORY',RX+142,PY+42,'#604828',8,'center');
+    if(p.inventory.length===0){
+      R.text('(empty)',RX+142,PY+90,'#303028',10,'center');
+    }
+    const maxVisible=8;
+    const start=Math.max(0,p.equipCursor-maxVisible+1);
+    for(let i=0;i<Math.min(p.inventory.length,maxVisible);i++){
+      const idx=start+i;
+      if(idx>=p.inventory.length) break;
+      const id=p.inventory[idx];
+      const item=EQUIPMENT_ITEMS[id]; if(!item) continue;
+      const iy=PY+50+i*46;
+      const sel=idx===p.equipCursor;
+      // Row bg
+      ctx.fillStyle='#000'; ctx.fillRect(RX,iy,300,42);
+      ctx.fillStyle=sel?'#1a1408':'#0c0a06'; ctx.fillRect(RX+2,iy+2,296,38);
+      // Selection bar
+      if(sel){ ctx.fillStyle='#c8a060'; ctx.fillRect(RX+2,iy+2,3,38); }
+      // Rarity swatch
+      ctx.fillStyle=RARITY_COLOR[item.rarity]; ctx.fillRect(RX+10,iy+13,4,16);
+      // Name & slot line
+      R.text(item.name, RX+20,iy+20, sel?'#e8c870':RARITY_COLOR[item.rarity], 11);
+      R.text(`[${this.SLOT_LABEL[item.slot]}]  ${RARITY_LABEL[item.rarity]}`, RX+20,iy+33,'#4a3c28',8);
+      // Bonuses
+      R.text(item.desc||'', RX+190,iy+20,'#607888',9,'left');
+    }
+    // Scroll indicator
+    if(p.inventory.length>maxVisible)
+      R.text(`${p.equipCursor+1}/${p.inventory.length}`,RX+284,PY+42,'#403828',8,'right');
+
+    // ---- FOOTER ----
+    ctx.fillStyle='#0e0a06'; ctx.fillRect(PX,PY+PH-18,PW,18);
+    R.text('Up/Down  Navigate    E  Equip    W/A/R/T  Unequip slot    Tab  Close',
+           SCREEN_W/2, PY+PH-6, '#3a3020', 8, 'center');
+  },
+};
+
+// ============================================================
+// UI SYSTEM
+// ============================================================
+const UI = {
+  msgs: GS.messages,
+
+  msg(text,type,dur){
+    this.msgs=this.msgs.filter(m=>m.type!==type);
+    if(text) this.msgs.push({text,type,timer:dur,max:dur});
+    GS.messages=this.msgs;
+  },
+
+  update(dt){
+    for(let i=this.msgs.length-1;i>=0;i--){
+      this.msgs[i].timer-=dt;
+      if(this.msgs[i].timer<=0) this.msgs.splice(i,1);
+    }
+  },
+
+  draw(){
+    const p=GS.player;
+    this._hud(p);
+    Quest.drawHUD();
+    this._messages();
+    this._bossBar();
+    this._minimap();
+    // Death fade overlay
+    if(p.isDead){
+      const a=Math.min(0.72, 1-p.deathTimer/3.5);
+      R.rectA(0,0,SCREEN_W,SCREEN_H,'#000000',a);
+    }
+  },
+
+  _hud(p){
+    const mg=10, bw=130, bh=8, gap=4;
+    const sy0=SCREEN_H-mg-bh*3-gap*2-10;
+
+    // GBC-style panel: thick black border, flat bg
+    ctx.fillStyle='#000';
+    ctx.fillRect(mg-8,sy0-22,bw+18,bh*3+gap*2+34);
+    ctx.fillStyle='#080606';
+    ctx.fillRect(mg-6,sy0-20,bw+14,bh*3+gap*2+30);
+
+    // Label boxes (solid black)
+    ctx.fillStyle='#000';
+    ctx.fillRect(mg-4,sy0-2,18,bh+4);
+    ctx.fillRect(mg-4,sy0+bh+gap-2,18,bh+4);
+    ctx.fillRect(mg-4,sy0+(bh+gap)*2-2,18,bh+4);
+
+    // Labels
+    R.text('HP',mg-2,sy0+bh,'#c06060',8);
+    R.text('FP',mg-2,sy0+bh+gap+bh,'#6060c0',8);
+    R.text('ST',mg-2,sy0+(bh+gap)*2+bh,'#60a030',8);
+
+    // HP bar
+    const mHP=Stats.maxHP(), mST=Stats.maxStamina();
+    const hpFrac=p.hp/mHP;
+    const hpCol=hpFrac<0.25?((Date.now()/200|0)%2?'#FF1010':'#880000'):'#CC2020';
+    R.bar(mg+16,sy0,bw,bh,p.hp,mHP,hpCol,'#1a0606');
+    R.text(`${Math.ceil(p.hp)}/${mHP}`,mg+20,sy0+bh,'#c08080',8);
+
+    // FP bar
+    const sy1=sy0+bh+gap;
+    R.bar(mg+16,sy1,bw,bh,p.fp,PLAYER_CONFIG.maxFP,'#1840a8','#060810');
+    R.text(`${Math.ceil(p.fp)}/${PLAYER_CONFIG.maxFP}`,mg+20,sy1+bh,'#7070c0',8);
+
+    // Stamina bar
+    const sy2=sy1+bh+gap;
+    const stFlash=p.staminaEmpty>0&&(Date.now()/80|0)%2===0;
+    R.bar(mg+16,sy2,bw,bh,p.stamina,mST,
+          stFlash?'#CC2000':'#408010','#060a04');
+    R.text(`${Math.ceil(p.stamina)}/${mST}`,mg+20,sy2+bh,'#80b040',8);
+
+    // Level badge
+    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-22,36,14);
+    ctx.fillStyle='#0c0a08'; ctx.fillRect(mg-2,sy0-20,32,10);
+    R.text(`Lv.${p.level}`,mg,sy0-11,'#807060',9);
+
+    // Rune counter (bottom right — GBC box)
+    const rw=88;
+    const rx=SCREEN_W-rw-mg;
+    ctx.fillStyle='#000'; ctx.fillRect(rx-6,SCREEN_H-38,rw+10,30);
+    ctx.fillStyle='#0c0a06'; ctx.fillRect(rx-4,SCREEN_H-36,rw+6,26);
+    R.text('RUNES',rx+2,SCREEN_H-26,'#504028',8);
+    R.bold(`${p.runes}`,rx+rw-2,SCREEN_H-mg-2,'#c8a060',13,'right');
+
+    // Flask charges (bottom center — GBC pixel boxes)
+    const fc=PLAYER_CONFIG.flaskCharges;
+    const fw=fc*14+10;
+    const fx2=(SCREEN_W/2-fw/2)|0;
+    const fy=SCREEN_H-mg-18;
+    ctx.fillStyle='#000'; ctx.fillRect(fx2-4,fy-16,fw+8,30);
+    ctx.fillStyle='#0c0a06'; ctx.fillRect(fx2-2,fy-14,fw+4,26);
+    R.text('FLASK',(SCREEN_W/2)|0,fy-4,'#504020',8,'center');
+    for(let i=0;i<fc;i++){
+      const full=i<p.flaskCharges;
+      const bx=fx2+i*14+2;
+      // Outer black border
+      ctx.fillStyle='#000'; ctx.fillRect(bx,fy+4,10,10);
+      // Fill
+      ctx.fillStyle=full?'#a86010':'#181008'; ctx.fillRect(bx+1,fy+5,8,8);
+      // Highlight
+      if(full){ ctx.fillStyle='#FFB030'; ctx.fillRect(bx+2,fy+6,4,3); }
+    }
+
+    // Combo counter
+    if(p.combo>=3){
+      const ca=Math.min(1,p.comboTimer/2);
+      ctx.globalAlpha=ca;
+      ctx.fillStyle='#000'; ctx.fillRect(SCREEN_W/2-68,SCREEN_H-92,136,14);
+      R.bold(`${p.combo} HIT COMBO`,SCREEN_W/2,SCREEN_H-80,'#FFB020',11,'center');
+      ctx.globalAlpha=1;
+    }
+
+    // Controls hint (faint top-right)
+    R.text('WASD Move  J/K Attack  Space Roll  E Interact  F Flask  Tab Equipment  Esc Pause',
+           SCREEN_W-mg,13,'#242424',8,'right');
+  },
+
+  _bossBar(){
+    if(!GS.bossActive||!GS.bossRef||GS.bossRef.isDead) return;
+    const boss=GS.bossRef;
+    const bw=SCREEN_W-80, bh=10, bx=40, by=18;
+    // GBC thick border
+    ctx.fillStyle='#000'; ctx.fillRect(bx-4,by-4,bw+8,bh+8);
+    ctx.fillStyle='#140000'; ctx.fillRect(bx,by,bw,bh);
+    const fw=(boss.hp/boss.maxHP*bw)|0;
+    ctx.fillStyle=boss.phase===2?'#BB1808':'#771808';
+    ctx.fillRect(bx,by,fw,bh);
+    ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,fw,2);
+    // Phase split marker
+    if(boss.phase===1){
+      ctx.fillStyle='#440000'; ctx.fillRect(bx+(bw/2)|0,by,2,bh);
+    }
+    // Name label (black box below bar)
+    ctx.fillStyle='#000'; ctx.fillRect(bx,by+bh+2,bw,12);
+    ctx.fillStyle='#0a0000'; ctx.fillRect(bx+1,by+bh+3,bw-2,10);
+    R.bold(`${ENEMY_TYPES.BOSS.name}${boss.phase===2?'  [ PHASE II ]':''}`,
+           SCREEN_W/2,by+bh+12,'#c8a060',10,'center');
+  },
+
+  _messages(){
+    const cX=SCREEN_W/2, cY=SCREEN_H/2;
+    for(const m of this.msgs){
+      const t=m.timer/m.max;
+      let a=Math.min(1,t*3)*Math.min(1,(1-t)*3); if(a<0) a=0;
+      let y=cY, sz=16, col='#c8a060';
+      switch(m.type){
+        case 'death':     sz=52; col='#CC2020'; y=cY-30; a=Math.min(1,(1-m.timer/m.max)*2.5); break;
+        case 'bonfire':   sz=26; col='#FFB040'; y=cY+45; break;
+        case 'boss':      sz=30; col='#c8a060'; break;
+        case 'boss_won':  sz=38; col='#FFD060'; break;
+        case 'zone':      sz=22; col='#8090a0'; y=cY+70; break;
+        case 'levelup':   sz=22; col='#c8a060'; y=cY+50; break;
+        case 'combo':     sz=16; col='#FFB020'; y=cY-50; break;
+        case 'rune':      sz=14; col='#c8a060'; y=cY-70; break;
+        case 'heal':      sz=14; col='#60FF60'; y=cY-90; break;
+        case 'item':      sz=14; col='#60C0FF'; y=cY-70; break;
+      }
+      ctx.globalAlpha=a;
+      if(sz>=22){
+        ctx.font=`bold ${sz}px monospace`; ctx.textAlign='center';
+        const tw=ctx.measureText(m.text).width;
+        R.rectA(cX-tw/2-14,y-sz,tw+28,sz+12,'rgba(0,0,0,0.58)',1);
+      }
+      R.shadow(m.text,cX,y,col,'#000000',sz,'center');
+      ctx.globalAlpha=1;
+    }
+  },
+
+  _minimap(){
+    const mw=100, mh=66, mx=SCREEN_W-mw-8, my=36;
+    const scx=mw/(WORLD_W*TILE_SIZE), scy=mh/(WORLD_H*TILE_SIZE);
+    // GBC black border panel
+    ctx.fillStyle='#000'; ctx.fillRect(mx-2,my-2,mw+4,mh+4);
+    ctx.fillStyle='#060606'; ctx.fillRect(mx,my,mw,mh);
+    // Zone fills (pixel-crisp integer rects)
+    for(const zid of GS.discoveredZones){
+      const z=ZONES[zid]; if(!z) continue;
+      const b=z.bounds;
+      ctx.globalAlpha=0.9; ctx.fillStyle=z.ambientColor||'#1a1a1a';
+      ctx.fillRect(mx+b.x*TILE_SIZE*scx|0, my+b.y*TILE_SIZE*scy|0,
+                   b.w*TILE_SIZE*scx|0, b.h*TILE_SIZE*scy|0);
+    }
+    ctx.globalAlpha=1;
+    // Enemy 2×2 dots
+    for(const e of GS.enemies){
+      if(e.isDead) continue;
+      const ex=mx+e.x*scx|0, ey=my+e.y*scy|0;
+      if(ex>mx&&ex<mx+mw&&ey>my&&ey<my+mh){
+        ctx.fillStyle=e.isBoss?'#FF1000':'#802010';
+        ctx.fillRect(ex-1,ey-1,3,3);
+      }
+    }
+    // Bonfire dots
+    for(const bf of GS.bonfires){
+      if(!bf.lit) continue;
+      ctx.fillStyle='#FF5010';
+      ctx.fillRect(mx+bf.x*scx-1|0,my+bf.y*scy-1|0,3,3);
+    }
+    // Bloodstain
+    const p=GS.player;
+    if(p.bloodstainX!==null){
+      ctx.fillStyle='#770000';
+      ctx.fillRect(mx+p.bloodstainX*scx-1|0,my+p.bloodstainY*scy-1|0,3,3);
+    }
+    // Player dot (bright 3×3)
+    ctx.fillStyle='#FFD040';
+    ctx.fillRect(mx+p.x*scx-1|0,my+p.y*scy-1|0,3,3);
+    // Zone name label below map
+    const zn=ZONES[GS.currentZone];
+    if(zn){
+      ctx.fillStyle='#000'; ctx.fillRect(mx-2,my+mh+2,mw+4,11);
+      R.text(zn.name,mx+mw/2,my+mh+10,'#484848',8,'center');
+    }
+  },
+
+  // Bonfire rest full-screen overlay
+  drawBonfireRest(){
+    const frac=Math.min(1,(2.5-GS.bonfireRestTimer)/0.5);
+    const fadeOut=GS.bonfireRestTimer<0.5 ? GS.bonfireRestTimer/0.5 : 1;
+    const a=frac*fadeOut*0.82;
+    R.rectA(0,0,SCREEN_W,SCREEN_H,'#000000',a);
+    if(frac>0.5){
+      const ta=Math.min(1,(frac-0.5)*2)*fadeOut;
+      ctx.globalAlpha=ta;
+      R.shadow('YOU HAVE RESTED', SCREEN_W/2, SCREEN_H/2-18, '#c8a060','#000',28,'center');
+      R.shadow(GS.bonfireRestName, SCREEN_W/2, SCREEN_H/2+22, '#FFB040','#000',18,'center');
+      ctx.globalAlpha=1;
+    }
+  },
+
+  // Pause menu overlay
+  drawPause(){
+    R.rectA(0,0,SCREEN_W,SCREEN_H,'#000000',0.72);
+    const cx=SCREEN_W/2, cy=SCREEN_H/2;
+    R.shadow('PAUSED', cx, cy-80, '#c8a060','#000',36,'center');
+    const controls=[
+      ['WASD / Arrows','Move'],
+      ['J / Z',        'Light Attack'],
+      ['K / X',        'Heavy Attack'],
+      ['Space',        'Roll (i-frames)'],
+      ['E',            'Interact / Rest'],
+      ['F',            'Flask (heal)'],
+      ['Esc',          'Pause'],
+    ];
+    const rowH=26, startY=cy-36;
+    for(let i=0;i<controls.length;i++){
+      const y=startY+i*rowH;
+      R.shadow(controls[i][0], cx-10, y, '#c8a060','#000',14,'right');
+      R.shadow(controls[i][1], cx+14, y, '#aaaaaa','#000',14,'left');
+    }
+    R.shadow('Press Esc to resume', cx, cy+120, '#606060','#000',12,'center');
+  },
+
+  // Title screen — no linear/radial gradients, no arcs
+  drawTitle(){
+    const now=Date.now();
+    R.rect(0,0,SCREEN_W,SCREEN_H,'#060402');
+    // Stepped overlay bands (no gradient)
+    ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H*0.18|0);
+    ctx.fillStyle='rgba(0,0,0,0.20)'; ctx.fillRect(0,SCREEN_H*0.18|0,SCREEN_W,SCREEN_H*0.40|0);
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,SCREEN_H*0.72|0,SCREEN_W,SCREEN_H*0.28|0);
+
+    // Horizontal rules — solid 1px pixel lines (not gradient strokes)
+    ctx.fillStyle='#b08830';
+    ctx.fillRect(SCREEN_W*0.10|0, SCREEN_H*0.32|0, SCREEN_W*0.80|0, 1);
+    ctx.fillRect(SCREEN_W*0.10|0, SCREEN_H*0.72|0, SCREEN_W*0.80|0, 1);
+    // Fade corners with bg color
+    ctx.fillStyle='#060402';
+    ctx.fillRect(0,                 SCREEN_H*0.32|0, SCREEN_W*0.12|0, 1);
+    ctx.fillRect(SCREEN_W*0.88|0,   SCREEN_H*0.32|0, SCREEN_W*0.12|0, 1);
+    ctx.fillRect(0,                 SCREEN_H*0.72|0, SCREEN_W*0.12|0, 1);
+    ctx.fillRect(SCREEN_W*0.88|0,   SCREEN_H*0.72|0, SCREEN_W*0.12|0, 1);
+
+    // Title (integer blink steps instead of smooth sin)
+    const pulse=(now/800|0)%16>1?1.0:0.88;
+    ctx.globalAlpha=pulse;
+    R.shadow('ASHEN REALM', SCREEN_W/2, SCREEN_H*0.26|0, '#c8a060','#000000',56,'center');
+    ctx.globalAlpha=1;
+
+    // Subtitle
+    R.shadow('A Land Swallowed by Cinders', SCREEN_W/2, SCREEN_H*0.35|0, '#686868','#000',13,'center');
+
+    // Lore blurb
+    const lore=[
+      'The fires have faded. The Ashen King stirs in his crumbling throne.',
+      'Walk the ruins, venture into the darkroot, breach the castle walls.',
+      'Seek the bonfires. Recover your runes. Endure.',
+    ];
+    for(let i=0;i<lore.length;i++)
+      R.text(lore[i], SCREEN_W/2, SCREEN_H*0.49|0+i*18, '#484848', 11, 'center');
+
+    // Controls box (GBC panel — thick black border)
+    const controls=[
+      ['WASD / Arrows','Move'],['J','Light Attack'],['K','Heavy Attack'],
+      ['Space','Roll (i-frames)'],['E','Interact / Recover Runes'],['F','Use Flask'],
+    ];
+    const cx0=(SCREEN_W/2-128)|0, cy0=SCREEN_H*0.62|0;
+    const boxH=controls.length*17+22;
+    ctx.fillStyle='#000'; ctx.fillRect(cx0-8,cy0-20,266,boxH+4);
+    ctx.fillStyle='#080604'; ctx.fillRect(cx0-6,cy0-18,262,boxH);
+    R.text('CONTROLS',SCREEN_W/2,cy0-5,'#705030',9,'center');
+    for(let i=0;i<controls.length;i++){
+      R.bold(controls[i][0], cx0+6,  cy0+11+i*17, '#c8a060', 10, 'left');
+      R.text(controls[i][1], cx0+148, cy0+11+i*17, '#607080', 10, 'left');
+    }
+
+    // Press any key — frame-stepped blink
+    const blink=(now/500|0)%2===0;
+    if(blink) R.shadow('— PRESS ANY KEY TO BEGIN —', SCREEN_W/2, SCREEN_H*0.88|0, '#c8a060','#000',14,'center');
+
+    R.vignette();
+  },
+};
+
+// ============================================================
+// MAIN LOOP
+// ============================================================
+let lastT=0, fps=0, fpsCtr=0, fpsT=0;
+
+function loop(ts){
+  const dt=Math.min((ts-lastT)/1000, 0.05); lastT=ts;
+  GS.time+=dt; fpsCtr++; fpsT+=dt;
+  if(fpsT>=1){ fps=fpsCtr; fpsCtr=0; fpsT=0; }
+
+  // ---- UPDATE ----
+  ScreenFX.update(dt);
+  DmgNums.update(dt);
+
+  if(GS.phase==='title'){
+    Particles.update(dt);
+    // Ambient embers on title
+    if(Math.random()<0.15) Particles.embers(Math.random()*SCREEN_W+Camera.x, SCREEN_H+Camera.y+20, 1);
+    if(Input.anyKey()){ GS.phase='playing'; UI.msg('Crumbling Ruins','zone',3); }
+  } else if(GS.phase==='bonfire_rest'){
+    GS.bonfireRestTimer-=dt;
+    Particles.update(dt);
+    Bonfires.update(dt);
+    if(GS.bonfireRestTimer<=0) GS.phase='playing';
+  } else if(GS.phase==='paused'){
+    if(Input.just('Escape')) GS.phase='playing';
+  } else if(GS.phase==='equipment'){
+    Equipment.handleInput();
+    if(Input.just('Tab')||Input.just('Escape')) GS.phase='playing';
+  } else if(GS.phase==='playing'){
+    if(Input.just('Escape')){ GS.phase='paused'; }
+    if(Input.just('Tab')){ GS.phase='equipment'; GS.player.equipCursor=0; }
+    Camera.update(dt);
+    Player.update(dt);
+    Enemies.update(dt);
+    Village.update(dt);
+    Quest.update(dt);
+    Bonfires.update(dt);
+    Particles.update(dt);
+    UI.update(dt);
+  }
+
+  // ---- DRAW ----
+  if(GS.phase==='title'){
+    UI.drawTitle();
+    Particles.draw(0,0);
+  } else {
+    const cx=Camera.x, cy=Camera.y;
+    ctx.fillStyle='#080808'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+
+    ScreenFX.apply();
+    World.draw(cx,cy);
+    Bonfires.draw(cx,cy);
+    Chests.draw(cx,cy);
+    Village.draw(cx,cy);
+    Quest.draw(cx,cy);
+    Enemies.draw(cx,cy);
+    Particles.draw(cx,cy);
+    Player.draw(cx,cy);
+    DmgNums.draw(cx,cy);
+    ScreenFX.restore();
+
+    R.vignette();
+    // Zone ambient tint
+    const zt=ZONES[GS.currentZone];
+    if(zt&&zt.fogTint){ ctx.fillStyle=zt.fogTint; ctx.fillRect(0,0,SCREEN_W,SCREEN_H); }
+
+    ScreenFX.drawFlash();
+
+    if(GS.phase==='bonfire_rest') UI.drawBonfireRest();
+    if(GS.phase==='paused')    UI.drawPause();
+    else if(GS.phase==='equipment') Equipment.draw();
+    else UI.draw();
+  }
+
+  drawScanlines();
+  R.text(`${fps}fps`, 4, SCREEN_H-4, '#252525', 9);
+  Input.clear();
+  requestAnimationFrame(loop);
+}
+
+// ============================================================
+// INIT
+// ============================================================
+function init(){
+  Input.init();
+  World.generate();
+  Bonfires.init();
+  Chests.init();
+  Village.init();
+  Quest.init();
+  Enemies.init();
+  Camera.x=GS.player.x-SCREEN_W/2;
+  Camera.y=GS.player.y-SCREEN_H/2;
+  // Pre-warm title particle embers
+  for(let i=0;i<30;i++) Particles.embers(Math.random()*SCREEN_W, Math.random()*SCREEN_H, 1);
+  requestAnimationFrame(ts=>{ lastT=ts; requestAnimationFrame(loop); });
+}
+
+window.addEventListener('load', init);
+</script>
+</body>
+</html>
