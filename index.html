@@ -366,14 +366,19 @@ const R = {
     ctx.fillStyle='#000'; ctx.fillRect(x-2,y-2,w+4,h+4);
     ctx.fillStyle=bg; ctx.fillRect(x,y,w,h);
   },
-  // Stepped pixel vignette — no gradients
+  // Stepped pixel vignette — dark oppressive edges
   vignette(){
     const S=SCREEN_W, H=SCREEN_H;
-    ctx.fillStyle='rgba(0,0,0,0.60)'; ctx.fillRect(0,0,S,16); ctx.fillRect(0,H-16,S,16);
-    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(0,16,S,10); ctx.fillRect(0,H-26,S,10);
-    ctx.fillStyle='rgba(0,0,0,0.15)'; ctx.fillRect(0,26,S,10); ctx.fillRect(0,H-36,S,10);
-    ctx.fillStyle='rgba(0,0,0,0.60)'; ctx.fillRect(0,0,16,H); ctx.fillRect(S-16,0,16,H);
-    ctx.fillStyle='rgba(0,0,0,0.35)'; ctx.fillRect(16,0,10,H); ctx.fillRect(S-26,0,10,H);
+    // Top / bottom bands — heavy darkness
+    ctx.fillStyle='rgba(0,0,0,0.80)'; ctx.fillRect(0,0,S,20); ctx.fillRect(0,H-20,S,20);
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,20,S,14); ctx.fillRect(0,H-34,S,14);
+    ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.fillRect(0,34,S,12); ctx.fillRect(0,H-46,S,12);
+    ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(0,46,S,12); ctx.fillRect(0,H-58,S,12);
+    // Left / right bands — heavy darkness
+    ctx.fillStyle='rgba(0,0,0,0.80)'; ctx.fillRect(0,0,20,H); ctx.fillRect(S-20,0,20,H);
+    ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(20,0,14,H); ctx.fillRect(S-34,0,14,H);
+    ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.fillRect(34,0,12,H); ctx.fillRect(S-46,0,12,H);
+    ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(46,0,12,H); ctx.fillRect(S-58,0,12,H);
   },
 };
 
@@ -810,292 +815,331 @@ const World = {
   },
 
   _drawTile(tile,sx,sy,tx,ty,now){
-    // Terraria-style: chunky tiles, bright earthy palette, strong edge shadows, pixel texture
+    // Dark medieval pixel art — Elden Ring tone, Terraria chunky style
+    // Near-black 1px border on every tile, muted weathered palette
     const S=TILE_SIZE; // 32px
     switch(tile){
 
-      // ---- Generic void / impassable ----
+      // ---- Void / impassable ----
       case T.FLOOR:
-        ctx.fillStyle='#1a1612'; ctx.fillRect(sx,sy,S,S);
-        break;
       case T.WALL:
-        // Deep void — very dark, barely visible
-        ctx.fillStyle='#080808'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#050505'; ctx.fillRect(sx,sy,S,S);
         break;
 
-      // ---- Crumbling Ruins — sandy tan stone with warm cracks ----
+      // ---- Crumbling Ruins — ashy sand stone, ancient & crumbling ----
       case T.RUINS_FLOOR:{
-        const base=((tx+ty)%2===0)?'#7a6840':'#8a7448';
+        const base=((tx+ty)%2===0)?'#3a3028':'#342a22';
         ctx.fillStyle=base; ctx.fillRect(sx,sy,S,S);
-        // Edge shadow (depth illusion — Terraria style)
-        ctx.fillStyle='rgba(0,0,0,0.22)';
-        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy,2,S);
-        // Stone tile grid
-        ctx.fillStyle='rgba(0,0,0,0.18)';
+        // 1px near-black border
+        ctx.fillStyle='#0a0808';
         ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
-        ctx.fillRect(sx,sy+16,S,1); ctx.fillRect(sx+16,sy,1,S);
-        // Bright face highlight top-left
-        ctx.fillStyle='rgba(255,240,200,0.12)';
-        ctx.fillRect(sx+2,sy+2,14,1); ctx.fillRect(sx+2,sy+2,1,6);
-        // Random crack detail
-        if((tx*7+ty*3)%11===0){
-          ctx.fillStyle='#503a28';
-          ctx.fillRect(sx+8,sy+10,1,8); ctx.fillRect(sx+9,sy+16,4,1);
-        }
-        if((tx*3+ty*9)%17===0){
-          ctx.fillStyle='#503a28';
-          ctx.fillRect(sx+18,sy+6,1,6); ctx.fillRect(sx+14,sy+10,5,1);
-        }
-        break;}
-      case T.RUINS_WALL:{
-        // Warm tan ashlar blocks — Terraria brick look
-        ctx.fillStyle='#604830'; ctx.fillRect(sx,sy,S,S);
-        // Mortar lines (dark)
-        ctx.fillStyle='#3a2818';
-        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy+14,S,2); ctx.fillRect(sx,sy+28,S,2);
-        // Brick rows (offset every other row)
-        const off=((ty%2)===0)?0:8;
-        ctx.fillStyle='#7a6040';
-        ctx.fillRect(sx+off+2, sy+2,  12,10);
-        ctx.fillRect(sx+off+18,sy+2,  10,10);
-        ctx.fillRect(sx+off+2, sy+16, 14,10);
-        ctx.fillRect(sx+off+20,sy+16,  8,10);
-        // Highlight each brick top
-        ctx.fillStyle='#9a8060';
-        ctx.fillRect(sx+off+2, sy+2,  12,1);
-        ctx.fillRect(sx+off+18,sy+2,  10,1);
-        ctx.fillRect(sx+off+2, sy+16, 14,1);
-        ctx.fillRect(sx+off+20,sy+16,  8,1);
-        // Deep shadow bottom
-        ctx.fillStyle='rgba(0,0,0,0.35)';
-        ctx.fillRect(sx,sy+28,S,4);
-        break;}
-
-      // ---- Darkroot Forest — bright Terraria green grass / tree ----
-      case T.FOREST_FLOOR:{
-        // Vivid grass — Terraria forest floor
-        const g=((tx+ty)%3===0)?'#3a8020':'#2e7018';
-        ctx.fillStyle=g; ctx.fillRect(sx,sy,S,S);
-        // Dirt undertone at bottom
-        ctx.fillStyle='#5a3e18'; ctx.fillRect(sx,sy+22,S,10);
-        // Edge shading
-        ctx.fillStyle='rgba(0,0,0,0.20)';
-        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
-        // Grass blades (small upward rects)
-        if((tx*5+ty*7)%7===0){
-          ctx.fillStyle='#58b030';
-          ctx.fillRect(sx+4, sy+14,2,8);
-          ctx.fillRect(sx+10,sy+10,2,10);
-          ctx.fillRect(sx+20,sy+16,2,6);
-          ctx.fillRect(sx+26,sy+12,2,8);
-        }
-        if((tx*11+ty*3)%9===0){
-          ctx.fillStyle='#4aa028';
-          ctx.fillRect(sx+14,sy+12,2,9);
-          ctx.fillRect(sx+22,sy+14,2,7);
-        }
-        // Top highlight
-        ctx.fillStyle='rgba(120,220,80,0.14)';
-        ctx.fillRect(sx+2,sy+14,S-4,1);
-        break;}
-      case T.FOREST_TREE:{
-        // Dark undergrowth base
-        ctx.fillStyle='#1a2a10'; ctx.fillRect(sx,sy,S,S);
-        // Trunk — warm brown, chunky
-        ctx.fillStyle='#6a3a10'; ctx.fillRect(sx+11,sy+16,10,16);
-        ctx.fillStyle='#8a5020'; ctx.fillRect(sx+12,sy+16,6,14); // highlight face
-        ctx.fillStyle='#3a1a08'; ctx.fillRect(sx+11,sy+28,10,4); // root shadow
-        // Canopy — stacked rectangular pixel blocks (Terraria style)
-        // Bottom layer (wide, dark green)
-        ctx.fillStyle='#1a5010'; ctx.fillRect(sx+2,sy+10,28,14);
-        // Mid layer
-        ctx.fillStyle='#226814'; ctx.fillRect(sx+4,sy+6,24,10);
-        // Upper layer
-        ctx.fillStyle='#2a8018'; ctx.fillRect(sx+6,sy+2,20,8);
-        // Top peak
-        ctx.fillStyle='#38a020'; ctx.fillRect(sx+10,sy+0,12,4);
-        // Leaf highlight (bright pixels on top-left of each layer)
-        ctx.fillStyle='#50c830';
-        ctx.fillRect(sx+4, sy+6,  4,2);
-        ctx.fillRect(sx+8, sy+2,  4,2);
-        ctx.fillRect(sx+4, sy+10, 6,1);
-        // Shadow underside of canopy
+        // Offset stone tile grid
         ctx.fillStyle='rgba(0,0,0,0.30)';
-        ctx.fillRect(sx+2,sy+22,28,3);
+        ctx.fillRect(sx,sy+16,S,1); ctx.fillRect(sx+16,sy,1,S);
+        // Dim highlight (tarnished stone face)
+        ctx.fillStyle='rgba(200,180,140,0.07)';
+        ctx.fillRect(sx+2,sy+2,14,1); ctx.fillRect(sx+2,sy+2,1,7);
+        // Deep shadow bottom/right
+        ctx.fillStyle='rgba(0,0,0,0.35)';
+        ctx.fillRect(sx,sy+26,S,6); ctx.fillRect(sx+26,sy,6,S);
+        // Aged cracks
+        if((tx*7+ty*3)%9===0){
+          ctx.fillStyle='#100c08';
+          ctx.fillRect(sx+7,sy+9,1,9); ctx.fillRect(sx+8,sy+16,5,1);
+        }
+        if((tx*3+ty*11)%13===0){
+          ctx.fillStyle='#100c08';
+          ctx.fillRect(sx+20,sy+5,1,7); ctx.fillRect(sx+16,sy+9,5,1);
+        }
+        // Occasional dust/ash fleck
+        if((tx*13+ty*7)%17===0){
+          ctx.fillStyle='rgba(220,200,160,0.08)';
+          ctx.fillRect(sx+14,sy+20,3,2);
+        }
         break;}
 
-      // ---- Castle Approach — cool dark gray flagstone ----
+      case T.RUINS_WALL:{
+        // Dark ashlar — weathered crumbling stone blocks
+        ctx.fillStyle='#1e1810'; ctx.fillRect(sx,sy,S,S);
+        // 1px black border
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Mortar lines (near-black)
+        ctx.fillStyle='#0c0a06';
+        ctx.fillRect(sx,sy+14,S,2); ctx.fillRect(sx,sy+28,S,2);
+        // Offset brick rows
+        const or2=((ty%2)===0)?0:8;
+        ctx.fillStyle='#2e2418';
+        ctx.fillRect(sx+or2+1, sy+2,  13,10);
+        ctx.fillRect(sx+or2+18,sy+2,  11,10);
+        ctx.fillRect(sx+or2+1, sy+16, 15,10);
+        ctx.fillRect(sx+or2+20,sy+16,  9,10);
+        // Dim highlight (tarnished face)
+        ctx.fillStyle='#3c3020';
+        ctx.fillRect(sx+or2+1, sy+2,  13,1);
+        ctx.fillRect(sx+or2+18,sy+2,  11,1);
+        ctx.fillRect(sx+or2+1, sy+16, 15,1);
+        ctx.fillRect(sx+or2+20,sy+16,  9,1);
+        // Heavy bottom shadow (crumbling base)
+        ctx.fillStyle='rgba(0,0,0,0.55)';
+        ctx.fillRect(sx,sy+28,S,4);
+        // Moss veins on some bricks
+        if((tx*5+ty*9)%15===0){
+          ctx.fillStyle='#142010';
+          ctx.fillRect(sx+or2+2,sy+5,3,3); ctx.fillRect(sx+or2+8,sy+20,4,2);
+        }
+        break;}
+
+      // ---- Darkroot Forest — dark mossy ground, dead gnarled trees ----
+      case T.FOREST_FLOOR:{
+        // Dark mossy soil — no bright Terraria green
+        const g=((tx+ty)%3===0)?'#1a2810':'#16200e';
+        ctx.fillStyle=g; ctx.fillRect(sx,sy,S,S);
+        // 1px near-black border
+        ctx.fillStyle='#060806';
+        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Dark soil beneath
+        ctx.fillStyle='#0e0a06'; ctx.fillRect(sx,sy+24,S,8);
+        // Deep edge shadow
+        ctx.fillStyle='rgba(0,0,0,0.40)';
+        ctx.fillRect(sx+26,sy,6,S); ctx.fillRect(sx,sy+26,S,6);
+        // Sparse dead grass blades — muted olive
+        if((tx*5+ty*7)%7===0){
+          ctx.fillStyle='#283818';
+          ctx.fillRect(sx+4, sy+14,2,9);
+          ctx.fillRect(sx+12,sy+10,2,11);
+          ctx.fillRect(sx+22,sy+16,2,7);
+        }
+        if((tx*11+ty*3)%11===0){
+          ctx.fillStyle='#1e2e10';
+          ctx.fillRect(sx+16,sy+12,2,10);
+          ctx.fillRect(sx+26,sy+18,2,6);
+        }
+        // Faint rot/decay patches
+        if((tx*9+ty*5)%19===0){
+          ctx.fillStyle='rgba(30,20,10,0.30)';
+          ctx.fillRect(sx+6,sy+16,8,6);
+        }
+        break;}
+
+      case T.FOREST_TREE:{
+        // Near-black void behind tree
+        ctx.fillStyle='#060806'; ctx.fillRect(sx,sy,S,S);
+        // 1px black outline
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Gnarled dark trunk
+        ctx.fillStyle='#1c1008'; ctx.fillRect(sx+11,sy+16,10,16);
+        ctx.fillStyle='#2a1a0c'; ctx.fillRect(sx+12,sy+17,6,13); // face
+        ctx.fillStyle='#0e0806'; ctx.fillRect(sx+11,sy+28,10,4); // root shadow
+        // Bark texture detail
+        ctx.fillStyle='#0e0806';
+        ctx.fillRect(sx+12,sy+18,1,8); ctx.fillRect(sx+16,sy+20,1,6);
+        // Dead canopy — muted olive/dark green stacked blocks
+        ctx.fillStyle='#0e1a08'; ctx.fillRect(sx+2,sy+10,28,14);
+        ctx.fillStyle='#121e0a'; ctx.fillRect(sx+4,sy+6,24,10);
+        ctx.fillStyle='#162208'; ctx.fillRect(sx+6,sy+2,20,8);
+        ctx.fillStyle='#0e1806'; ctx.fillRect(sx+10,sy+0,12,5);
+        // Dim leaf highlight (barely visible — dying foliage)
+        ctx.fillStyle='#1e3010';
+        ctx.fillRect(sx+4, sy+6,  4,1);
+        ctx.fillRect(sx+8, sy+2,  4,1);
+        ctx.fillRect(sx+4, sy+10, 6,1);
+        // Heavy canopy shadow
+        ctx.fillStyle='rgba(0,0,0,0.50)';
+        ctx.fillRect(sx+2,sy+22,28,4);
+        break;}
+
+      // ---- Castle Approach — cold dark flagstone ----
       case T.CASTLE_FLOOR:{
-        const c=((tx+ty)%2===0)?'#363636':'#303030';
+        const c=((tx+ty)%2===0)?'#1e1e1e':'#181818';
         ctx.fillStyle=c; ctx.fillRect(sx,sy,S,S);
-        // Flagstone grid
-        ctx.fillStyle='#1e1e1e';
+        // 1px black border
+        ctx.fillStyle='#000';
         ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
         ctx.fillRect(sx,sy+16,S,1); ctx.fillRect(sx+16,sy,1,S);
-        // Edge shadow
-        ctx.fillStyle='rgba(0,0,0,0.25)';
-        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy,2,S);
-        // Face highlight
-        ctx.fillStyle='rgba(255,255,255,0.06)';
-        ctx.fillRect(sx+2,sy+2,S-4,1); ctx.fillRect(sx+2,sy+2,1,S-4);
-        break;}
-      case T.CASTLE_WALL:{
-        // Dark gray stone blocks — strong Terraria look
-        ctx.fillStyle='#282828'; ctx.fillRect(sx,sy,S,S);
-        // Mortar
-        ctx.fillStyle='#141414';
-        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy+15,S,2); ctx.fillRect(sx,sy+28,S,2);
-        // Alternating brick offset
-        const oc=((ty%2)===0)?0:8;
-        ctx.fillStyle='#3c3c3c';
-        ctx.fillRect(sx+oc+2,  sy+2, 12,11);
-        ctx.fillRect(sx+oc+18, sy+2, 10,11);
-        ctx.fillRect(sx+oc+2,  sy+17,14,9);
-        ctx.fillRect(sx+oc+20, sy+17, 8,9);
-        // Bright highlight top of each brick
-        ctx.fillStyle='#505050';
-        ctx.fillRect(sx+oc+2,  sy+2,  12,1);
-        ctx.fillRect(sx+oc+18, sy+2,  10,1);
-        ctx.fillRect(sx+oc+2,  sy+17, 14,1);
-        ctx.fillRect(sx+oc+20, sy+17,  8,1);
-        // Heavy shadow on bottom
+        // Deep edge shadow
         ctx.fillStyle='rgba(0,0,0,0.45)';
+        ctx.fillRect(sx+26,sy,6,S); ctx.fillRect(sx,sy+26,S,6);
+        // Faint face highlight
+        ctx.fillStyle='rgba(255,255,255,0.04)';
+        ctx.fillRect(sx+2,sy+2,S-4,1); ctx.fillRect(sx+2,sy+2,1,S-4);
+        // Occasional blood stain
+        if((tx*7+ty*11)%23===0){
+          ctx.fillStyle='rgba(80,10,10,0.25)';
+          ctx.fillRect(sx+8,sy+10,10,6);
+        }
+        break;}
+
+      case T.CASTLE_WALL:{
+        // Pitch-dark cold stone — imposing fortress blocks
+        ctx.fillStyle='#101010'; ctx.fillRect(sx,sy,S,S);
+        // 1px black border
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Mortar (near-invisible)
+        ctx.fillStyle='#080808';
+        ctx.fillRect(sx,sy+15,S,2); ctx.fillRect(sx,sy+28,S,2);
+        // Offset blocks
+        const ow2=((ty%2)===0)?0:8;
+        ctx.fillStyle='#1c1c1c';
+        ctx.fillRect(sx+ow2+1, sy+2,  13,11);
+        ctx.fillRect(sx+ow2+18,sy+2,  11,11);
+        ctx.fillRect(sx+ow2+1, sy+17, 14, 9);
+        ctx.fillRect(sx+ow2+19,sy+17,  9, 9);
+        // Stone face highlight (barely perceptible)
+        ctx.fillStyle='#282828';
+        ctx.fillRect(sx+ow2+1, sy+2,  13,1);
+        ctx.fillRect(sx+ow2+18,sy+2,  11,1);
+        // Deep bottom shadow
+        ctx.fillStyle='rgba(0,0,0,0.60)';
         ctx.fillRect(sx,sy+28,S,4);
         break;}
 
-      // ---- Fog Gate — animated purple void ----
+      // ---- Fog Gate — blood-red/dark purple void ----
       case T.FOG_GATE:{
-        ctx.fillStyle='#0e0618'; ctx.fillRect(sx,sy,S,S);
-        const frame=(now/160|0)%16;
-        ctx.fillStyle='rgba(100,40,200,0.60)'; ctx.fillRect(sx,sy,S,S);
-        ctx.fillStyle='rgba(140,60,240,0.40)';
+        ctx.fillStyle='#0a0408'; ctx.fillRect(sx,sy,S,S);
+        const frame=(now/180|0)%16;
+        // Deep crimson mist
+        ctx.fillStyle='rgba(80,10,20,0.65)'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='rgba(120,20,30,0.40)';
         ctx.fillRect(sx+2, sy+(frame)%32,      6,18);
         ctx.fillRect(sx+14,sy+(frame+10)%32,   6,14);
         ctx.fillRect(sx+24,sy+(frame+6)%32,    5,18);
-        ctx.fillStyle='rgba(200,120,255,0.22)';
+        ctx.fillStyle='rgba(180,40,50,0.20)';
         ctx.fillRect(sx+8, sy+(32-frame)%32,   4,12);
         ctx.fillRect(sx+20,sy+(32-frame+8)%32, 4,10);
-        // Edge glow
-        ctx.fillStyle='rgba(160,80,255,0.15)';
+        // Faint edge glow
+        ctx.fillStyle='rgba(150,20,30,0.20)';
         ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy+S-2,S,2);
         ctx.fillRect(sx,sy,2,S); ctx.fillRect(sx+S-2,sy,2,S);
         break;}
 
-      // ---- Boss Arena — dark crimson with ember glow ----
+      // ---- Boss Arena — scorched stone, dried blood cracks ----
       case T.BOSS_FLOOR:{
-        ctx.fillStyle='#1e0808'; ctx.fillRect(sx,sy,S,S);
-        // Flagstone grid (very faint)
-        ctx.fillStyle='#150606';
-        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        ctx.fillStyle='#120606'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        ctx.fillStyle='#0e0404';
         ctx.fillRect(sx,sy+16,S,1); ctx.fillRect(sx+16,sy,1,S);
-        // Ember glow on select tiles (Terraria hellstone style)
+        // Smoldering ember veins
         if((tx*3+ty*5)%6===0){
-          const hot=(now/400|0)%2;
-          ctx.fillStyle=hot?'rgba(220,80,10,0.22)':'rgba(180,50,8,0.14)';
+          const hot=(now/600|0)%2;
+          ctx.fillStyle=hot?'rgba(140,40,10,0.18)':'rgba(100,25,8,0.12)';
           ctx.fillRect(sx+4,sy+4,S-8,S-8);
-          // Lava crack
-          ctx.fillStyle=hot?'#e04010':'#b02808';
+          ctx.fillStyle=hot?'#601808':'#401008';
           ctx.fillRect(sx+12,sy+14,2,6); ctx.fillRect(sx+10,sy+18,6,2);
+        }
+        // Blood cracks
+        if((tx*11+ty*7)%17===0){
+          ctx.fillStyle='#300808';
+          ctx.fillRect(sx+6,sy+8,1,10); ctx.fillRect(sx+7,sy+14,6,1);
         }
         break;}
 
-      // ---- Water — bright animated Terraria blue ----
+      // ---- Water — dark murky river, not bright ----
       case T.WATER:{
-        const wf=(now/200|0)%4;
-        ctx.fillStyle='#1040a0'; ctx.fillRect(sx,sy,S,S);
-        // Animated highlight strips
-        ctx.fillStyle='rgba(40,100,220,0.70)'; ctx.fillRect(sx,sy,S,S);
-        const wy2=(ty*9+wf*5)%S;
-        ctx.fillStyle='rgba(80,160,255,0.55)';
-        ctx.fillRect(sx,sy+wy2,S,3); ctx.fillRect(sx,sy+(wy2+14)%S,S,3);
-        ctx.fillStyle='rgba(140,210,255,0.30)';
-        ctx.fillRect(sx,sy+(wy2+7)%S,S,1);
-        // Foam edge (top of tile)
-        ctx.fillStyle='rgba(200,240,255,0.28)';
-        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy,2,S);
-        // Darker depth at bottom
-        ctx.fillStyle='rgba(0,20,80,0.25)';
-        ctx.fillRect(sx,sy+24,S,8);
+        const wf=(now/280|0)%4;
+        // Dark murky base
+        ctx.fillStyle='#060e18'; ctx.fillRect(sx,sy,S,S);
+        // 1px near-black border
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Murky dark blue-gray overlay
+        ctx.fillStyle='rgba(15,30,50,0.80)'; ctx.fillRect(sx,sy,S,S);
+        // Slow dim ripples
+        const wr=(ty*11+wf*6)%S;
+        ctx.fillStyle='rgba(30,60,90,0.45)';
+        ctx.fillRect(sx,sy+wr,S,2); ctx.fillRect(sx,sy+(wr+14)%S,S,2);
+        ctx.fillStyle='rgba(50,90,120,0.20)';
+        ctx.fillRect(sx,sy+(wr+7)%S,S,1);
+        // Dark depth at bottom
+        ctx.fillStyle='rgba(0,5,15,0.40)';
+        ctx.fillRect(sx,sy+22,S,10);
+        // Faint scum/foam edge
+        ctx.fillStyle='rgba(60,80,90,0.15)';
+        ctx.fillRect(sx,sy,S,2);
         break;}
 
-      // ---- Village Floor — warm cobblestone ----
+      // ---- Village Floor — worn, dirty cobblestone ----
       case T.VILLAGE_FLOOR:{
-        const vc=((tx+ty)%2===0)?'#9a7c50':'#8a6c40';
+        const vc=((tx+ty)%2===0)?'#2e2618':'#282014';
         ctx.fillStyle=vc; ctx.fillRect(sx,sy,S,S);
-        // Cobblestone mortar grid
-        ctx.fillStyle='#5a4020';
-        ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // 1px black border
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Cobblestone mortar
+        ctx.fillStyle='#16100a';
         ctx.fillRect(sx,sy+16,S,1); ctx.fillRect(sx+16,sy,1,S);
-        // Individual cobble stones
-        ctx.fillStyle='#b09060';
+        // Worn individual stones
+        ctx.fillStyle='#3a3020';
         ctx.fillRect(sx+2, sy+2, 13,13);
         ctx.fillRect(sx+18,sy+2, 12,13);
         ctx.fillRect(sx+2, sy+18,12,12);
         ctx.fillRect(sx+18,sy+18,12,12);
-        // Highlight top-left of each stone
-        ctx.fillStyle='#d0b080';
-        ctx.fillRect(sx+2, sy+2,  13,1); ctx.fillRect(sx+2, sy+2,  1,6);
-        ctx.fillRect(sx+18,sy+2,  12,1); ctx.fillRect(sx+18,sy+2,  1,6);
-        ctx.fillRect(sx+2, sy+18, 12,1); ctx.fillRect(sx+2, sy+18, 1,5);
-        ctx.fillRect(sx+18,sy+18, 12,1); ctx.fillRect(sx+18,sy+18, 1,5);
-        // Shadow bottom-right of each stone
-        ctx.fillStyle='rgba(0,0,0,0.20)';
-        ctx.fillRect(sx+3, sy+13, 13,2);
+        // Tarnished face highlight
+        ctx.fillStyle='#4a3e28';
+        ctx.fillRect(sx+2, sy+2,  13,1); ctx.fillRect(sx+2, sy+2,  1,5);
+        ctx.fillRect(sx+18,sy+2,  12,1); ctx.fillRect(sx+18,sy+2,  1,5);
+        // Deep shadow bottom-right
+        ctx.fillStyle='rgba(0,0,0,0.35)';
+        ctx.fillRect(sx+2, sy+13, 13,2);
         ctx.fillRect(sx+18,sy+13, 12,2);
+        // Grime patches
+        if((tx*9+ty*5)%21===0){
+          ctx.fillStyle='rgba(0,0,0,0.22)';
+          ctx.fillRect(sx+5,sy+5,5,4);
+        }
         break;}
 
-      // ---- Village Wall — warm wood/stone ----
+      // ---- Village Wall — dark weathered stone, ancient mortar ----
       case T.VILLAGE_WALL:{
-        ctx.fillStyle='#8a6030'; ctx.fillRect(sx,sy,S,S);
-        // Mortar
-        ctx.fillStyle='#4a2e10';
-        ctx.fillRect(sx,sy,S,2); ctx.fillRect(sx,sy+14,S,2); ctx.fillRect(sx,sy+28,S,2);
-        const ow=((ty%2)===0)?0:6;
-        // Warm stone bricks
-        ctx.fillStyle='#b07840';
-        ctx.fillRect(sx+ow+2, sy+2,  12,10);
-        ctx.fillRect(sx+ow+18,sy+2,  10,10);
-        ctx.fillRect(sx+ow+2, sy+16, 14,10);
-        ctx.fillRect(sx+ow+20,sy+16,  8,10);
-        // Highlight top
-        ctx.fillStyle='#d09c60';
-        ctx.fillRect(sx+ow+2, sy+2,  12,1);
-        ctx.fillRect(sx+ow+18,sy+2,  10,1);
-        ctx.fillRect(sx+ow+2, sy+16, 14,1);
-        ctx.fillRect(sx+ow+20,sy+16,  8,1);
-        // Shadow bottom
-        ctx.fillStyle='rgba(0,0,0,0.30)';
+        ctx.fillStyle='#201810'; ctx.fillRect(sx,sy,S,S);
+        // 1px black border
+        ctx.fillStyle='#000'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Mortar lines
+        ctx.fillStyle='#100c06';
+        ctx.fillRect(sx,sy+14,S,2); ctx.fillRect(sx,sy+28,S,2);
+        const ovw=((ty%2)===0)?0:6;
+        // Dark stone bricks
+        ctx.fillStyle='#302418';
+        ctx.fillRect(sx+ovw+1, sy+2,  13,10);
+        ctx.fillRect(sx+ovw+18,sy+2,  11,10);
+        ctx.fillRect(sx+ovw+1, sy+16, 14,10);
+        ctx.fillRect(sx+ovw+19,sy+16,  9,10);
+        // Dim top highlight
+        ctx.fillStyle='#3e3022';
+        ctx.fillRect(sx+ovw+1, sy+2,  13,1);
+        ctx.fillRect(sx+ovw+18,sy+2,  11,1);
+        ctx.fillRect(sx+ovw+1, sy+16, 14,1);
+        ctx.fillRect(sx+ovw+19,sy+16,  9,1);
+        // Heavy shadow
+        ctx.fillStyle='rgba(0,0,0,0.50)';
         ctx.fillRect(sx,sy+28,S,4);
         break;}
 
-      // ---- Graveyard Floor — dark damp earth ----
+      // ---- Graveyard Floor — sodden dark earth, dead moss ----
       case T.GRAVEYARD_FLOOR:{
-        const gc=((tx+ty)%3===0)?'#1e2a1c':'#243020';
+        const gc=((tx+ty)%3===0)?'#0e1210':'#0c100e';
         ctx.fillStyle=gc; ctx.fillRect(sx,sy,S,S);
-        // Edge grid (subtle)
-        ctx.fillStyle='rgba(0,0,0,0.22)';
+        // 1px near-black border
+        ctx.fillStyle='#050605';
         ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
-        // Mossy patches
-        if((tx*5+ty*11)%13===0){
-          ctx.fillStyle='#2e4828';
-          ctx.fillRect(sx+6, sy+8,  6,5); ctx.fillRect(sx+20,sy+18, 7,4);
-          ctx.fillStyle='#3a5c32';
-          ctx.fillRect(sx+7, sy+8,  4,2); ctx.fillRect(sx+21,sy+18, 5,1);
+        // Dead moss / rot patches
+        if((tx*5+ty*11)%11===0){
+          ctx.fillStyle='#162014';
+          ctx.fillRect(sx+5, sy+8,  7,5); ctx.fillRect(sx+20,sy+18, 8,4);
+          ctx.fillStyle='#0e160c';
+          ctx.fillRect(sx+6, sy+9,  4,2); ctx.fillRect(sx+21,sy+19, 5,1);
         }
         // Muddy cracks
-        if((tx*11+ty*3)%11===0){
-          ctx.fillStyle='#0e160e';
-          ctx.fillRect(sx+12,sy+10,1,8); ctx.fillRect(sx+10,sy+14,5,1);
+        if((tx*11+ty*3)%9===0){
+          ctx.fillStyle='#060806';
+          ctx.fillRect(sx+12,sy+9, 1,10); ctx.fillRect(sx+10,sy+15,5,1);
         }
-        // Dew highlight
-        if((tx*7+ty*13)%19===0){
-          ctx.fillStyle='rgba(100,180,100,0.10)';
-          ctx.fillRect(sx+4,sy+4,5,5);
+        // Wet sheen (barely visible)
+        if((tx*7+ty*13)%17===0){
+          ctx.fillStyle='rgba(30,60,40,0.08)';
+          ctx.fillRect(sx+4,sy+4,6,5);
         }
         break;}
 
       default:
-        ctx.fillStyle='#0a0a0a'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#040404'; ctx.fillRect(sx,sy,S,S);
     }
   },
 };
@@ -1232,14 +1276,16 @@ const Bonfires = {
       if(bf.lit){
         // Animated pixel flame (4-frame cycle via integer time)
         const frame=(now/100|0)%4;
-        // Terraria-style torch glow — concentric square rects fading out
-        ctx.globalAlpha=0.08; ctx.fillStyle='#FF9020'; ctx.fillRect(sx-48,sy-40,96,72);
-        ctx.globalAlpha=0.11; ctx.fillStyle='#FF7810'; ctx.fillRect(sx-36,sy-30,72,54);
-        ctx.globalAlpha=0.15; ctx.fillStyle='#FF6010'; ctx.fillRect(sx-24,sy-22,48,38);
-        ctx.globalAlpha=0.20; ctx.fillStyle='#FF5010'; ctx.fillRect(sx-16,sy-14,32,26);
+        // Ember glow — warm amber, the ONLY warm light in the dark world
+        // Largest ring very faint, innermost bright
+        ctx.globalAlpha=0.06; ctx.fillStyle='#c06010'; ctx.fillRect(sx-64,sy-52,128,90);
+        ctx.globalAlpha=0.10; ctx.fillStyle='#d07010'; ctx.fillRect(sx-48,sy-40,96,72);
+        ctx.globalAlpha=0.16; ctx.fillStyle='#e07810'; ctx.fillRect(sx-32,sy-28,64,52);
+        ctx.globalAlpha=0.24; ctx.fillStyle='#e88010'; ctx.fillRect(sx-20,sy-18,40,36);
+        ctx.globalAlpha=0.32; ctx.fillStyle='#f09010'; ctx.fillRect(sx-12,sy-10,24,22);
         ctx.globalAlpha=1;
         // Flame shapes per frame (outer orange)
-        ctx.fillStyle='#FF5010';
+        ctx.fillStyle='#c84008';
         const F=[
           [[sx-4,sy-4,8,6],[sx-3,sy-10,6,8],[sx-2,sy-16,4,8]],
           [[sx-5,sy-4,10,6],[sx-4,sy-10,8,8],[sx-2,sy-17,5,9]],
@@ -1247,13 +1293,13 @@ const Bonfires = {
           [[sx-5,sy-4,10,6],[sx-3,sy-10,7,8],[sx-2,sy-16,4,7]],
         ][frame];
         for(const[fx,fy,fw,fh] of F) ctx.fillRect(fx,fy,fw,fh);
-        // Inner flame (gold)
-        ctx.fillStyle='#FFB020';
+        // Inner flame (tarnished amber — not bright yellow)
+        ctx.fillStyle='#d07818';
         ctx.fillRect(sx-2,sy-4,4,4); ctx.fillRect(sx-2,sy-10,4,6); ctx.fillRect(sx-1,sy-14,2,5);
-        // Core (bright)
-        ctx.fillStyle='#FFE070';
+        // Core (deep gold, not white-hot)
+        ctx.fillStyle='#e89020';
         ctx.fillRect(sx-1,sy-6,2,4); ctx.fillRect(sx-1,sy-10,2,4);
-        ctx.fillStyle='#FFFFF0'; ctx.fillRect(sx-1,sy-12,2,2);
+        ctx.fillStyle='#f0a828'; ctx.fillRect(sx-1,sy-12,2,2);
       } else {
         // Unlit — ash pile
         ctx.fillStyle='#2a1a0a'; ctx.fillRect(sx-4,sy-2,8,4);
@@ -1650,102 +1696,124 @@ const Player = {
     ctx.fillStyle=p.isRolling?'#2a3a4a':'#404850';
     ctx.fillRect(sx-8,sy+2,6,10); ctx.fillRect(sx+2,sy+2,6,10);
 
-    // --- Derive colors from equipped armor ---
+    // --- Derive colors from equipped armor — dark iron / tarnished gold palette ---
     const eqArmor=p.equipment.armor;
-    let bodyMain, bodyShade, pauldronCol, legCol;
+    let bodyMain, pauldronCol, legCol, trimCol;
     if(eqArmor==='LEATHER_ARMOR'){
-      bodyMain  = p.isRolling?'#6a4830':p.isAttacking?'#9a6820':'#7a5838';
-      bodyShade = p.isAttacking?'#b07828':'#5a3820';
-      pauldronCol='#4a2810';
-      legCol    ='#4a3020';
+      bodyMain   = p.isAttacking?'#4a3010':'#382408';
+      pauldronCol= '#241608';
+      legCol     = '#241808';
+      trimCol    = '#7a5818';
     } else if(eqArmor==='CHAIN_MAIL'){
-      bodyMain  = p.isRolling?'#5a6068':p.isAttacking?'#9a8820':'#848c90';
-      bodyShade = p.isAttacking?'#b09828':'#606870';
-      pauldronCol='#505860';
-      legCol    ='#484e54';
+      bodyMain   = p.isAttacking?'#3a3c40':'#2e3034';
+      pauldronCol= '#222428';
+      legCol     = '#1e2022';
+      trimCol    = '#505458';
     } else if(eqArmor==='ASHEN_PLATE'){
-      bodyMain  = p.isRolling?'#303438':p.isAttacking?'#887010':'#3c4044';
-      bodyShade = p.isAttacking?'#a08820':'#28282e';
-      pauldronCol='#222226';
-      legCol    ='#2a2c30';
+      bodyMain   = p.isAttacking?'#282828':'#1e1e20';
+      pauldronCol= '#141416';
+      legCol     = '#161618';
+      trimCol    = '#8a7010'; // tarnished gold
     } else {
-      // Unarmored defaults
-      bodyMain  = p.isRolling?'#4a5a6a':p.isAttacking?'#8a7820':'#707880';
-      bodyShade = p.isAttacking?'#a09028':'#505860';
-      pauldronCol='#505860';
-      legCol    ='#404850';
+      // Unarmored — dark rags
+      bodyMain   = p.isAttacking?'#362c1e':'#2a2016';
+      pauldronCol= '#1e1810';
+      legCol     = '#1a1410';
+      trimCol    = '#503c18';
     }
 
-    // Legs (color overridden by armor)
-    ctx.fillStyle=p.isRolling?'#2a3a4a':legCol;
+    // Legs — dark iron greaves
+    ctx.fillStyle=p.isRolling?'#181818':legCol;
     ctx.fillRect(sx-8,sy+2,6,10); ctx.fillRect(sx+2,sy+2,6,10);
-    // Boot highlights
-    ctx.fillStyle='rgba(255,255,255,0.08)';
-    ctx.fillRect(sx-8,sy+2,6,1); ctx.fillRect(sx+2,sy+2,6,1);
+    // Black outline on legs
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-9,sy+2,1,10); ctx.fillRect(sx+8,sy+2,1,10);
+    ctx.fillRect(sx-8,sy+12,6,1); ctx.fillRect(sx+2,sy+12,6,1);
+    // Tarnished trim at boot top
+    ctx.fillStyle=trimCol; ctx.fillRect(sx-8,sy+2,6,1); ctx.fillRect(sx+2,sy+2,6,1);
 
-    // Torso / armor — wider, chunkier
+    // Torso / armor — dark iron, chunky
     ctx.fillStyle=bodyMain; ctx.fillRect(sx-10,sy-7,20,11);
-    // Chest highlight
-    ctx.fillStyle='rgba(255,255,255,0.10)'; ctx.fillRect(sx-8,sy-7,18,2);
-    // Pauldrons — bigger
+    // Black outline on torso
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-11,sy-7,1,11); ctx.fillRect(sx+10,sy-7,1,11);
+    ctx.fillRect(sx-10,sy-8,20,1); ctx.fillRect(sx-10,sy+4,20,1);
+    // Tarnished gold chest trim
+    ctx.fillStyle=trimCol;
+    ctx.fillRect(sx-10,sy-7,20,1); // top trim
+    ctx.fillRect(sx-10,sy+3,20,1); // bottom trim
+    // Pauldrons — wider, chunky iron
     ctx.fillStyle=pauldronCol;
     ctx.fillRect(sx-14,sy-7,6,7); ctx.fillRect(sx+8,sy-7,6,7);
-    // Pauldron highlights
-    ctx.fillStyle='rgba(255,255,255,0.08)';
+    // Black outline on pauldrons
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-15,sy-7,1,7); ctx.fillRect(sx+14,sy-7,1,7);
+    ctx.fillRect(sx-14,sy-8,6,1); ctx.fillRect(sx+8,sy-8,6,1);
+    // Gold trim on pauldrons
+    ctx.fillStyle=trimCol;
     ctx.fillRect(sx-14,sy-7,6,1); ctx.fillRect(sx+8,sy-7,6,1);
 
-    // Chain mail — horizontal ring lines across torso
+    // Chain mail — horizontal ring detail
     if(eqArmor==='CHAIN_MAIL'){
-      ctx.fillStyle='rgba(0,0,0,0.25)';
-      ctx.fillRect(sx-9,sy-3,18,1); ctx.fillRect(sx-9,sy,18,1);
+      ctx.fillStyle='rgba(0,0,0,0.35)';
+      ctx.fillRect(sx-9,sy-4,18,1); ctx.fillRect(sx-9,sy-1,18,1); ctx.fillRect(sx-9,sy+2,18,1);
     }
-    // Ashen plate — gold trim lines
+    // Ashen plate — full tarnished gold trim lines
     if(eqArmor==='ASHEN_PLATE'){
-      ctx.fillStyle='#a08020';
-      ctx.fillRect(sx-9,sy-6,18,1);   // top trim
-      ctx.fillRect(sx-9,sy+3,18,1);   // bottom trim
-      ctx.fillRect(sx-12,sy-6,5,1);   // left pauldron trim
-      ctx.fillRect(sx+7,sy-6,5,1);    // right pauldron trim
+      ctx.fillStyle='#8a7010';
+      ctx.fillRect(sx-14,sy-7,6,1); ctx.fillRect(sx+8,sy-7,6,1);
+      ctx.fillRect(sx-10,sy-7,20,1); ctx.fillRect(sx-10,sy+3,20,1);
+      // Gold rivet dots
+      ctx.fillStyle='#a08818';
+      ctx.fillRect(sx-8,sy-5,2,2); ctx.fillRect(sx+6,sy-5,2,2);
+      ctx.fillRect(sx-8,sy+1,2,2); ctx.fillRect(sx+6,sy+1,2,2);
     }
 
-    // Head — bigger (12×12 instead of 10×10)
-    ctx.fillStyle='#b0a878'; ctx.fillRect(sx-6,sy-18,12,12);
-    ctx.fillStyle='#c0b888'; ctx.fillRect(sx-5,sy-18,10,3); // forehead bright
-    // Helmet top — wider
-    ctx.fillStyle='#808070'; ctx.fillRect(sx-7,sy-20,14,4);
-    ctx.fillStyle='#909080'; ctx.fillRect(sx-6,sy-20,12,1); // helm gleam
-    // Ashen plate — full visor (dark face plate)
-    if(eqArmor==='ASHEN_PLATE'){
-      ctx.fillStyle='#1c1c22'; ctx.fillRect(sx-6,sy-18,12,12);
-      ctx.fillStyle='#a08020'; ctx.fillRect(sx-7,sy-20,14,4); // gold helm
-      ctx.fillStyle='#c0a020'; ctx.fillRect(sx-6,sy-20,12,1); // helm gleam
-      ctx.fillStyle='#a08020'; ctx.fillRect(sx-5,sy-14,10,1); // visor slit trim
-    }
-    // Eyes
-    ctx.fillStyle='#100808';
-    ctx.fillRect(sx-4,sy-14,3,3); ctx.fillRect(sx+1,sy-14,3,3);
-    // Eye glow (tarnished amber)
-    ctx.fillStyle=p.isAttacking?'#FFB020':'#a08040';
-    ctx.fillRect(sx-3,sy-14,2,2); ctx.fillRect(sx+2,sy-14,2,2);
+    // Head — iron helm, chunky 12×12
+    ctx.fillStyle=eqArmor==='ASHEN_PLATE'?'#141416':'#2a2820';
+    ctx.fillRect(sx-6,sy-18,12,12);
+    // Black outline on head
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-7,sy-18,1,12); ctx.fillRect(sx+6,sy-18,1,12);
+    ctx.fillRect(sx-6,sy-19,12,1); ctx.fillRect(sx-6,sy-6,12,1);
+    // Helmet top band — tarnished gold
+    ctx.fillStyle=trimCol; ctx.fillRect(sx-7,sy-20,14,4);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-8,sy-20,1,4); ctx.fillRect(sx+7,sy-20,1,4);
+    ctx.fillRect(sx-7,sy-21,14,1); ctx.fillRect(sx-7,sy-16,14,1);
+    // Helm top highlight
+    ctx.fillStyle='rgba(255,220,80,0.18)'; ctx.fillRect(sx-6,sy-20,12,1);
 
-    // Talisman — small hanging bead on lower torso
+    // Visor slit — glowing amber eyes (all armors)
+    ctx.fillStyle='#0a0808'; ctx.fillRect(sx-5,sy-14,10,4); // visor dark
+    ctx.fillStyle=p.isAttacking?'#e89010':'#a06010';         // eyes glow amber
+    ctx.fillRect(sx-4,sy-13,3,2); ctx.fillRect(sx+1,sy-13,3,2);
+    // Ashen plate extra: brighter glow
+    if(eqArmor==='ASHEN_PLATE'){
+      ctx.fillStyle=p.isAttacking?'#ffb020':'#c07818';
+      ctx.fillRect(sx-3,sy-13,2,1); ctx.fillRect(sx+2,sy-13,2,1);
+    }
+
+    // Talisman — dark cord with colored bead
     if(p.equipment.talisman){
-      const talCol = p.equipment.talisman==='EMBER_TALISMAN'?'#e84010':
-                     p.equipment.talisman==='WOODEN_TALISMAN'?'#7a4818':'#888898';
-      ctx.fillStyle='#1a1a1a'; ctx.fillRect(sx-1,sy+3,2,4);  // cord
-      ctx.fillStyle=talCol;    ctx.fillRect(sx-2,sy+6,4,3);  // bead
+      const talCol= p.equipment.talisman==='EMBER_TALISMAN'?'#a02808':
+                    p.equipment.talisman==='WOODEN_TALISMAN'?'#4a2c0a':'#303840';
+      ctx.fillStyle='#0a0a0a'; ctx.fillRect(sx-1,sy+3,2,5);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-2,sy+7,4,1); // outline
+      ctx.fillStyle=talCol; ctx.fillRect(sx-2,sy+7,4,4);
     }
 
-    // Ring — tiny colored pip on wrist (right side)
+    // Ring — tarnished pip on right wrist
     if(p.equipment.ring){
-      const ringCol= p.equipment.ring==='SOVEREIGN_RING'?'#FFD040':
-                     p.equipment.ring==='CRIMSON_RING'?'#e02020':'#c0c8d8';
-      ctx.fillStyle=ringCol; ctx.fillRect(sx+8,sy,3,2);
+      const ringCol= p.equipment.ring==='SOVEREIGN_RING'?'#a08010':
+                     p.equipment.ring==='CRIMSON_RING'?'#801010':'#404850';
+      ctx.fillStyle='#000'; ctx.fillRect(sx+8,sy-1,4,3);
+      ctx.fillStyle=ringCol; ctx.fillRect(sx+9,sy,2,2);
     }
 
-    // Facing indicator (2px dot on correct edge)
+    // Facing indicator — dim amber dot
     if(!p.isDead){
-      ctx.fillStyle='#e8d880';
+      ctx.fillStyle='#7a5810';
       const fd=11;
       ctx.fillRect((sx+Math.round(p.facing.x*fd))-1,(sy+Math.round(p.facing.y*fd))-1,2,2);
     }
@@ -2329,163 +2397,233 @@ const Enemies = {
 
   _drawGrunt(e,sx,sy){
     const isGK=e.type==='GRAVE_KNIGHT';
-    const col=e.isAttacking?(isGK?'#8898b8':e.cfg.color==='#5a5c6a'?'#7888a8':'#d07828'):e.cfg.color;
-    const dark=e.cfg.darkColor;
-    // Shadow
-    ctx.fillStyle='#000'; ctx.globalAlpha*=0.22;
-    ctx.fillRect(sx-8,sy+11,16,3); ctx.globalAlpha/=0.22;
-    // Legs — chunky Terraria-style rectangles
-    ctx.fillStyle=dark;
-    ctx.fillRect(sx-7,sy+4,6,9); ctx.fillRect(sx+1,sy+4,6,9);
-    // Feet
-    ctx.fillStyle=isGK?'#202230':'#3a2808';
-    ctx.fillRect(sx-8,sy+11,7,3); ctx.fillRect(sx+1,sy+11,7,3);
-    // Body — wider torso
-    ctx.fillStyle=col; ctx.fillRect(sx-8,sy-7,16,13);
-    // Chest plate highlight
-    ctx.fillStyle='rgba(255,255,255,0.10)';
-    ctx.fillRect(sx-6,sy-7,14,2);
-    // Shoulder guards (chunky pauldrons)
-    ctx.fillStyle=dark;
-    ctx.fillRect(sx-12,sy-7,6,6); ctx.fillRect(sx+6,sy-7,6,6);
-    ctx.fillStyle='rgba(255,255,255,0.08)';
-    ctx.fillRect(sx-12,sy-7,6,1); ctx.fillRect(sx+6,sy-7,6,1);
+    const atk=e.isAttacking;
+    // --- GRAVE KNIGHT ---
     if(isGK){
-      // Grave Knight: dark helm with visor slit
-      ctx.fillStyle='#3a3c4a'; ctx.fillRect(sx-6,sy-18,12,12);
-      ctx.fillStyle='#50526a'; ctx.fillRect(sx-5,sy-18,10,3); // helm top
-      ctx.fillStyle='#1a1c28'; ctx.fillRect(sx-5,sy-12,10,4); // visor
-      ctx.fillStyle='#606880'; ctx.fillRect(sx-5,sy-18,10,1); // top highlight
-      // Visor eye glow
-      ctx.fillStyle='#6090FF';
-      ctx.fillRect(sx-4,sy-11,3,2); ctx.fillRect(sx+1,sy-11,3,2);
-      // Spear / halberd
-      ctx.fillStyle='#70789a'; ctx.fillRect(sx+10,sy-22,3,28);
-      ctx.fillStyle='#9098c0'; ctx.fillRect(sx+10,sy-22,2,6); // spear tip
-      ctx.fillStyle='#585870'; ctx.fillRect(sx+8,sy-6,7,2); // crosspiece
+      // Legs — dark iron greaves
+      ctx.fillStyle='#1a1a22'; ctx.fillRect(sx-7,sy+4,6,9); ctx.fillRect(sx+1,sy+4,6,9);
+      ctx.fillStyle='#000'; // black outline
+      ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
+      ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
+      // Boots
+      ctx.fillStyle='#100e18'; ctx.fillRect(sx-8,sy+11,8,3); ctx.fillRect(sx+0,sy+11,8,3);
+      // Body — dark iron chestplate
+      ctx.fillStyle=atk?'#302838':'#201c2c'; ctx.fillRect(sx-8,sy-7,16,13);
+      ctx.fillStyle='#000'; // outline
+      ctx.fillRect(sx-9,sy-7,1,13); ctx.fillRect(sx+8,sy-7,1,13);
+      ctx.fillRect(sx-8,sy-8,16,1); ctx.fillRect(sx-8,sy+6,16,1);
+      // Tarnished silver trim
+      ctx.fillStyle='#484458'; ctx.fillRect(sx-8,sy-7,16,1); ctx.fillRect(sx-8,sy+5,16,1);
+      // Pauldrons
+      ctx.fillStyle='#161420'; ctx.fillRect(sx-13,sy-7,7,7); ctx.fillRect(sx+6,sy-7,7,7);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-7,1,7); ctx.fillRect(sx+13,sy-7,1,7);
+      // Helm — full enclosed dark knight helm
+      ctx.fillStyle='#1c1a28'; ctx.fillRect(sx-7,sy-19,14,13);
+      ctx.fillStyle='#000'; // helm outline
+      ctx.fillRect(sx-8,sy-19,1,13); ctx.fillRect(sx+7,sy-19,1,13);
+      ctx.fillRect(sx-7,sy-20,14,1); ctx.fillRect(sx-7,sy-6,14,1);
+      // Helm crest
+      ctx.fillStyle='#282438'; ctx.fillRect(sx-4,sy-22,8,4);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-4,sy-23,8,1);
+      // Visor slit
+      ctx.fillStyle='#0a0810'; ctx.fillRect(sx-5,sy-13,10,4);
+      // Blue soul eye glow
+      ctx.fillStyle=atk?'#4060e0':'#2040a0';
+      ctx.fillRect(sx-4,sy-12,4,2); ctx.fillRect(sx+0,sy-12,4,2);
+      // Spear (dark iron shaft, pale tip)
+      ctx.fillStyle='#1a1820'; ctx.fillRect(sx+11,sy-24,3,30);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+10,sy-24,1,30); ctx.fillRect(sx+14,sy-24,1,30);
+      ctx.fillStyle='#606878'; ctx.fillRect(sx+11,sy-24,3,8); // spear tip
+      ctx.fillStyle='#888ea8'; ctx.fillRect(sx+11,sy-24,2,5); // tip gleam
+      ctx.fillStyle='#282430'; ctx.fillRect(sx+9,sy-8,7,2);   // crosspiece
     } else {
-      // Standard grunt: skull head
-      ctx.fillStyle='#a07020'; ctx.fillRect(sx-5,sy-17,10,11);
-      ctx.fillStyle='#c09030'; ctx.fillRect(sx-4,sy-17,8,3); // forehead
-      ctx.fillStyle='#FF2000';
-      ctx.fillRect(sx-4,sy-13,3,3); ctx.fillRect(sx+1,sy-13,3,3);
-      ctx.fillStyle='#601000';
-      ctx.fillRect(sx-3,sy-12,2,2); ctx.fillRect(sx+2,sy-12,2,2);
-      // Chunky sword
-      ctx.fillStyle='#606070'; ctx.fillRect(sx+10,sy-18,4,22);
-      ctx.fillStyle='#9090a8'; ctx.fillRect(sx+10,sy-18,3,18); // blade face
-      ctx.fillStyle='#7a6020'; ctx.fillRect(sx+7,sy-8,10,3);   // crossguard
+      // --- STANDARD GRUNT ---
+      // Rotting hollowed warrior — dark ochre rags, glowing red eyes
+      const col=atk?'#4a3010':'#382408';
+      const dark='#1e1008';
+      // Legs — wrapped rags
+      ctx.fillStyle=dark; ctx.fillRect(sx-7,sy+4,6,9); ctx.fillRect(sx+1,sy+4,6,9);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
+      ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
+      // Body — rotted leather
+      ctx.fillStyle=col; ctx.fillRect(sx-8,sy-7,16,13);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-9,sy-7,1,13); ctx.fillRect(sx+8,sy-7,1,13);
+      ctx.fillRect(sx-8,sy-8,16,1); ctx.fillRect(sx-8,sy+6,16,1);
+      // Rough pauldrons
+      ctx.fillStyle=dark; ctx.fillRect(sx-12,sy-7,6,6); ctx.fillRect(sx+6,sy-7,6,6);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-13,sy-7,1,6); ctx.fillRect(sx+12,sy-7,1,6);
+      // Skull head — hollow black sockets
+      ctx.fillStyle='#2e2010'; ctx.fillRect(sx-5,sy-18,10,12);
+      ctx.fillStyle='#000'; // skull outline
+      ctx.fillRect(sx-6,sy-18,1,12); ctx.fillRect(sx+5,sy-18,1,12);
+      ctx.fillRect(sx-5,sy-19,10,1); ctx.fillRect(sx-5,sy-6,10,1);
+      // Hollow eye sockets
+      ctx.fillStyle='#0a0806'; ctx.fillRect(sx-4,sy-14,3,3); ctx.fillRect(sx+1,sy-14,3,3);
+      // Dim red ember glow — not bright, barely alive
+      ctx.fillStyle=atk?'#a01008':'#601008';
+      ctx.fillRect(sx-3,sy-13,2,2); ctx.fillRect(sx+2,sy-13,2,2);
+      // Corroded sword — dark rust
+      ctx.fillStyle='#1c1a20'; ctx.fillRect(sx+10,sy-19,4,24);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-19,1,24); ctx.fillRect(sx+14,sy-19,1,24);
+      ctx.fillStyle='#383040'; ctx.fillRect(sx+10,sy-19,3,18); // blade face
+      ctx.fillStyle='#2e2810'; ctx.fillRect(sx+7,sy-9,10,3);   // crossguard
     }
   },
 
   _drawHollow(e,sx,sy){
-    // Fast fragile skeleton — all bone-white, small and erratic
-    const col=e.isAttacking?'#f0e8d0':e.cfg.color;
-    // Legs (thin skeleton limbs)
-    ctx.fillStyle='#a09080';
-    ctx.fillRect(sx-5,sy+4,3,8); ctx.fillRect(sx+2,sy+4,3,8);
-    // Feet
-    ctx.fillStyle='#808070'; ctx.fillRect(sx-6,sy+11,5,2); ctx.fillRect(sx+1,sy+11,5,2);
-    // Ribcage body
-    ctx.fillStyle=col; ctx.fillRect(sx-6,sy-5,12,10);
-    // Rib lines
-    ctx.fillStyle='#787060';
+    // Fast fragile skeleton — bone-white with dark cracks, blue soul glow
+    const atk=e.isAttacking;
+    // Near-black outline box (drawn first as backdrop)
+    // Thin skeleton legs
+    ctx.fillStyle='#1e1810'; ctx.fillRect(sx-5,sy+4,3,9); ctx.fillRect(sx+2,sy+4,3,9);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-6,sy+4,1,9); ctx.fillRect(sx+5,sy+4,1,9);
+    ctx.fillRect(sx-5,sy+13,3,1); ctx.fillRect(sx+2,sy+13,3,1);
+    // Bone feet
+    ctx.fillStyle='#2a2418'; ctx.fillRect(sx-6,sy+12,5,2); ctx.fillRect(sx+1,sy+12,5,2);
+    // Ribcage body — pale bone
+    ctx.fillStyle=atk?'#3a3428':'#2e2a20'; ctx.fillRect(sx-6,sy-5,12,10);
+    ctx.fillStyle='#000'; // body outline
+    ctx.fillRect(sx-7,sy-5,1,10); ctx.fillRect(sx+6,sy-5,1,10);
+    ctx.fillRect(sx-6,sy-6,12,1); ctx.fillRect(sx-6,sy+5,12,1);
+    // Rib lines (bone detail)
+    ctx.fillStyle='#181410';
     ctx.fillRect(sx-5,sy-3,10,1); ctx.fillRect(sx-5,sy-1,10,1);
     ctx.fillRect(sx-5,sy+1,10,1); ctx.fillRect(sx-5,sy+3,10,1);
-    // Skull head (smaller)
-    ctx.fillStyle='#d8d0b8'; ctx.fillRect(sx-5,sy-14,9,9);
-    ctx.fillStyle='#e8e0c8'; ctx.fillRect(sx-4,sy-14,7,3); // forehead bright
-    // Eye sockets
-    ctx.fillStyle='#1a1408';
-    ctx.fillRect(sx-4,sy-12,3,3); ctx.fillRect(sx+1,sy-12,3,3);
-    // Soul ember glow in sockets
-    ctx.fillStyle='#80a0FF';
+    // Skull — grim hollow bone
+    ctx.fillStyle='#2a241c'; ctx.fillRect(sx-5,sy-15,9,10);
+    ctx.fillStyle='#000'; // skull outline
+    ctx.fillRect(sx-6,sy-15,1,10); ctx.fillRect(sx+4,sy-15,1,10);
+    ctx.fillRect(sx-5,sy-16,9,1);  ctx.fillRect(sx-5,sy-5,9,1);
+    ctx.fillStyle='#342e24'; ctx.fillRect(sx-4,sy-15,7,3); // forehead
+    // Deep hollow eye sockets
+    ctx.fillStyle='#050404'; ctx.fillRect(sx-4,sy-12,3,3); ctx.fillRect(sx+1,sy-12,3,3);
+    // Pale blue soul fire in sockets
+    ctx.fillStyle=atk?'#3050a0':'#182848';
     ctx.fillRect(sx-3,sy-11,2,2); ctx.fillRect(sx+2,sy-11,2,2);
-    // Bone weapon (thin claw swipe)
-    ctx.fillStyle='#c0b8a0'; ctx.fillRect(sx+7,sy-10,2,16);
-    ctx.fillStyle='#d8d0b8'; ctx.fillRect(sx+6,sy-10,2,10);
+    // Bone claw weapon — yellowed, cracked
+    ctx.fillStyle='#1c1810'; ctx.fillRect(sx+7,sy-11,2,18);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+6,sy-11,1,18); ctx.fillRect(sx+9,sy-11,1,18);
+    ctx.fillStyle='#28221a'; ctx.fillRect(sx+7,sy-11,2,10); // pale tip
   },
 
   _drawBeastKnight(e,sx,sy){
-    // Heavy armored brute — wide, dark, imposing
-    const col=e.isAttacking?'#7a6040':e.cfg.color;
-    const dark=e.cfg.darkColor;
-    const S=e.size;
-    // Thick shadow
-    ctx.fillStyle='#000'; ctx.globalAlpha*=0.30;
-    ctx.fillRect(sx-S,sy+S+2,S*2,5); ctx.globalAlpha/=0.30;
-    // Legs (very wide, armored)
-    ctx.fillStyle='#342410';
-    ctx.fillRect(sx-9,sy+6,8,12); ctx.fillRect(sx+1,sy+6,8,12);
-    // Leg armor plates
-    ctx.fillStyle='#4a3418';
-    ctx.fillRect(sx-10,sy+6,10,4); ctx.fillRect(sx+0,sy+6,10,4);
-    // Main body (very wide torso)
-    ctx.fillStyle=col; ctx.fillRect(sx-12,sy-9,24,17);
-    // Chest highlight
-    ctx.fillStyle='rgba(255,220,160,0.12)';
-    ctx.fillRect(sx-10,sy-9,22,3);
-    // Heavy shoulder plates
-    ctx.fillStyle=dark;
-    ctx.fillRect(sx-18,sy-9,8,9); ctx.fillRect(sx+10,sy-9,8,9);
-    ctx.fillStyle='#6a4a28';
-    ctx.fillRect(sx-18,sy-9,8,1); ctx.fillRect(sx+10,sy-9,8,1);
-    // Helm — full enclosed visor, animal skull motif
-    ctx.fillStyle='#3a2a18'; ctx.fillRect(sx-9,sy-22,18,15);
-    ctx.fillStyle='#5a4028'; ctx.fillRect(sx-8,sy-22,16,4); // helm top
-    // Visor — narrow horizontal slit
-    ctx.fillStyle='#1a1008'; ctx.fillRect(sx-7,sy-16,14,5);
-    ctx.fillStyle='#c07020'; // beast eye glow
-    ctx.fillRect(sx-6,sy-15,5,3); ctx.fillRect(sx+1,sy-15,5,3);
-    ctx.fillStyle='#FF9030';
-    ctx.fillRect(sx-5,sy-14,3,2); ctx.fillRect(sx+2,sy-14,3,2);
-    // Beast horns
-    ctx.fillStyle='#4a3818';
-    ctx.fillRect(sx-11,sy-26,4,8); ctx.fillRect(sx+7,sy-26,4,8);
-    ctx.fillStyle='#6a5028'; ctx.fillRect(sx-10,sy-26,2,6); ctx.fillRect(sx+8,sy-26,2,6);
-    // Massive axe
-    ctx.fillStyle='#504030'; ctx.fillRect(sx+14,sy-20,5,32); // haft
-    ctx.fillStyle='#808898'; ctx.fillRect(sx+14,sy-22,10,14);// axe head
-    ctx.fillStyle='#a0a8c0'; ctx.fillRect(sx+15,sy-22,6,12); // blade face
-    ctx.fillStyle='#c0c8e0'; ctx.fillRect(sx+15,sy-22,4,4);  // top gleam
-    ctx.fillStyle='#3a3020'; ctx.fillRect(sx+13,sy-10,3,4);  // axe collar
+    // Slow armored brute — massive, near-black iron, beast skull helm, orange eyes
+    const atk=e.isAttacking;
+    const S2=e.size;
+    // Legs — huge iron-clad legs
+    ctx.fillStyle='#141210'; ctx.fillRect(sx-10,sy+6,9,13); ctx.fillRect(sx+1,sy+6,9,13);
+    ctx.fillStyle='#000'; // leg outline
+    ctx.fillRect(sx-11,sy+6,1,13); ctx.fillRect(sx+10,sy+6,1,13);
+    ctx.fillRect(sx-10,sy+19,9,1); ctx.fillRect(sx+1,sy+19,9,1);
+    ctx.fillRect(sx-10,sy+5,19,1);
+    // Greave trim — dark tarnished bronze
+    ctx.fillStyle='#3a2808'; ctx.fillRect(sx-10,sy+6,9,2); ctx.fillRect(sx+1,sy+6,9,2);
+    // Main body — enormous dark iron torso
+    ctx.fillStyle=atk?'#201e18':'#161410'; ctx.fillRect(sx-13,sy-10,26,18);
+    ctx.fillStyle='#000'; // body outline
+    ctx.fillRect(sx-14,sy-10,1,18); ctx.fillRect(sx+13,sy-10,1,18);
+    ctx.fillRect(sx-13,sy-11,26,1); ctx.fillRect(sx-13,sy+8,26,1);
+    // Chest plate rivet trim
+    ctx.fillStyle='#3a2808';
+    ctx.fillRect(sx-13,sy-10,26,2); ctx.fillRect(sx-13,sy+7,26,2);
+    // Heavy pauldrons — wider than body
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(sx-20,sy-10,9,10); ctx.fillRect(sx+11,sy-10,9,10);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-21,sy-10,1,10); ctx.fillRect(sx+20,sy-10,1,10);
+    ctx.fillRect(sx-20,sy-11,9,1); ctx.fillRect(sx+11,sy-11,9,1);
+    // Bronze spike on each pauldron
+    ctx.fillStyle='#4a3010';
+    ctx.fillRect(sx-17,sy-13,3,4); ctx.fillRect(sx+14,sy-13,3,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-17,sy-14,3,1); ctx.fillRect(sx+14,sy-14,3,1);
+    // Beast skull helm — wide and imposing
+    ctx.fillStyle='#181410'; ctx.fillRect(sx-10,sy-23,20,15);
+    ctx.fillStyle='#000'; // helm outline
+    ctx.fillRect(sx-11,sy-23,1,15); ctx.fillRect(sx+10,sy-23,1,15);
+    ctx.fillRect(sx-10,sy-24,20,1); ctx.fillRect(sx-10,sy-8,20,1);
+    // Helm top-plate
+    ctx.fillStyle='#0c0a08'; ctx.fillRect(sx-7,sy-26,14,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-7,sy-27,14,1);
+    // Beast horns — curved outward
+    ctx.fillStyle='#241c0c';
+    ctx.fillRect(sx-14,sy-28,5,10); ctx.fillRect(sx+9,sy-28,5,10);
+    ctx.fillRect(sx-16,sy-22,4,6); ctx.fillRect(sx+12,sy-22,4,6);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-15,sy-29,5,1); ctx.fillRect(sx+10,sy-29,5,1);
+    // Visor — narrow slit
+    ctx.fillStyle='#050404'; ctx.fillRect(sx-7,sy-17,14,5);
+    // Beast orange eye glow — feral, dangerous
+    ctx.fillStyle=atk?'#c06010':'#803808';
+    ctx.fillRect(sx-6,sy-16,5,3); ctx.fillRect(sx+1,sy-16,5,3);
+    ctx.fillStyle=atk?'#e07818':'#a04c10';
+    ctx.fillRect(sx-5,sy-15,3,2); ctx.fillRect(sx+2,sy-15,3,2);
+    // Massive war axe — dark corroded iron
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(sx+15,sy-22,5,34); // haft
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx+14,sy-22,1,34); ctx.fillRect(sx+20,sy-22,1,34);
+    ctx.fillStyle='#1c1a18'; ctx.fillRect(sx+15,sy-24,12,16); // axe head
+    ctx.fillStyle='#000'; // axe outline
+    ctx.fillRect(sx+14,sy-24,1,16); ctx.fillRect(sx+27,sy-24,1,16);
+    ctx.fillRect(sx+15,sy-25,12,1);
+    ctx.fillStyle='#282420'; ctx.fillRect(sx+16,sy-24,8,13); // blade face
+    ctx.fillStyle='#343028'; ctx.fillRect(sx+16,sy-24,6,4);  // top gleam
+    ctx.fillStyle='#2a2010'; ctx.fillRect(sx+14,sy-10,3,5);  // axe collar
   },
 
   _drawArcher(e,sx,sy){
-    const col=e.isAttacking?'#d8d8b0':e.cfg.color;
-    const dark=e.cfg.darkColor;
-    // Legs
-    ctx.fillStyle=dark;
-    ctx.fillRect(sx-6,sy+4,5,8); ctx.fillRect(sx+1,sy+4,5,8);
-    // Body (slightly smaller than grunt)
-    ctx.fillStyle=col; ctx.fillRect(sx-7,sy-6,13,11);
-    ctx.fillStyle='rgba(255,255,255,0.09)'; ctx.fillRect(sx-5,sy-6,11,2); // highlight
-    // Quiver on back
-    ctx.fillStyle='#8a6a38'; ctx.fillRect(sx-10,sy-8,3,12);
-    ctx.fillStyle='#c8c060'; ctx.fillRect(sx-9,sy-11,2,4); ctx.fillRect(sx-9,sy-7,2,4); // arrows
-    // Skull head — Terraria skeleton look
-    ctx.fillStyle='#b0b09a'; ctx.fillRect(sx-5,sy-16,10,10);
-    ctx.fillStyle='#c8c8b0'; ctx.fillRect(sx-4,sy-16,8,3); // skull dome bright
-    // Deep eye sockets
-    ctx.fillStyle='#0e0e0e';
-    ctx.fillRect(sx-4,sy-13,4,4); ctx.fillRect(sx+0,sy-13,4,4);
-    // Green soul glow
-    ctx.fillStyle='#40c040';
+    // Skeletal archer — pale rotting bones, dim green soul eyes, dark bow
+    const atk=e.isAttacking;
+    // Thin legs — bone wrapped in rot
+    ctx.fillStyle='#181410'; ctx.fillRect(sx-5,sy+4,4,8); ctx.fillRect(sx+1,sy+4,4,8);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-6,sy+4,1,8); ctx.fillRect(sx+5,sy+4,1,8);
+    ctx.fillRect(sx-5,sy+12,4,1); ctx.fillRect(sx+1,sy+12,4,1);
+    // Feet
+    ctx.fillStyle='#100e0a'; ctx.fillRect(sx-6,sy+11,6,2); ctx.fillRect(sx+0,sy+11,6,2);
+    // Body — hollow rib cage with tattered cloak
+    ctx.fillStyle='#1a1510'; ctx.fillRect(sx-6,sy-6,12,11);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-7,sy-6,1,11); ctx.fillRect(sx+6,sy-6,1,11);
+    ctx.fillRect(sx-6,sy-7,12,1); ctx.fillRect(sx-6,sy+5,12,1);
+    // Rib detail (barely visible)
+    ctx.fillStyle='#0c0a08';
+    ctx.fillRect(sx-5,sy-4,10,1); ctx.fillRect(sx-5,sy-2,10,1);
+    ctx.fillRect(sx-5,sy+0,10,1); ctx.fillRect(sx-5,sy+2,10,1);
+    // Quiver — dark leather tube
+    ctx.fillStyle='#100c08'; ctx.fillRect(sx-10,sy-9,4,13);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-11,sy-9,1,13); ctx.fillRect(sx-6,sy-9,1,13);
+    // Dark arrows in quiver
+    ctx.fillStyle='#282018'; ctx.fillRect(sx-9,sy-12,2,4); ctx.fillRect(sx-9,sy-8,2,4);
+    ctx.fillStyle='#402808'; ctx.fillRect(sx-9,sy-13,2,2); // arrow tips
+    // Skull — pale rotted bone
+    ctx.fillStyle='#201c14'; ctx.fillRect(sx-5,sy-17,10,11);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-6,sy-17,1,11); ctx.fillRect(sx+5,sy-17,1,11);
+    ctx.fillRect(sx-5,sy-18,10,1); ctx.fillRect(sx-5,sy-6,10,1);
+    ctx.fillStyle='#2a2418'; ctx.fillRect(sx-4,sy-17,8,3); // forehead
+    // Deep black eye sockets
+    ctx.fillStyle='#050404'; ctx.fillRect(sx-4,sy-13,4,4); ctx.fillRect(sx+0,sy-13,4,4);
+    // Sickly green soul glow — dim, not bright
+    ctx.fillStyle=atk?'#204820':'#122412';
     ctx.fillRect(sx-3,sy-12,2,2); ctx.fillRect(sx+1,sy-12,2,2);
-    // Bow — wider, better detailed
-    ctx.fillStyle='#7a5810';
-    ctx.fillRect(sx+7,sy-13,4,24); // stave
-    ctx.fillStyle='#a07820';
-    ctx.fillRect(sx+8,sy-13,6,3); // top nock
-    ctx.fillRect(sx+8,sy+9,6,3);  // bottom nock
-    // Bow string (1px)
-    ctx.fillStyle='#e0d0a0';
-    ctx.fillRect(sx+11,sy-10,1,20);
-    // Arrow if attacking
-    if(e.isAttacking){
-      ctx.fillStyle='#d8c860'; ctx.fillRect(sx+11,sy-2,14,2);
-      ctx.fillStyle='#909050'; ctx.fillRect(sx+23,sy-2,4,2);
-      ctx.fillStyle='#c04020'; ctx.fillRect(sx+11,sy-3,3,4); // fletching
+    // Longbow — dark yew wood, near-black
+    ctx.fillStyle='#1a1408'; ctx.fillRect(sx+7,sy-14,4,26);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx+6,sy-14,1,26); ctx.fillRect(sx+11,sy-14,1,26);
+    // Bow limb nocks (dark bone)
+    ctx.fillStyle='#0e0c08';
+    ctx.fillRect(sx+7,sy-14,6,3); ctx.fillRect(sx+7,sy+9,6,3);
+    // Sinew string (barely visible)
+    ctx.fillStyle='#302818'; ctx.fillRect(sx+10,sy-11,1,22);
+    // Arrow drawn if attacking
+    if(atk){
+      ctx.fillStyle='#201c10'; ctx.fillRect(sx+10,sy-2,16,2);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-2,1,2); ctx.fillRect(sx+26,sy-2,1,2);
+      ctx.fillStyle='#2e2418'; ctx.fillRect(sx+24,sy-3,3,4); // tip
+      ctx.fillStyle='#402010'; ctx.fillRect(sx+10,sy-4,3,6);  // dark fletching
     }
   },
 
@@ -2493,51 +2631,102 @@ const Enemies = {
     const r=e.size, p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
 
-    // Flat aura rect (no radial gradient)
-    ctx.globalAlpha=ba*0.14; ctx.fillStyle=p2?'#FF2000':'#c8a060';
+    // Dark aura — ember glow in phase 2, cold in phase 1
+    ctx.globalAlpha=ba*0.12; ctx.fillStyle=p2?'#800808':'#302010';
     ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4);
     ctx.globalAlpha=ba;
 
-    // Lower body / legs
-    ctx.fillStyle=p2?'#3a1008':'#7a5020';
-    ctx.fillRect(sx-22,sy+12,14,20); ctx.fillRect(sx+8,sy+12,14,20);
+    // Legs — massive dark iron
+    ctx.fillStyle=p2?'#180806':'#181410';
+    ctx.fillRect(sx-22,sy+12,14,22); ctx.fillRect(sx+8,sy+12,14,22);
+    ctx.fillStyle='#000'; // outline
+    ctx.fillRect(sx-23,sy+12,1,22); ctx.fillRect(sx+22,sy+12,1,22);
+    ctx.fillRect(sx-22,sy+34,14,1); ctx.fillRect(sx+8,sy+34,14,1);
+    // Greave trim
+    ctx.fillStyle=p2?'#400808':'#2a2010';
+    ctx.fillRect(sx-22,sy+12,14,3); ctx.fillRect(sx+8,sy+12,14,3);
 
-    // Main torso (wide)
-    ctx.fillStyle=p2?'#7a1a08':'#b89040';
+    // Main torso (wide) — dark iron plate
+    ctx.fillStyle=p2?'#1a0806':'#141210';
     ctx.fillRect(sx-22,sy-18,44,32);
+    ctx.fillStyle='#000'; // outline
+    ctx.fillRect(sx-23,sy-18,1,32); ctx.fillRect(sx+22,sy-18,1,32);
+    ctx.fillRect(sx-22,sy-19,44,1); ctx.fillRect(sx-22,sy+14,44,1);
+    // Tarnished gold chest trim
+    ctx.fillStyle=p2?'#601008':'#3a2808';
+    ctx.fillRect(sx-22,sy-18,44,3); ctx.fillRect(sx-22,sy+12,44,3);
+    // Gold rivets
+    ctx.fillStyle=p2?'#803010':'#504010';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-18+i*9,sy-16,3,3);
 
-    // Shoulder plates
-    ctx.fillStyle=p2?'#5a1005':'#906830';
-    ctx.fillRect(sx-32,sy-16,12,14); ctx.fillRect(sx+20,sy-16,12,14);
+    // Shoulder plates — enormous
+    ctx.fillStyle=p2?'#140604':'#0e0c0a';
+    ctx.fillRect(sx-34,sy-16,14,16); ctx.fillRect(sx+20,sy-16,14,16);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-35,sy-16,1,16); ctx.fillRect(sx+34,sy-16,1,16);
+    ctx.fillRect(sx-34,sy-17,14,1); ctx.fillRect(sx+20,sy-17,14,1);
+    // Pauldron spikes
+    ctx.fillStyle=p2?'#500808':'#1e1408';
+    ctx.fillRect(sx-28,sy-20,4,6); ctx.fillRect(sx-22,sy-22,4,8);
+    ctx.fillRect(sx+24,sy-22,4,8); ctx.fillRect(sx+30,sy-20,4,6);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-28,sy-21,4,1); ctx.fillRect(sx-22,sy-23,4,1);
+    ctx.fillRect(sx+24,sy-23,4,1); ctx.fillRect(sx+30,sy-21,4,1);
 
-    // Head
-    ctx.fillStyle=p2?'#501008':'#907030';
-    ctx.fillRect(sx-15,sy-36,30,20);
+    // Head — king's dark helm
+    ctx.fillStyle=p2?'#180604':'#100e0c';
+    ctx.fillRect(sx-16,sy-38,32,22);
+    ctx.fillStyle='#000'; // helm outline
+    ctx.fillRect(sx-17,sy-38,1,22); ctx.fillRect(sx+16,sy-38,1,22);
+    ctx.fillRect(sx-16,sy-39,32,1); ctx.fillRect(sx-16,sy-16,32,1);
 
-    // Crown gems (5 pixel squares across top)
-    ctx.fillStyle=p2?'#FF5010':'#FFD040';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-12+i*6,sy-40,4,5);
+    // Crown — tarnished gold (phase 2: blood-rusted)
+    ctx.fillStyle=p2?'#601010':'#4a3808';
+    ctx.fillRect(sx-14,sy-44,28,8);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-15,sy-44,1,8); ctx.fillRect(sx+14,sy-44,1,8);
+    ctx.fillRect(sx-14,sy-45,28,1);
+    // Crown teeth
+    ctx.fillStyle=p2?'#800808':'#6a5010';
+    for(let i=0;i<5;i++){
+      ctx.fillRect(sx-12+i*6,sy-48,4,6);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-12+i*6,sy-49,4,1); ctx.fillStyle=p2?'#800808':'#6a5010';
+    }
+    // Crown gems
+    ctx.fillStyle=p2?'#c01010':'#a07818';
+    for(let i=0;i<3;i++) ctx.fillRect(sx-6+i*6,sy-46,3,4);
 
-    // Eyes (large, glowing)
-    const ec=p2?'#FF0000':'#FFA000';
-    ctx.fillStyle=ec;
-    ctx.fillRect(sx-12,sy-30,8,6); ctx.fillRect(sx+4,sy-30,8,6);
-    ctx.globalAlpha=ba*0.4; ctx.fillStyle=ec;
-    ctx.fillRect(sx-14,sy-32,12,10); ctx.fillRect(sx+2,sy-32,12,10);
+    // Eyes — massive glowing sockets
+    const ec=p2?'#a00808':'#804808';
+    ctx.fillStyle='#050404'; // socket dark
+    ctx.fillRect(sx-12,sy-32,10,7); ctx.fillRect(sx+2,sy-32,10,7);
+    ctx.fillStyle=ec; // eye glow
+    ctx.fillRect(sx-11,sy-31,8,5); ctx.fillRect(sx+3,sy-31,8,5);
+    ctx.fillStyle=p2?'#e01010':'#c07010';
+    ctx.fillRect(sx-10,sy-30,6,3); ctx.fillRect(sx+4,sy-30,6,3);
+    // Glow bleed
+    ctx.globalAlpha=ba*0.30; ctx.fillStyle=ec;
+    ctx.fillRect(sx-13,sy-33,12,9); ctx.fillRect(sx+1,sy-33,12,9);
     ctx.globalAlpha=ba;
 
-    // Greatsword — 3 stacked rects (blade, edge, crossguard)
-    ctx.fillStyle=p2?'#CC3010':'#9090a8';
-    ctx.fillRect(sx+r+4,sy-r-24,7,r*2+34);
-    ctx.fillStyle=p2?'#FF6020':'#d0d0e0';
-    ctx.fillRect(sx+r+5,sy-r-24,2,r*2+34); // edge gleam
-    ctx.fillStyle='#806028';
-    ctx.fillRect(sx+r,sy-r-2,18,5); // crossguard
+    // Greatsword — massive corroded iron
+    const sw=p2?'#3a0808':'#1c1a18';
+    ctx.fillStyle='#000'; // sword outline first
+    ctx.fillRect(sx+r+3,sy-r-27,9,r*2+38);
+    ctx.fillStyle=sw; ctx.fillRect(sx+r+4,sy-r-26,7,r*2+36);
+    ctx.fillStyle=p2?'#601010':'#2a2826'; // blade face
+    ctx.fillRect(sx+r+5,sy-r-26,3,r*2+36);
+    // Crossguard
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r-1,sy-r-4,20,7);
+    ctx.fillStyle=p2?'#500808':'#2a2010';
+    ctx.fillRect(sx+r,sy-r-3,18,5);
+    ctx.fillStyle=p2?'#701010':'#3a2c10';
+    ctx.fillRect(sx+r,sy-r-3,18,1); // trim
 
-    // Slam windup — pixel square flash, no arc
+    // Slam windup warning
     if(e.slamPending){
       const t=1-(e.slamTimer/(ENEMY_TYPES.BOSS.slamDelay||0.9));
-      ctx.globalAlpha=ba*t*0.45; ctx.fillStyle='#FF2000';
+      ctx.globalAlpha=ba*t*0.50; ctx.fillStyle='#800808';
       ctx.fillRect(sx-r*2,sy-r*2,r*4,2); ctx.fillRect(sx-r*2,sy+r*2,r*4,2);
       ctx.fillRect(sx-r*2,sy-r*2,2,r*4); ctx.fillRect(sx+r*2,sy-r*2,2,r*4);
       ctx.globalAlpha=ba;
@@ -2938,111 +3127,139 @@ const UI = {
   },
 
   _hud(p){
-    const mg=10, bw=130, bh=8, gap=4;
-    const sy0=SCREEN_H-mg-bh*3-gap*2-10;
+    const mg=10, bw=136, bh=9, gap=5;
+    const sy0=SCREEN_H-mg-bh*3-gap*2-12;
 
-    // GBC-style panel: thick black border, flat bg
-    ctx.fillStyle='#000';
-    ctx.fillRect(mg-8,sy0-22,bw+18,bh*3+gap*2+34);
-    ctx.fillStyle='#080606';
-    ctx.fillRect(mg-6,sy0-20,bw+14,bh*3+gap*2+30);
+    // Dark iron panel — thick pixel border, stone-colored inset
+    // Outer border (3px near-black)
+    ctx.fillStyle='#000'; ctx.fillRect(mg-10,sy0-26,bw+24,bh*3+gap*2+42);
+    // Iron plate bg
+    ctx.fillStyle='#0c0a08'; ctx.fillRect(mg-7,sy0-23,bw+18,bh*3+gap*2+36);
+    // Tarnished gold top trim strip
+    ctx.fillStyle='#3a2c08'; ctx.fillRect(mg-7,sy0-23,bw+18,3);
+    // Inner dark stone inset
+    ctx.fillStyle='#060504'; ctx.fillRect(mg-4,sy0-18,bw+12,bh*3+gap*2+28);
+    // Inner gold trim
+    ctx.fillStyle='#2a2006'; ctx.fillRect(mg-4,sy0-18,bw+12,2);
 
-    // Label boxes (solid black)
-    ctx.fillStyle='#000';
-    ctx.fillRect(mg-4,sy0-2,18,bh+4);
-    ctx.fillRect(mg-4,sy0+bh+gap-2,18,bh+4);
-    ctx.fillRect(mg-4,sy0+(bh+gap)*2-2,18,bh+4);
+    // Label boxes — dark iron with gold text
+    const lblW=20;
+    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0,lblW,bh);
+    ctx.fillStyle='#100c08'; ctx.fillRect(mg-3,sy0+1,lblW-2,bh-2);
+    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0+bh+gap,lblW,bh);
+    ctx.fillStyle='#080810'; ctx.fillRect(mg-3,sy0+bh+gap+1,lblW-2,bh-2);
+    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0+(bh+gap)*2,lblW,bh);
+    ctx.fillStyle='#080a06'; ctx.fillRect(mg-3,sy0+(bh+gap)*2+1,lblW-2,bh-2);
 
-    // Labels
-    R.text('HP',mg-2,sy0+bh,'#c06060',8);
-    R.text('FP',mg-2,sy0+bh+gap+bh,'#6060c0',8);
-    R.text('ST',mg-2,sy0+(bh+gap)*2+bh,'#60a030',8);
+    R.text('HP',mg-1,sy0+bh-1,'#7a2c2c',8);
+    R.text('FP',mg-1,sy0+bh+gap+bh-1,'#2c3c6a',8);
+    R.text('ST',mg-1,sy0+(bh+gap)*2+bh-1,'#3a5010',8);
 
-    // HP bar
+    // HP bar — deep blood red
     const mHP=Stats.maxHP(), mST=Stats.maxStamina();
     const hpFrac=p.hp/mHP;
-    const hpCol=hpFrac<0.25?((Date.now()/200|0)%2?'#FF1010':'#880000'):'#CC2020';
-    R.bar(mg+16,sy0,bw,bh,p.hp,mHP,hpCol,'#1a0606');
-    R.text(`${Math.ceil(p.hp)}/${mHP}`,mg+20,sy0+bh,'#c08080',8);
+    const hpCol=hpFrac<0.25?((Date.now()/200|0)%2?'#8a0808':'#500000'):'#7a1010';
+    R.bar(mg+18,sy0,bw,bh,p.hp,mHP,hpCol,'#140202');
+    R.text(`${Math.ceil(p.hp)}/${mHP}`,mg+22,sy0+bh-1,'#6a2020',8);
 
-    // FP bar
+    // FP bar — deep midnight blue
     const sy1=sy0+bh+gap;
-    R.bar(mg+16,sy1,bw,bh,p.fp,PLAYER_CONFIG.maxFP,'#1840a8','#060810');
-    R.text(`${Math.ceil(p.fp)}/${PLAYER_CONFIG.maxFP}`,mg+20,sy1+bh,'#7070c0',8);
+    R.bar(mg+18,sy1,bw,bh,p.fp,PLAYER_CONFIG.maxFP,'#182060','#020408');
+    R.text(`${Math.ceil(p.fp)}/${PLAYER_CONFIG.maxFP}`,mg+22,sy1+bh-1,'#2a3060',8);
 
-    // Stamina bar
+    // Stamina bar — dark tarnished gold
     const sy2=sy1+bh+gap;
     const stFlash=p.staminaEmpty>0&&(Date.now()/80|0)%2===0;
-    R.bar(mg+16,sy2,bw,bh,p.stamina,mST,
-          stFlash?'#CC2000':'#408010','#060a04');
-    R.text(`${Math.ceil(p.stamina)}/${mST}`,mg+20,sy2+bh,'#80b040',8);
+    R.bar(mg+18,sy2,bw,bh,p.stamina,mST,stFlash?'#601008':'#6a5208','#0a0802');
+    R.text(`${Math.ceil(p.stamina)}/${mST}`,mg+22,sy2+bh-1,'#5a4808',8);
 
-    // Level badge
-    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-22,36,14);
-    ctx.fillStyle='#0c0a08'; ctx.fillRect(mg-2,sy0-20,32,10);
-    R.text(`Lv.${p.level}`,mg,sy0-11,'#807060',9);
+    // Level badge — dark iron box with tarnished gold text
+    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-22,42,16);
+    ctx.fillStyle='#100e0a'; ctx.fillRect(mg-3,sy0-21,40,14);
+    ctx.fillStyle='#2a2006'; ctx.fillRect(mg-3,sy0-21,40,2); // gold top trim
+    R.text(`Lv.${p.level}`,mg,sy0-9,'#6a5618',9);
 
-    // Rune counter (bottom right — GBC box)
-    const rw=88;
+    // Rune counter — dark iron box, tarnished gold rune symbol
+    const rw=96;
     const rx=SCREEN_W-rw-mg;
-    ctx.fillStyle='#000'; ctx.fillRect(rx-6,SCREEN_H-38,rw+10,30);
-    ctx.fillStyle='#0c0a06'; ctx.fillRect(rx-4,SCREEN_H-36,rw+6,26);
-    R.text('RUNES',rx+2,SCREEN_H-26,'#504028',8);
-    R.bold(`${p.runes}`,rx+rw-2,SCREEN_H-mg-2,'#c8a060',13,'right');
+    ctx.fillStyle='#000'; ctx.fillRect(rx-8,SCREEN_H-42,rw+14,34);
+    ctx.fillStyle='#0c0a08'; ctx.fillRect(rx-5,SCREEN_H-40,rw+8,30);
+    ctx.fillStyle='#2a2006'; ctx.fillRect(rx-5,SCREEN_H-40,rw+8,3); // gold trim
+    R.text('RUNES',rx,SCREEN_H-28,'#3a2e0e',8);
+    R.bold(`${p.runes}`,rx+rw-2,SCREEN_H-mg-2,'#8a6e18',13,'right');
 
-    // Flask charges (bottom center — GBC pixel boxes)
+    // Flask charges — Terraria-style hotbar, dark iron with gold trim
     const fc=PLAYER_CONFIG.flaskCharges;
-    const fw=fc*14+10;
+    const fw=fc*16+12;
     const fx2=(SCREEN_W/2-fw/2)|0;
-    const fy=SCREEN_H-mg-18;
-    ctx.fillStyle='#000'; ctx.fillRect(fx2-4,fy-16,fw+8,30);
-    ctx.fillStyle='#0c0a06'; ctx.fillRect(fx2-2,fy-14,fw+4,26);
-    R.text('FLASK',(SCREEN_W/2)|0,fy-4,'#504020',8,'center');
+    const fy=SCREEN_H-mg-20;
+    // Hotbar outer border
+    ctx.fillStyle='#000'; ctx.fillRect(fx2-6,fy-18,fw+12,34);
+    // Iron plate
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(fx2-4,fy-16,fw+8,30);
+    // Gold top trim
+    ctx.fillStyle='#2e2408'; ctx.fillRect(fx2-4,fy-16,fw+8,3);
+    R.text('FLASK',(SCREEN_W/2)|0,fy-5,'#3a2c0a',8,'center');
     for(let i=0;i<fc;i++){
       const full=i<p.flaskCharges;
-      const bx=fx2+i*14+2;
-      // Outer black border
-      ctx.fillStyle='#000'; ctx.fillRect(bx,fy+4,10,10);
-      // Fill
-      ctx.fillStyle=full?'#a86010':'#181008'; ctx.fillRect(bx+1,fy+5,8,8);
-      // Highlight
-      if(full){ ctx.fillStyle='#FFB030'; ctx.fillRect(bx+2,fy+6,4,3); }
+      const bx=fx2+i*16+4;
+      // Flask cell border
+      ctx.fillStyle='#000'; ctx.fillRect(bx-1,fy+4,12,12);
+      // Cell bg — dark iron (empty) or dark amber (full)
+      ctx.fillStyle=full?'#2a1a04':'#0e0c08'; ctx.fillRect(bx,fy+5,10,10);
+      // Gold trim on full cells
+      if(full){
+        ctx.fillStyle='#4a3408'; ctx.fillRect(bx,fy+5,10,1); // top trim
+        ctx.fillStyle='#6a4c10'; ctx.fillRect(bx+1,fy+6,6,5);  // ember fill
+        ctx.fillStyle='#8a6418'; ctx.fillRect(bx+2,fy+7,3,3);  // inner glow
+      }
     }
 
-    // Combo counter
+    // Combo counter — dark iron box
     if(p.combo>=3){
       const ca=Math.min(1,p.comboTimer/2);
       ctx.globalAlpha=ca;
-      ctx.fillStyle='#000'; ctx.fillRect(SCREEN_W/2-68,SCREEN_H-92,136,14);
-      R.bold(`${p.combo} HIT COMBO`,SCREEN_W/2,SCREEN_H-80,'#FFB020',11,'center');
+      ctx.fillStyle='#000'; ctx.fillRect(SCREEN_W/2-72,SCREEN_H-96,144,18);
+      ctx.fillStyle='#100c06'; ctx.fillRect(SCREEN_W/2-70,SCREEN_H-94,140,14);
+      R.bold(`${p.combo} HIT COMBO`,SCREEN_W/2,SCREEN_H-82,'#8a6810',11,'center');
       ctx.globalAlpha=1;
     }
 
-    // Controls hint (faint top-right)
+    // Controls hint (very faint, near-black)
     R.text('WASD Move  J/K Attack  Space Roll  E Interact  F Flask  Tab Equipment  Esc Pause',
-           SCREEN_W-mg,13,'#242424',8,'right');
+           SCREEN_W-mg,13,'#1e1e1e',8,'right');
   },
 
   _bossBar(){
     if(!GS.bossActive||!GS.bossRef||GS.bossRef.isDead) return;
     const boss=GS.bossRef;
-    const bw=SCREEN_W-80, bh=10, bx=40, by=18;
-    // GBC thick border
-    ctx.fillStyle='#000'; ctx.fillRect(bx-4,by-4,bw+8,bh+8);
-    ctx.fillStyle='#140000'; ctx.fillRect(bx,by,bw,bh);
+    const bw=SCREEN_W-100, bh=12, bx=50, by=20;
+    // Thick dark iron border (3px)
+    ctx.fillStyle='#000'; ctx.fillRect(bx-6,by-6,bw+12,bh+24);
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(bx-3,by-3,bw+6,bh+18);
+    // Tarnished gold trim top
+    ctx.fillStyle='#2a2006'; ctx.fillRect(bx-3,by-3,bw+6,3);
+    // Bar bg — near-black dried blood
+    ctx.fillStyle='#0c0000'; ctx.fillRect(bx,by,bw,bh);
     const fw=(boss.hp/boss.maxHP*bw)|0;
-    ctx.fillStyle=boss.phase===2?'#BB1808':'#771808';
+    // Bar fill — deep dried blood (phase 1) / ember red (phase 2)
+    ctx.fillStyle=boss.phase===2?'#700808':'#4a0808';
     ctx.fillRect(bx,by,fw,bh);
-    ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillRect(bx,by,fw,2);
+    // Faint top gleam
+    ctx.fillStyle='rgba(255,100,100,0.08)'; ctx.fillRect(bx,by,fw,2);
+    // Phase 2 bar pulse
+    if(boss.phase===2){
+      ctx.fillStyle='rgba(180,20,20,0.15)'; ctx.fillRect(bx,by,fw,bh);
+    }
     // Phase split marker
     if(boss.phase===1){
-      ctx.fillStyle='#440000'; ctx.fillRect(bx+(bw/2)|0,by,2,bh);
+      ctx.fillStyle='#200000'; ctx.fillRect(bx+(bw/2)|0,by,2,bh);
     }
-    // Name label (black box below bar)
-    ctx.fillStyle='#000'; ctx.fillRect(bx,by+bh+2,bw,12);
-    ctx.fillStyle='#0a0000'; ctx.fillRect(bx+1,by+bh+3,bw-2,10);
+    // Name label — dark iron box, tarnished gold text
+    ctx.fillStyle='#000'; ctx.fillRect(bx,by+bh+2,bw,14);
+    ctx.fillStyle='#0a0806'; ctx.fillRect(bx+1,by+bh+3,bw-2,12);
     R.bold(`${ENEMY_TYPES.BOSS.name}${boss.phase===2?'  [ PHASE II ]':''}`,
-           SCREEN_W/2,by+bh+12,'#c8a060',10,'center');
+           SCREEN_W/2,by+bh+13,'#6a5010',10,'center');
   },
 
   _messages(){
@@ -3077,9 +3294,11 @@ const UI = {
   _minimap(){
     const mw=100, mh=66, mx=SCREEN_W-mw-8, my=36;
     const scx=mw/(WORLD_W*TILE_SIZE), scy=mh/(WORLD_H*TILE_SIZE);
-    // GBC black border panel
-    ctx.fillStyle='#000'; ctx.fillRect(mx-2,my-2,mw+4,mh+4);
-    ctx.fillStyle='#060606'; ctx.fillRect(mx,my,mw,mh);
+    // Dark iron border — 3px near-black + inner gold trim
+    ctx.fillStyle='#000'; ctx.fillRect(mx-4,my-4,mw+8,mh+8);
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(mx-2,my-2,mw+4,mh+4);
+    ctx.fillStyle='#2a2006'; ctx.fillRect(mx-2,my-2,mw+4,2); // gold top trim
+    ctx.fillStyle='#040402'; ctx.fillRect(mx,my,mw,mh);
     // Zone fills (pixel-crisp integer rects)
     for(const zid of GS.discoveredZones){
       const z=ZONES[zid]; if(!z) continue;
@@ -3089,35 +3308,36 @@ const UI = {
                    b.w*TILE_SIZE*scx|0, b.h*TILE_SIZE*scy|0);
     }
     ctx.globalAlpha=1;
-    // Enemy 2×2 dots
+    // Enemy dots — dim dried-blood red
     for(const e of GS.enemies){
       if(e.isDead) continue;
       const ex=mx+e.x*scx|0, ey=my+e.y*scy|0;
       if(ex>mx&&ex<mx+mw&&ey>my&&ey<my+mh){
-        ctx.fillStyle=e.isBoss?'#FF1000':'#802010';
+        ctx.fillStyle=e.isBoss?'#600808':'#401010';
         ctx.fillRect(ex-1,ey-1,3,3);
       }
     }
-    // Bonfire dots
+    // Bonfire dots — tarnished amber
     for(const bf of GS.bonfires){
       if(!bf.lit) continue;
-      ctx.fillStyle='#FF5010';
+      ctx.fillStyle='#7a4808';
       ctx.fillRect(mx+bf.x*scx-1|0,my+bf.y*scy-1|0,3,3);
     }
-    // Bloodstain
+    // Bloodstain — very dark
     const p=GS.player;
     if(p.bloodstainX!==null){
-      ctx.fillStyle='#770000';
+      ctx.fillStyle='#3a0000';
       ctx.fillRect(mx+p.bloodstainX*scx-1|0,my+p.bloodstainY*scy-1|0,3,3);
     }
-    // Player dot (bright 3×3)
-    ctx.fillStyle='#FFD040';
+    // Player dot — tarnished gold
+    ctx.fillStyle='#7a5c10';
     ctx.fillRect(mx+p.x*scx-1|0,my+p.y*scy-1|0,3,3);
-    // Zone name label below map
+    // Zone name label — dark iron box below map
     const zn=ZONES[GS.currentZone];
     if(zn){
-      ctx.fillStyle='#000'; ctx.fillRect(mx-2,my+mh+2,mw+4,11);
-      R.text(zn.name,mx+mw/2,my+mh+10,'#484848',8,'center');
+      ctx.fillStyle='#000'; ctx.fillRect(mx-4,my+mh+2,mw+8,13);
+      ctx.fillStyle='#0a0806'; ctx.fillRect(mx-2,my+mh+3,mw+4,11);
+      R.text(zn.name,mx+mw/2,my+mh+12,'#3a3020',8,'center');
     }
   },
 
