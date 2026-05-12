@@ -389,6 +389,7 @@ const GS = {
     vx:0, vy:0, facing:{x:1,y:0},
     isRolling:false, rollTimer:0, rollITimer:0, rollDx:0, rollDy:0,
     isInvincible:false,
+    rootTimer:0,            // vine-grab / freeze root — can't move while >0
     isAttacking:false, attackType:null, attackTimer:0, attackCooldown:0,
     isDead:false, deathTimer:0,
     bonfireX:PLAYER_CONFIG.startX, bonfireY:PLAYER_CONFIG.startY,
@@ -425,6 +426,10 @@ const GS = {
   messages:[],  // {text, type, timer, max}
 
   flags:{ fogGateEntered:false, bossArenaOpen:false },
+
+  // Boss room seal state — null when no room is active
+  // { id:'main'|'swamp'|'mountain', px0,py0,px1,py1 }
+  activeBossRoom: null,
 
   // Shop state
   shopOpen:false, shopRef:null, shopCursor:0,
@@ -635,10 +640,14 @@ const World = {
     this._mountain();
     this._connectors();
     this._waterAndBridge();
-    // Fog gate at end of castle central corridor
+    // Fog gate at end of castle central corridor (main boss)
     for(let fx=127;fx<=131;fx++){
       this._set(fx,164,T.FOG_GATE); this._set(fx,165,T.FOG_GATE); this._set(fx,166,T.FOG_GATE);
     }
+    // Swamp boss room entry — south edge of boss clearing (ty=24, tx=253..266)
+    for(let fx=253;fx<=266;fx++) this._set(fx,24,T.FOG_GATE);
+    // Mountain boss room entry — west edge of boss clearing (tx=234, ty=140..158)
+    for(let fy=140;fy<=158;fy++) this._set(234,fy,T.FOG_GATE);
     this._border();
     GS.tileMap=this.map;
   },
@@ -2076,31 +2085,36 @@ const Altars = {
 
   _tryActivate(alt){
     const p=GS.player;
-    // Check if already defeated
-    if(alt.id==='main_boss'&&GS.bossDefeated){ UI.msg('The Ashen King has been slain.','rune',2); return; }
-    if(alt.id==='swamp_boss'&&GS.miniBosses.swamp.defeated){ UI.msg('The Swamp Horror is dead.','rune',2); return; }
-    if(alt.id==='mtn_boss'&&GS.miniBosses.mountain.defeated){ UI.msg('The Glacial Yeti is slain.','rune',2); return; }
-
-    const hasItem=p.consumables.includes(alt.item);
-    if(!hasItem){
-      const def=ITEMS[alt.item]; if(!def) return;
-      UI.msg(`The shrine hungers for a ${def.name}.`,'rune',3);
-      return;
+    // Altars are now lore/hint objects — bosses are entered via sealed fog gate doors
+    if(alt.id==='main_boss'){
+      if(GS.bossDefeated){ UI.msg('The Ashen King has been slain.','rune',2); return; }
+      const def=ITEMS[alt.item];
+      if(!p.consumables.includes(alt.item))
+        UI.msg(`Find the ${def?.name||'key item'} to pass through the sealed gate to the south.`,'rune',3.5);
+      else
+        UI.msg(`You hold the ${def?.name||'key'}. The sealed gate to the south awaits.`,'rune',3);
+    } else if(alt.id==='swamp_boss'){
+      if(GS.miniBosses.swamp.defeated){ UI.msg('The Swamp Horror is dead.','rune',2); return; }
+      const def=ITEMS[alt.item];
+      if(!p.consumables.includes(alt.item))
+        UI.msg(`Find the ${def?.name||'key item'} to pass through the sealed gate to the north.`,'rune',3.5);
+      else
+        UI.msg(`You hold the ${def?.name||'key'}. The sealed gate to the north awaits.`,'rune',3);
+    } else if(alt.id==='mtn_boss'){
+      if(GS.miniBosses.mountain.defeated){ UI.msg('The Glacial Yeti is slain.','rune',2); return; }
+      const def=ITEMS[alt.item];
+      if(!p.consumables.includes(alt.item))
+        UI.msg(`Find the ${def?.name||'key item'} to pass through the sealed gate to the west.`,'rune',3.5);
+      else
+        UI.msg(`You hold the ${def?.name||'key'}. The sealed gate to the west awaits.`,'rune',3);
     }
-    // Consume item and spawn boss
-    p.consumables.splice(p.consumables.indexOf(alt.item),1);
-    alt.activated=true;
-    alt.spawn();
-    UI.msg(alt.unlockMsg,'boss',4);
-    ScreenFX.flash(alt.flashCol,0.6,1.0);
-    ScreenFX.shake(8,0.5);
   },
 
   draw(cx,cy){
     for(const alt of this.list){
       const sx=(alt.x-cx)|0, sy=(alt.y-cy)|0;
       if(sx<-50||sx>SCREEN_W+50||sy<-50||sy>SCREEN_H+50) continue;
-      if(alt.activated) continue;
+      // Altars are now permanent hint shrines — always visible
       this._drawAltar(sx,sy,alt);
       if(GS.phase==='playing'){
         const dist=Math.hypot(GS.player.x-alt.x,GS.player.y-alt.y);
@@ -2136,6 +2150,113 @@ const Altars = {
 };
 
 // ============================================================
+// BOSS ROOM SYSTEM — seal arena on entry, unlock on win/death
+// ============================================================
+const BOSS_ROOM_DEFS = {
+  main: {
+    // BOSS_ARENA tile bounds x:108..152, y:168..197
+    px0:108*32, py0:168*32, px1:152*32, py1:197*32,
+    requiredItem:'ASHEN_SIGIL',
+    unlockMsg:'THE ASHEN KING AWAKENS', flashCol:'#6020a0',
+    noItemMsg:'A seal bars your path... Find the Ashen Sigil.',
+    spawn(){ Enemies.spawnBoss(); GS.flags.fogGateEntered=true; },
+    isDefeated(){ return GS.bossDefeated; },
+    isActive(){   return GS.bossActive; },
+  },
+  swamp: {
+    // Swamp boss clearing tile bounds x:248..271, y:1..25
+    px0:248*32, py0:32, px1:271*32, py1:25*32,
+    requiredItem:'HORROR_TOTEM',
+    unlockMsg:'THE SWAMP HORROR STIRS', flashCol:'#204010',
+    noItemMsg:'A cursed seal bars the inner sanctum... Find the Horror Totem.',
+    spawn(){ Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp'); GS.miniBosses.swamp.summoned=true; },
+    isDefeated(){ return GS.miniBosses.swamp.defeated; },
+    isActive(){   return GS.miniBosses.swamp.active; },
+  },
+  mountain: {
+    // Mountain boss clearing tile bounds x:233..265, y:136..162
+    px0:233*32, py0:136*32, px1:265*32, py1:162*32,
+    requiredItem:'YETI_EFFIGY',
+    unlockMsg:'THE GLACIAL YETI AWAKENS', flashCol:'#202840',
+    noItemMsg:'Frost seals this passage... Find the Yeti Effigy.',
+    spawn(){ Enemies.spawnMiniBoss('YETI','mountain'); GS.miniBosses.mountain.summoned=true; },
+    isDefeated(){ return GS.miniBosses.mountain.defeated; },
+    isActive(){   return GS.miniBosses.mountain.active; },
+  },
+};
+
+const BossRooms = {
+  // Called when player walks through a boss fog gate with required item
+  enter(id){
+    const def=BOSS_ROOM_DEFS[id]; if(!def) return;
+    GS.activeBossRoom={ id, px0:def.px0, py0:def.py0, px1:def.px1, py1:def.py1 };
+    def.spawn();
+    UI.msg(def.unlockMsg,'boss',4);
+    UI.msg('The door seals behind you...','rune',3);
+    ScreenFX.flash(def.flashCol,0.6,1.0);
+    ScreenFX.shake(8,0.5);
+  },
+
+  // Called when boss/miniboss is killed, or when player respawns
+  unlock(notify=true){
+    if(!GS.activeBossRoom) return;
+    GS.activeBossRoom=null;
+    if(notify) UI.msg('The seal has lifted.','rune',2.5);
+  },
+
+  // Clamp player position to active room bounds
+  clamp(p){
+    if(!GS.activeBossRoom) return;
+    const br=GS.activeBossRoom;
+    const S=PLAYER_CONFIG.size+2;
+    p.x=Math.max(br.px0+S, Math.min(br.px1-S, p.x));
+    p.y=Math.max(br.py0+S, Math.min(br.py1-S, p.y));
+  },
+
+  // Draw sealed door visuals at each boss room entry
+  draw(cx,cy){
+    if(!GS.activeBossRoom) return;
+    const id=GS.activeBossRoom.id;
+    const now=Date.now();
+    const pulse=(now/300|0)%2;
+    // Determine entry fog gate screen positions
+    if(id==='main'){
+      for(let tx=127;tx<=131;tx++){
+        for(let ty=164;ty<=166;ty++){
+          const sx=tx*32-cx|0, sy=ty*32-cy|0;
+          if(sx<-40||sx>SCREEN_W+40) continue;
+          ctx.globalAlpha=0.55+pulse*0.15; ctx.fillStyle='#500010';
+          ctx.fillRect(sx,sy,32,32);
+          ctx.globalAlpha=1;
+        }
+      }
+      const sx=(129*32+16)-cx|0, sy=(165*32)-cy|0;
+      R.text('SEALED',sx,sy-6,'#cc2030',10,'center');
+    } else if(id==='swamp'){
+      for(let tx=253;tx<=266;tx++){
+        const sx=tx*32-cx|0, sy=24*32-cy|0;
+        if(sx<-40||sx>SCREEN_W+40) continue;
+        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle='#102808';
+        ctx.fillRect(sx,sy,32,32);
+        ctx.globalAlpha=1;
+      }
+      const sx=(260*32)-cx|0, sy=(24*32)-cy|0;
+      R.text('SEALED',sx,sy-6,'#40a020',10,'center');
+    } else if(id==='mountain'){
+      for(let ty=140;ty<=158;ty++){
+        const sx=234*32-cx|0, sy=ty*32-cy|0;
+        if(sy<-40||sy>SCREEN_H+40) continue;
+        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle='#0c1830';
+        ctx.fillRect(sx,sy,32,32);
+        ctx.globalAlpha=1;
+      }
+      const sx=234*32-cx|0, sy=(149*32)-cy|0;
+      R.text('SEALED',sx-4,sy,'#3060a8',10,'right');
+    }
+  },
+};
+
+// ============================================================
 // PLAYER SYSTEM
 // ============================================================
 let atkHitbox=null; // {x,y,w,h,dmg,type,timer,hit:Set}
@@ -2164,6 +2285,8 @@ const Player = {
 
   _move(dt){
     const p=GS.player;
+    // Root effect (vine grab, etc.) — can't move but can still act
+    if(p.rootTimer>0){ p.rootTimer-=dt; BossRooms.clamp(p); return; }
     if(p.isRolling) return;
     const root=p.isAttacking&&p.attackType==='heavy';
     let dx=0, dy=0;
@@ -2181,6 +2304,8 @@ const Player = {
     const nx=p.x+dx*spd*dt, ny=p.y+dy*spd*dt;
     if(World.canMove(nx,p.y,PLAYER_CONFIG.size-1)) p.x=nx;
     if(World.canMove(p.x,ny,PLAYER_CONFIG.size-1)) p.y=ny;
+    // Clamp to active boss room bounds
+    BossRooms.clamp(p);
   },
 
   _roll(dt){
@@ -2324,23 +2449,31 @@ const Player = {
 
   _checkFogGate(){
     const p=GS.player;
-    if(GS.flags.fogGateEntered) return;
-    if(World.tile(p.x,p.y)===T.FOG_GATE){
-      const hasSigil=p.consumables.includes('ASHEN_SIGIL');
-      if(!hasSigil){
-        UI.msg('A seal bars your path... Find the Ashen Sigil.','rune',3);
-        // Push player back
-        p.x-=p.facing.x*16; p.y-=p.facing.y*16;
-        return;
-      }
-      // Consume sigil and summon boss
-      p.consumables.splice(p.consumables.indexOf('ASHEN_SIGIL'),1);
-      GS.flags.fogGateEntered=true;
-      Enemies.spawnBoss();
-      UI.msg('THE ASHEN KING AWAKENS','boss',4);
-      ScreenFX.flash('#6020a0',0.6,1.0);
-      ScreenFX.shake(8,0.5);
+    if(World.tile(p.x,p.y)!==T.FOG_GATE) return;
+    const tx=p.x/TILE_SIZE|0, ty=p.y/TILE_SIZE|0;
+
+    // Determine which fog gate based on tile position
+    let roomId=null;
+    if(tx>=127&&tx<=131&&ty>=164&&ty<=166) roomId='main';
+    else if(tx>=253&&tx<=266&&ty===24)      roomId='swamp';
+    else if(tx===234&&ty>=140&&ty<=158)     roomId='mountain';
+    if(!roomId) return;
+
+    const def=BOSS_ROOM_DEFS[roomId];
+    // Already defeated — allow free passage
+    if(def.isDefeated()) return;
+    // Boss room already active — player inside, clamping handles rest
+    if(def.isActive()) return;
+    // Check for required item
+    const hasItem=p.consumables.includes(def.requiredItem);
+    if(!hasItem){
+      UI.msg(def.noItemMsg,'rune',3);
+      p.x-=p.facing.x*18; p.y-=p.facing.y*18;
+      return;
     }
+    // Consume item, enter room
+    p.consumables.splice(p.consumables.indexOf(def.requiredItem),1);
+    BossRooms.enter(roomId);
   },
 
   _checkItems(){
@@ -2439,8 +2572,14 @@ const Player = {
     p.flaskCharges=PLAYER_CONFIG.flaskCharges;
     p.x=p.bonfireX; p.y=p.bonfireY;
     p.isRolling=false; p.isAttacking=false; p.isInvincible=false;
-    p.hitFlash=0; p.combo=0;
+    p.hitFlash=0; p.combo=0; p.rootTimer=0;
     atkHitbox=null;
+    // Unlock boss room (boss resets on respawnAll)
+    GS.activeBossRoom=null;
+    // Reset boss references so they can be re-summoned
+    if(GS.bossActive){ GS.bossActive=false; GS.bossRef=null; GS.flags.fogGateEntered=false; }
+    if(GS.miniBosses.swamp.active){ GS.miniBosses.swamp.active=false; GS.miniBosses.swamp.ref=null; GS.miniBosses.swamp.summoned=false; }
+    if(GS.miniBosses.mountain.active){ GS.miniBosses.mountain.active=false; GS.miniBosses.mountain.ref=null; GS.miniBosses.mountain.summoned=false; }
     Enemies.respawnAll();
     GS.messages=GS.messages.filter(m=>m.type!=='death');
   },
@@ -2465,6 +2604,18 @@ const Player = {
     if(p.isInvincible){
       ctx.fillStyle='#3060a0';
       ctx.fillRect(sx-16,sy-20,32,36);
+    }
+
+    // Root effect — green vine glow
+    if(p.rootTimer>0){
+      const rf=Math.sin(Date.now()/80)*0.15+0.35;
+      ctx.globalAlpha=baseA*rf; ctx.fillStyle='#204010';
+      ctx.fillRect(sx-20,sy-24,40,44);
+      ctx.globalAlpha=baseA; ctx.fillStyle='#30601c';
+      ctx.fillRect(sx-20,sy+16,40,4);
+      ctx.fillRect(sx-20,sy-22,4,40);
+      ctx.fillRect(sx+16,sy-22,4,40);
+      ctx.globalAlpha=baseA;
     }
 
     // Frost aura shimmer (Yeti Pelt)
@@ -2839,8 +2990,14 @@ const Enemies = {
       stagger:0,            // stagger timer (can't attack)
       aggroShown:false,     // "!" was shown
       phase:1, runesGiven:false,
-      // Boss-specific
+      // Boss-specific slam
       slamCD:0, slamPending:false, slamTimer:0, slamX:0, slamY:0,
+      // Custom moveset
+      specialMoveCD:0.5+Math.random()*1.5,  // cooldown between special moves
+      moveType:'basic',                      // current move type for animation hints
+      chargeActive:false, chargeDx:0, chargeDy:0, chargeTimer:0, chargeDmg:0,
+      submerged:false, submergeTimer:0,      // for swamp monster submerge
+      blazeCD:0,                             // fire trail for boss phase 2
     };
     GS.enemies.push(e); return e;
   },
@@ -2879,6 +3036,7 @@ const Enemies = {
   // dmg — amount; kx,ky — knockback direction
   damage(e, dmg, kx=0, ky=0){
     if(e.isDead) return;
+    if(e.submerged) return; // untargetable while submerged
     e.hp-=dmg; e.hitFlash=0.15; e.stagger=0.12;
     // Knockback (bosses get reduced knockback)
     const kStr=e.isBoss?18:55;
@@ -2902,6 +3060,7 @@ const Enemies = {
       UI.msg('GREAT ENEMY FELLED','boss_won',6);
       ScreenFX.flash('#FFD060',0.6,1.2); ScreenFX.shake(12,0.6);
       for(let i=0;i<8;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*90,e.y+(Math.random()-0.5)*70),i*200);
+      setTimeout(()=>BossRooms.unlock(true),1200);
     }
     // Mini-boss handling
     if(e.isMiniBoss){
@@ -2911,6 +3070,7 @@ const Enemies = {
       UI.msg('GREAT ENEMY FELLED','boss_won',5);
       ScreenFX.flash('#FFD060',0.5,1.0); ScreenFX.shake(10,0.5);
       for(let i=0;i<6;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*80,e.y+(Math.random()-0.5)*60),i*200);
+      setTimeout(()=>BossRooms.unlock(true),1000);
     }
     Particles.death(e.x,e.y,e.cfg.color,14);
   },
@@ -2967,11 +3127,49 @@ const Enemies = {
 
   _ai(e,p,dt){
     if(e.stagger>0) return;
+    // Special state: submerged (swamp monster hides briefly)
+    if(e.submerged){
+      e.submergeTimer-=dt;
+      if(e.submergeTimer<=0){
+        e.submerged=false;
+        // Erupt near player
+        e.x=p.x+(Math.random()-0.5)*80;
+        e.y=p.y+(Math.random()-0.5)*80;
+        Particles.death(e.x,e.y,'#204010',20);
+        ScreenFX.shake(8,0.3);
+        if(!p.isInvincible&&!p.isDead&&Math.hypot(p.x-e.x,p.y-e.y)<60)
+          Player.takeDamage(e.cfg.meleeDmg*1.5*(e.phase===2&&e.cfg.p2DmgMult?e.cfg.p2DmgMult:1));
+      }
+      return;
+    }
+    // Special state: charge move
+    if(e.chargeActive){
+      e.chargeTimer-=dt;
+      const spd=e.cfg.speed*3.8;
+      const nx=e.x+e.chargeDx*spd*dt, ny=e.y+e.chargeDy*spd*dt;
+      if(World.canMove(nx,e.y,e.size)) e.x=nx; else e.chargeActive=false;
+      if(World.canMove(e.x,ny,e.size)) e.y=ny; else e.chargeActive=false;
+      if(!p.isDead&&!p.isInvincible&&Math.hypot(p.x-e.x,p.y-e.y)<e.size+PLAYER_CONFIG.size+6){
+        Player.takeDamage(e.chargeDmg);
+        Particles.sparks(e.x,e.y,14);
+        ScreenFX.shake(6,0.25);
+        e.chargeActive=false; // stop after hit
+      }
+      if(e.chargeTimer<=0) e.chargeActive=false;
+      // Boss fire trail during phase 2 dash
+      if(e.isBoss&&e.phase===2&&e.blazeCD<=0){
+        e.blazeCD=0.08;
+        GS.slamIndicators.push({x:e.x,y:e.y,r:0,maxR:26,timer:0.9,max:0.9,isBlaze:true});
+      }
+      if(e.blazeCD>0) e.blazeCD-=dt;
+      return;
+    }
     if(p.isDead&&e.state!=='idle'){ e.state='patrol'; return; }
     const dist=Math.hypot(p.x-e.x,p.y-e.y);
     const cfg=e.cfg;
     const spdM=(e.phase===2&&cfg.p2SpeedMult)?cfg.p2SpeedMult:1;
     if(e.attackCD>0) e.attackCD-=dt;
+    if(e.specialMoveCD>0) e.specialMoveCD-=dt;
     if(e.isAttacking){ e.attackTimer-=dt; if(e.attackTimer<=0) e.isAttacking=false; }
 
     // Aggro indicator
@@ -3011,7 +3209,7 @@ const Enemies = {
         }
         break;
       case 'attack':
-        if(dist>cfg.attackRange*1.4){ e.state='chase'; break; }
+        if(dist>cfg.attackRange*1.5){ e.state='chase'; break; }
         if(e.attackCD<=0&&!e.isAttacking) this._attack(e,p,spdM);
         // Boss/miniboss: slam in phase 2
         if((e.isBoss||e.isMiniBoss)&&e.phase===2&&e.slamCD<=0&&!e.slamPending&&dist<cfg.attackRange*2){
@@ -3031,22 +3229,313 @@ const Enemies = {
     if(World.canMove(e.x,ny,e.size)) e.y=ny;
   },
 
+  _selectMove(e, dist){
+    // Returns a move type string based on enemy type and phase
+    const r=Math.random(); const t=e.type; const p2=(e.phase===2);
+    const canSpecial=(e.specialMoveCD<=0);
+    switch(t){
+      case 'GRUNT':
+        if(canSpecial&&r<0.22) return 'lunge';
+        if(canSpecial&&r<0.40) return 'heavy_slash';
+        return 'slash';
+      case 'ARCHER':
+        if(canSpecial&&r<0.35) return 'volley';
+        return 'arrow';
+      case 'GRAVE_KNIGHT':
+        if(canSpecial&&r<0.25) return 'sweep';
+        if(canSpecial&&r<0.42) return 'shield_bash';
+        return 'thrust';
+      case 'HOLLOW':
+        if(canSpecial&&r<0.30) return 'flurry';
+        if(canSpecial&&r<0.48) return 'feint';
+        return 'slash';
+      case 'BEAST_KNIGHT':
+        if(canSpecial&&r<0.28) return 'charge';
+        if(canSpecial&&r<0.46) return 'stomp';
+        return 'axe_swing';
+      case 'SWAMP_BEAST':
+        if(canSpecial&&r<0.30) return 'spit';
+        if(canSpecial&&r<0.48) return 'leap';
+        return 'claw';
+      case 'SWAMP_MONSTER':
+        if(canSpecial&&p2&&r<0.18) return 'submerge';
+        if(canSpecial&&r<0.35) return 'toxic_spray';
+        if(canSpecial&&r<0.50) return 'vine_grab';
+        return 'slam_melee';
+      case 'SNOW_GRUNT':
+        if(canSpecial&&r<0.40) return 'ice_throw';
+        if(canSpecial&&r<0.56) return 'ice_slam';
+        return 'jab';
+      case 'YETI':
+        if(canSpecial&&p2&&r<0.20) return 'blizzard_spin';
+        if(canSpecial&&r<0.35) return 'frost_breath';
+        if(canSpecial&&r<0.50) return 'charge';
+        return 'slam_melee';
+      case 'BOSS':
+        if(canSpecial&&p2&&r<0.20) return 'crown_beam';
+        if(canSpecial&&r<0.35) return 'dash_slash';
+        if(canSpecial&&r<0.55) return 'sweep';
+        return 'slash';
+      default:
+        return 'slash';
+    }
+  },
+
   _attack(e,p,spdM){
     const cfg=e.cfg;
     const dmgM=(e.phase===2&&cfg.p2DmgMult)?cfg.p2DmgMult:1;
+    const dist=Math.hypot(p.x-e.x,p.y-e.y);
+    const move=this._selectMove(e,dist);
+    e.moveType=move;
     e.isAttacking=true; e.attackTimer=cfg.attackDur; e.attackCD=cfg.attackCD;
+
+    // ── Ranged base attack (archer behavior) ──────────────────────────
     if(cfg.behavior==='archer'){
-      const dx=p.x-e.x, dy=p.y-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
-      GS.projectiles.push({
-        x:e.x, y:e.y, vx:(dx/l)*cfg.projSpeed, vy:(dy/l)*cfg.projSpeed,
-        dmg:cfg.meleeDmg*dmgM, sz:5, life:3, color:'#c0c060'
-      });
-    } else {
-      if(Math.hypot(p.x-e.x,p.y-e.y)<cfg.attackRange+14){
-        Player.takeDamage(cfg.meleeDmg*dmgM);
-        if(e.isBoss) Particles.sparks(e.x,e.y,20);
+      if(move==='volley'){
+        e.specialMoveCD=2.8;
+        const dx=p.x-e.x, dy=p.y-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+        const ang=Math.atan2(dy,dx);
+        for(let i=-1;i<=1;i++){
+          const a=ang+i*0.28;
+          GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a)*cfg.projSpeed,vy:Math.sin(a)*cfg.projSpeed,
+            dmg:cfg.meleeDmg*dmgM*0.85, sz:5, life:3.2, color:'#d0d080'});
+        }
+      } else {
+        // arrow (standard)
+        const dx=p.x-e.x, dy=p.y-e.y, l=Math.sqrt(dx*dx+dy*dy)||1;
+        GS.projectiles.push({x:e.x,y:e.y,vx:(dx/l)*cfg.projSpeed,vy:(dy/l)*cfg.projSpeed,
+          dmg:cfg.meleeDmg*dmgM, sz:5, life:3, color:'#c0c060'});
       }
+      return;
     }
+
+    // ── Move-based melee attacks ──────────────────────────────────────
+    switch(move){
+      case 'slash': case 'jab': case 'thrust': case 'claw': case 'axe_swing': case 'slam_melee':
+        // Standard melee hit
+        if(dist<cfg.attackRange+16){
+          const mul=(move==='jab')?0.65:(move==='slam_melee')?1.15:1.0;
+          Player.takeDamage(cfg.meleeDmg*dmgM*mul);
+          if(e.isBoss||e.isMiniBoss) Particles.sparks(e.x,e.y,20);
+        }
+        break;
+
+      case 'heavy_slash':
+        e.specialMoveCD=1.8;
+        if(dist<cfg.attackRange+20){
+          Player.takeDamage(cfg.meleeDmg*dmgM*1.7);
+          GS.player.stamina=Math.max(0,GS.player.stamina-25);
+          Particles.sparks(e.x,e.y,10);
+        }
+        break;
+
+      case 'sweep':
+        // Wide arc — hits even if player is slightly off-center
+        e.specialMoveCD=2.2;
+        if(dist<cfg.attackRange*1.35){
+          Player.takeDamage(cfg.meleeDmg*dmgM*1.25);
+          Particles.sparks(p.x,p.y,12);
+          ScreenFX.shake(4,0.15);
+        }
+        break;
+
+      case 'shield_bash':
+        // Short range, staggers (drains stamina)
+        e.specialMoveCD=2.5;
+        if(dist<cfg.attackRange*0.8){
+          Player.takeDamage(cfg.meleeDmg*dmgM*0.6);
+          GS.player.stamina=Math.max(0,GS.player.stamina-40);
+          GS.player.rootTimer=0.6; // brief root from the bash
+          Particles.sparks(p.x,p.y,8);
+        }
+        break;
+
+      case 'stomp': {
+        // Small AOE at feet
+        e.specialMoveCD=2.0;
+        const sRange=cfg.attackRange*1.1;
+        GS.slamIndicators.push({x:e.x,y:e.y,r:0,maxR:sRange,timer:0.3,max:0.3});
+        if(dist<sRange&&!GS.player.isInvincible){
+          Player.takeDamage(cfg.meleeDmg*dmgM*0.9);
+          ScreenFX.shake(5,0.2);
+        }
+        Particles.sparks(e.x,e.y,12);
+        break;}
+
+      case 'flurry':
+        // Rapid 3-hit burst — schedule 3 quick damage ticks
+        e.specialMoveCD=2.2; e.attackCD=0.3;
+        if(dist<cfg.attackRange+14){
+          for(let i=0;i<3;i++){
+            setTimeout(()=>{
+              if(!GS.player.isDead&&!GS.player.isInvincible&&Math.hypot(p.x-e.x,p.y-e.y)<cfg.attackRange+18)
+                Player.takeDamage(cfg.meleeDmg*dmgM*0.5);
+              Particles.sparks(e.x,e.y,4);
+            },i*100);
+          }
+        }
+        break;
+
+      case 'feint':
+        // Lunge toward player — no damage; follows up with slash on next attack
+        e.specialMoveCD=1.8;
+        e.attackCD=0.35; // faster follow-up
+        {const dx2=p.x-e.x,dy2=p.y-e.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+        e.knockVx=(dx2/l2)*-60; e.knockVy=(dy2/l2)*-60;} // lurch toward
+        break;
+
+      case 'lunge':
+        // Charge dash at player
+        e.specialMoveCD=3.0;
+        { const dx2=p.x-e.x,dy2=p.y-e.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+          e.chargeActive=true; e.chargeDx=dx2/l2; e.chargeDy=dy2/l2;
+          e.chargeTimer=0.28; e.chargeDmg=cfg.meleeDmg*dmgM*1.4;
+          Particles.sparks(e.x,e.y,10); }
+        break;
+
+      case 'charge':
+        // Full-speed charge
+        e.specialMoveCD=4.0;
+        { const dx2=p.x-e.x,dy2=p.y-e.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+          e.chargeActive=true; e.chargeDx=dx2/l2; e.chargeDy=dy2/l2;
+          e.chargeTimer=0.45; e.chargeDmg=cfg.meleeDmg*dmgM*(e.type==='YETI'?2.0:1.65);
+          GS.slamIndicators.push({x:p.x,y:p.y,r:0,maxR:60,timer:0.38,max:0.38});
+          Particles.sparks(e.x,e.y,16); }
+        break;
+
+      case 'leap':
+        // Swamp beast leaps at player
+        e.specialMoveCD=3.2;
+        { const dx2=p.x-e.x,dy2=p.y-e.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+          e.chargeActive=true; e.chargeDx=dx2/l2; e.chargeDy=dy2/l2;
+          e.chargeTimer=0.22; e.chargeDmg=cfg.meleeDmg*dmgM*1.3;
+          Particles.sparks(e.x,e.y,8); }
+        break;
+
+      case 'spit':
+        // Toxic projectile
+        e.specialMoveCD=2.5;
+        { const dx2=p.x-e.x,dy2=p.y-e.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+          GS.projectiles.push({x:e.x,y:e.y,vx:(dx2/l2)*110,vy:(dy2/l2)*110,
+            dmg:cfg.meleeDmg*dmgM*1.1, sz:8, life:4, color:'#4a8010', glow:'#60a020'}); }
+        break;
+
+      case 'ice_throw':
+        // Ice projectile — slightly slower, slightly bigger
+        e.specialMoveCD=2.2;
+        { const dx2=p.x-e.x,dy2=p.y-e.y,l2=Math.sqrt(dx2*dx2+dy2*dy2)||1;
+          GS.projectiles.push({x:e.x,y:e.y,vx:(dx2/l2)*145,vy:(dy2/l2)*145,
+            dmg:cfg.meleeDmg*dmgM*0.9, sz:7, life:3.5, color:'#88b8d8', glow:'#a8d8f8',
+            isIce:true}); }
+        break;
+
+      case 'ice_slam':
+        // Stamp spear, mini-AOE at feet
+        e.specialMoveCD=1.8;
+        if(dist<cfg.attackRange*1.2){
+          Player.takeDamage(cfg.meleeDmg*dmgM*0.85);
+          GS.player.rootTimer=Math.max(GS.player.rootTimer,0.5);
+          Particles.sparks(e.x,e.y,10);
+        }
+        break;
+
+      case 'toxic_spray': {
+        // Swamp monster: cone of 5 projectiles
+        e.specialMoveCD=3.5;
+        const dx3=p.x-e.x,dy3=p.y-e.y;
+        const ang3=Math.atan2(dy3,dx3);
+        for(let i=-2;i<=2;i++){
+          const a3=ang3+i*0.22;
+          const spd3=90+Math.random()*40;
+          GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a3)*spd3,vy:Math.sin(a3)*spd3,
+            dmg:cfg.meleeDmg*dmgM*0.7, sz:9, life:3.5, color:'#3a7010', glow:'#50a018'});
+        }
+        ScreenFX.flash('#204010',0.2,0.3);
+        break;}
+
+      case 'vine_grab':
+        // Root player in place briefly
+        e.specialMoveCD=5.0;
+        if(dist<cfg.attackRange*1.8){
+          GS.player.rootTimer=2.0;
+          UI.msg('Ensnared by vines!','rune',1.5);
+          Particles.death(p.x,p.y,'#204010',12);
+          ScreenFX.flash('#204010',0.18,0.4);
+        }
+        break;
+
+      case 'submerge':
+        // Swamp monster dives underground briefly, erupts near player
+        e.specialMoveCD=7.0;
+        e.submerged=true; e.submergeTimer=1.6;
+        Particles.death(e.x,e.y,'#204010',16);
+        UI.msg('The Horror submerges!','rune',1.2);
+        break;
+
+      case 'frost_breath': {
+        // Yeti: cone of 7 icy projectiles
+        e.specialMoveCD=4.0;
+        const dx4=p.x-e.x,dy4=p.y-e.y;
+        const ang4=Math.atan2(dy4,dx4);
+        for(let i=-3;i<=3;i++){
+          const a4=ang4+i*0.18;
+          GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a4)*105,vy:Math.sin(a4)*105,
+            dmg:cfg.meleeDmg*dmgM*0.65, sz:8, life:3.8, color:'#6898c8', glow:'#90c8f0',
+            isIce:true});
+        }
+        ScreenFX.flash('#101830',0.22,0.35);
+        break;}
+
+      case 'blizzard_spin': {
+        // Yeti phase 2: AOE spin for 2s
+        e.specialMoveCD=6.0;
+        GS.slamIndicators.push({x:e.x,y:e.y,r:0,maxR:cfg.attackRange*1.6,timer:0.5,max:0.5});
+        if(dist<cfg.attackRange*1.6&&!GS.player.isInvincible){
+          Player.takeDamage(cfg.meleeDmg*dmgM*1.2);
+          GS.player.rootTimer=Math.max(GS.player.rootTimer,0.6);
+        }
+        for(let i=0;i<4;i++){
+          const a5=i*Math.PI/2;
+          GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a5)*80,vy:Math.sin(a5)*80,
+            dmg:cfg.meleeDmg*dmgM*0.4, sz:7, life:0.9, color:'#80c0e8', isIce:true});
+        }
+        ScreenFX.flash('#101830',0.3,0.45);
+        break;}
+
+      case 'dash_slash':
+        // Boss teleports to player, slash
+        e.specialMoveCD=4.5;
+        { const dx5=p.x-e.x,dy5=p.y-e.y,l5=Math.sqrt(dx5*dx5+dy5*dy5)||1;
+          e.chargeActive=true; e.chargeDx=dx5/l5; e.chargeDy=dy5/l5;
+          e.chargeTimer=0.35; e.chargeDmg=cfg.meleeDmg*dmgM*1.8;
+          GS.slamIndicators.push({x:p.x,y:p.y,r:0,maxR:80,timer:0.28,max:0.28});
+          e.blazeCD=0; // reset so fire trail starts immediately
+          Particles.sparks(e.x,e.y,18); ScreenFX.flash('#300808',0.2,0.25); }
+        break;
+
+      case 'crown_beam': {
+        // Boss phase 2: aimed beam after telegraph
+        e.specialMoveCD=5.5;
+        const dx6=p.x-e.x,dy6=p.y-e.y,l6=Math.sqrt(dx6*dx6+dy6*dy6)||1;
+        GS.slamIndicators.push({x:p.x,y:p.y,r:0,maxR:50,timer:0.85,max:0.85,isBeam:true,
+          bx:e.x,by:e.y,tx:dx6/l6,ty:dy6/l6});
+        setTimeout(()=>{
+          if(!GS.player.isDead&&!GS.player.isInvincible){
+            const d=Math.hypot(GS.player.x-e.x,GS.player.y-e.y);
+            if(d<260){ // beam range
+              Player.takeDamage(cfg.meleeDmg*dmgM*2.4);
+              ScreenFX.flash('#601010',0.4,0.5);
+              ScreenFX.shake(10,0.35);
+              Particles.sparks(GS.player.x,GS.player.y,20);
+            }
+          }
+        },900);
+        ScreenFX.flash('#300808',0.25,0.4);
+        UI.msg('Crown Beam!','boss',1.0);
+        break;}
+    }
+
+    if(e.isBoss||e.isMiniBoss) Particles.sparks(e.x,e.y,12);
   },
 
   // Boss phase-2 telegraphed ground slam
@@ -3099,18 +3588,40 @@ const Enemies = {
       } else {
         // Enemy projectile — hits player
         if(!p.isDead&&!p.isInvincible&&Math.hypot(p.x-pr.x,p.y-pr.y)<PLAYER_CONFIG.size+pr.sz){
-          Player.takeDamage(pr.dmg); Particles.sparks(pr.x,pr.y,6); GS.projectiles.splice(i,1);
+          Player.takeDamage(pr.dmg);
+          if(pr.isIce){ p.rootTimer=Math.max(p.rootTimer,0.5); UI.msg('Chilled!','rune',0.8); }
+          Particles.sparks(pr.x,pr.y,6); GS.projectiles.splice(i,1);
         }
       }
     }
   },
 
   draw(cx,cy){
-    // Slam warning indicators — square pixel outline (no arcs)
+    // Slam / special warning indicators
     for(const s of GS.slamIndicators){
       const sx=(s.x-cx)|0, sy=(s.y-cy)|0;
       const prog=1-(s.timer/s.max);
       const R2=s.maxR*prog|0;
+      if(s.isBlaze){
+        // Fire trail from boss dash — ember circle
+        ctx.globalAlpha=0.45*(1-prog); ctx.fillStyle='#c03010';
+        ctx.fillRect(sx-s.maxR/2|0,sy-s.maxR/2|0,s.maxR,s.maxR);
+        ctx.globalAlpha=1; continue;
+      }
+      if(s.isBeam){
+        // Crown beam telegraph — thin red line toward target
+        const bsx=(s.bx-cx)|0, bsy=(s.by-cy)|0;
+        const a2=0.15+prog*0.65;
+        ctx.globalAlpha=a2; ctx.fillStyle='#FF2000';
+        const len2=Math.min(260,Math.hypot(sx-bsx,sy-bsy));
+        ctx.save(); ctx.translate(bsx,bsy);
+        ctx.rotate(Math.atan2(sy-bsy,sx-bsx));
+        ctx.fillRect(0,-3,len2,6);
+        ctx.globalAlpha=a2*0.35; ctx.fillStyle='#FF6020';
+        ctx.fillRect(0,-8,len2,16);
+        ctx.restore();
+        ctx.globalAlpha=1; continue;
+      }
       const a=0.15+prog*0.45;
       ctx.globalAlpha=a*0.18; ctx.fillStyle='#FF2000';
       ctx.fillRect(sx-R2,sy-R2,R2*2,R2*2);
@@ -3186,6 +3697,21 @@ const Enemies = {
     else if(e.type==='SNOW_GRUNT') this._drawSnowGrunt(e,sx,sy);
     else if(e.cfg.behavior==='archer') this._drawArcher(e,sx,sy);
     else this._drawGrunt(e,sx,sy);
+
+    // Charge motion trail
+    if(e.chargeActive){
+      ctx.globalAlpha=a*0.50; ctx.fillStyle='#FFD040';
+      ctx.fillRect(sx-e.size-(e.chargeDx*10|0),sy-e.size-(e.chargeDy*10|0),e.size*2,e.size*2);
+      ctx.globalAlpha=a*0.25; ctx.fillRect(sx-e.size-(e.chargeDx*22|0),sy-e.size-(e.chargeDy*22|0),e.size*2,e.size*2);
+      ctx.globalAlpha=a;
+    }
+
+    // Submerge — draw only the "sinking" silhouette, skip full draw
+    if(e.submerged){
+      ctx.globalAlpha=a*0.28; ctx.fillStyle='#204010';
+      ctx.fillRect(sx-e.size,sy,e.size*2,e.size);
+      ctx.globalAlpha=1; return;
+    }
 
     // Hit flash — solid white rect, no arc
     if(e.hitFlash>0){
@@ -4413,6 +4939,16 @@ const UI = {
       R.text('❄ FROST AURA  — enemies slowed nearby',mg,sy0-50,'#3060a0',8);
     }
 
+    // Boss room sealed indicator
+    if(GS.activeBossRoom){
+      const id=GS.activeBossRoom.id;
+      const col=id==='swamp'?'#40a020':id==='mountain'?'#6088cc':'#cc3030';
+      const bg=id==='swamp'?'#0a1805':id==='mountain'?'#080c18':'#180808';
+      ctx.fillStyle='#000'; ctx.fillRect(SCREEN_W/2-132,3,264,18);
+      ctx.fillStyle=bg; ctx.fillRect(SCREEN_W/2-130,4,260,16);
+      R.text('BOSS ROOM SEALED — Defeat the enemy to escape',SCREEN_W/2,16,col,9,'center');
+    }
+
     // Controls hint (very faint, near-black)
     R.text('WASD Move  J/K Attack  Q Special  Space Roll  E Interact  F Flask  Tab Equipment',
            SCREEN_W-mg,13,'#1e1e1e',8,'right');
@@ -4708,6 +5244,7 @@ function loop(ts){
 
     ScreenFX.apply();
     World.draw(cx,cy);
+    BossRooms.draw(cx,cy);
     Bonfires.draw(cx,cy);
     Chests.draw(cx,cy);
     Altars.draw(cx,cy);
