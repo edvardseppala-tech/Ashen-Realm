@@ -92,7 +92,7 @@ const PLAYER_CONFIG = {
   maxHP:100, maxFP:60, maxStamina:100,
   staminaRegen:22,
   speed:180,
-  rollSpeed:340, rollDuration:0.32, rollStaminaCost:22, rollIFrames:0.32,
+  rollSpeed:520, rollDuration:0.44, rollStaminaCost:22, rollIFrames:0.44,
   lightDmg:15,  lightStamina:14, lightDur:0.22,
   heavyDmg:38,  heavyStamina:30, heavyDur:0.50,
   attackCooldown:0.12,
@@ -282,6 +282,39 @@ const EQUIPMENT_ITEMS = {
     bonuses:{damage:0,defense:22,hp:90,stamina:0},
     desc:'+22 DEF  +90 HP  Frost Aura  Req Lv.5', levelReq:5, special:'frost_aura'
   },
+  // ---- Class starting gear ----
+  RUSTY_SWORD:{
+    id:'RUSTY_SWORD', name:'Rusty Sword', slot:'weapon', rarity:'common',
+    bonuses:{damage:6,defense:0,hp:0,stamina:0,fp:0}, desc:'+6 ATK'
+  },
+  SMALL_DAGGER:{
+    id:'SMALL_DAGGER', name:'Small Dagger', slot:'weapon', rarity:'common',
+    bonuses:{damage:12,defense:0,hp:0,stamina:8,fp:0}, desc:'+12 ATK  +8 STA'
+  },
+  OLD_BOW:{
+    id:'OLD_BOW', name:'Old Bow', slot:'weapon', rarity:'common',
+    bonuses:{damage:10,defense:0,hp:0,stamina:5,fp:0}, desc:'+10 ATK  +5 STA'
+  },
+  OLD_WAND:{
+    id:'OLD_WAND', name:'Old Wand', slot:'weapon', rarity:'common',
+    bonuses:{damage:8,defense:0,hp:0,stamina:0,fp:15}, desc:'+8 ATK  +15 FP'
+  },
+  LEATHER_CHESTPLATE:{
+    id:'LEATHER_CHESTPLATE', name:'Leather Chestplate', slot:'armor', rarity:'common',
+    bonuses:{damage:0,defense:6,hp:15,stamina:0,fp:0}, desc:'+6 DEF  +15 HP'
+  },
+  OLD_CLOAK:{
+    id:'OLD_CLOAK', name:'Old Cloak', slot:'armor', rarity:'common',
+    bonuses:{damage:0,defense:2,hp:0,stamina:12,fp:0}, desc:'+2 DEF  +12 STA'
+  },
+  OLD_HOOD:{
+    id:'OLD_HOOD', name:'Old Hood', slot:'armor', rarity:'common',
+    bonuses:{damage:0,defense:3,hp:8,stamina:5,fp:0}, desc:'+3 DEF  +8 HP  +5 STA'
+  },
+  POINTY_HAT:{
+    id:'POINTY_HAT', name:'Pointy Hat', slot:'armor', rarity:'common',
+    bonuses:{damage:0,defense:1,hp:-5,stamina:-5,fp:20}, desc:'+20 FP  +1 DEF  -5 HP'
+  },
 };
 
 // ============================================================
@@ -373,10 +406,98 @@ const LOOT_TABLES = {
 };
 
 // ============================================================
+// CLASS DEFINITIONS
+// ============================================================
+const CLASS_DEFS = {
+  SWORDSMAN:{
+    name:'Swordsman', icon:'⚔',
+    desc:['Unyielding warrior.','High HP & Attack','Low Stamina & FP'],
+    statsBonus:{hp:40, fp:-20, stamina:-15, damage:8, defense:5, speed:0},
+    startWeapon:'RUSTY_SWORD', startArmor:'LEATHER_CHESTPLATE',
+    color:'#c8a060', darkColor:'#6a5020',
+    ability:{
+      name:'Mega Slice', key:'mega_slice', fpCost:20, cooldown:8,
+      desc:'Devastating wide sweep — cleaves everything in a broad arc.',
+      upgrades:[
+        {level:1,  name:'Mega Slice',    dmgMult:2.8, range:85,  w:110},
+        {level:5,  name:'Great Cleave',  dmgMult:3.4, range:95,  w:130},
+        {level:10, name:'Titan Slash',   dmgMult:4.0, range:110, w:155},
+        {level:15, name:'Ashen Cleave',  dmgMult:5.0, range:125, w:180},
+        {level:20, name:'God Slash',     dmgMult:6.5, range:145, w:210},
+      ],
+    },
+  },
+  ASSASSIN:{
+    name:'Assassin', icon:'🗡',
+    desc:['Shadow striker.','Low HP, High DMG','Great Stamina'],
+    statsBonus:{hp:-25, fp:-10, stamina:30, damage:15, defense:-3, speed:20},
+    startWeapon:'SMALL_DAGGER', startArmor:'OLD_CLOAK',
+    color:'#8878c8', darkColor:'#302840',
+    ability:{
+      name:'Mega Dash', key:'mega_dash', fpCost:15, cooldown:6,
+      desc:'Blazing burst dash — enormous distance with full i-frames.',
+      upgrades:[
+        {level:1,  name:'Mega Dash',    spd:1100, dur:0.46},
+        {level:5,  name:'Shadow Step',  spd:1250, dur:0.50},
+        {level:10, name:'Void Step',    spd:1400, dur:0.54},
+        {level:15, name:'Phase Dash',   spd:1600, dur:0.58},
+        {level:20, name:'Phantom Rush', spd:1900, dur:0.64},
+      ],
+    },
+  },
+  ARCHER:{
+    name:'Archer', icon:'🏹',
+    desc:['Swift & precise.','Medium HP','High Speed & Damage'],
+    statsBonus:{hp:0, fp:5, stamina:10, damage:10, defense:0, speed:28},
+    startWeapon:'OLD_BOW', startArmor:'OLD_HOOD',
+    color:'#60a040', darkColor:'#244018',
+    ability:{
+      name:'Mega Sneak', key:'mega_sneak', fpCost:25, cooldown:14,
+      desc:'Vanish from sight — enemies lose you for a brief time.',
+      upgrades:[
+        {level:1,  name:'Mega Sneak',  dur:3.0},
+        {level:5,  name:'Shadow Veil', dur:4.5},
+        {level:10, name:'Ghost Walk',  dur:6.0},
+        {level:15, name:'Phantasm',    dur:8.0},
+        {level:20, name:'Void Cloak',  dur:11.0},
+      ],
+    },
+  },
+  MAGE:{
+    name:'Mage', icon:'✨',
+    desc:['Arcane scholar.','Low HP & Speed','Massive FP & Damage'],
+    statsBonus:{hp:-30, fp:55, stamina:-20, damage:18, defense:-5, speed:-25},
+    startWeapon:'OLD_WAND', startArmor:'POINTY_HAT',
+    color:'#a060e0', darkColor:'#401060',
+    ability:{
+      name:'Mega Fireball', key:'mega_fireball', fpCost:40, cooldown:10,
+      desc:'Blazing fireball — scorches everything in its path.',
+      upgrades:[
+        {level:1,  name:'Mega Fireball', dmg:85,  sz:14, spd:250},
+        {level:5,  name:'Inferno Ball',  dmg:120, sz:18, spd:270},
+        {level:10, name:'Flame Orb',     dmg:165, sz:22, spd:290},
+        {level:15, name:'Cinder Nova',   dmg:225, sz:28, spd:310},
+        {level:20, name:'Solar Flare',   dmg:310, sz:35, spd:340},
+      ],
+    },
+  },
+};
+
+// Helper: ability upgrade tier from player level
+function abilityTier(level){
+  if(level>=20) return 4;
+  if(level>=15) return 3;
+  if(level>=10) return 2;
+  if(level>=5)  return 1;
+  return 0;
+}
+
+// ============================================================
 // GAME STATE
 // ============================================================
 const GS = {
-  phase:'title',  // 'title' | 'playing' | 'bonfire_rest'
+  phase:'title',  // 'title' | 'class_select' | 'playing' | 'bonfire_rest'
+  playerClass: null,  // 'SWORDSMAN' | 'ASSASSIN' | 'ARCHER' | 'MAGE'
   bonfireRestTimer:0,
   bonfireRestName:'',
   time:0,
@@ -390,6 +511,8 @@ const GS = {
     isRolling:false, rollTimer:0, rollITimer:0, rollDx:0, rollDy:0,
     isInvincible:false,
     rootTimer:0,            // vine-grab / freeze root — can't move while >0
+    sneakTimer:0,           // Archer ability — invisible to enemies
+    megaDash:false, megaDashSpd:0, megaDashDur:0.5,  // Assassin ability — super dash
     isAttacking:false, attackType:null, attackTimer:0, attackCooldown:0,
     isDead:false, deathTimer:0,
     bonfireX:PLAYER_CONFIG.startX, bonfireY:PLAYER_CONFIG.startY,
@@ -597,12 +720,11 @@ const DmgNums = {
 // STATS — calculates effective player stats from base + equipment
 // ============================================================
 const Stats = {
-  _sum(key){ let v=0; for(const id of Object.values(GS.player.equipment)) if(id) v+=EQUIPMENT_ITEMS[id].bonuses[key]||0; return v; },
+  _sum(key){ let v=0; for(const id of Object.values(GS.player.equipment)) if(id) v+=(EQUIPMENT_ITEMS[id]?.bonuses[key]||0); return v; },
   _sp(key)  { return GS.player.statPoints[key]||0; },
+  _cls(key) { const c=GS.playerClass; return c?(CLASS_DEFS[c].statsBonus[key]||0):0; },
   _upgBonus(){
-    // Each weapon upgrade level adds 25% of that weapon's base damage bonus
-    const p=GS.player;
-    const w=p.equipment.weapon;
+    const p=GS.player; const w=p.equipment.weapon;
     if(!w) return 0;
     const upg=p.weaponUpgrades[w]||0;
     if(upg<=0) return 0;
@@ -613,11 +735,12 @@ const Stats = {
     const p=GS.player; const w=p.equipment.weapon;
     return w ? (p.weaponUpgrades[w]||0) : 0;
   },
-  damage()    { return this._sum('damage') + this._sp('damage') + this._upgBonus(); },
-  defense()   { return this._sum('defense')  + this._sp('defense'); },
-  maxHP()     { return PLAYER_CONFIG.maxHP      + this._sum('hp')      + this._sp('hp');      },
-  maxFP()     { return PLAYER_CONFIG.maxFP      + this._sum('fp')      + this._sp('fp');      },
-  maxStamina(){ return PLAYER_CONFIG.maxStamina + this._sum('stamina') + this._sp('stamina'); },
+  damage()    { return this._sum('damage')  + this._sp('damage')  + this._upgBonus() + this._cls('damage');  },
+  defense()   { return this._sum('defense') + this._sp('defense') + this._cls('defense'); },
+  maxHP()     { return PLAYER_CONFIG.maxHP      + this._sum('hp')      + this._sp('hp')      + this._cls('hp');      },
+  maxFP()     { return PLAYER_CONFIG.maxFP      + this._sum('fp')      + this._sp('fp')      + this._cls('fp');      },
+  maxStamina(){ return PLAYER_CONFIG.maxStamina + this._sum('stamina') + this._sp('stamina') + this._cls('stamina'); },
+  speed()     { return PLAYER_CONFIG.speed + this._cls('speed'); },
 };
 
 // ============================================================
@@ -2300,7 +2423,7 @@ const Player = {
       const len=Math.sqrt(dx*dx+dy*dy); dx/=len; dy/=len;
       p.facing.x=dx; p.facing.y=dy;
     }
-    const spd=p.isAttacking ? PLAYER_CONFIG.speed*0.35 : PLAYER_CONFIG.speed;
+    const spd=p.isAttacking ? Stats.speed()*0.35 : Stats.speed();
     const nx=p.x+dx*spd*dt, ny=p.y+dy*spd*dt;
     if(World.canMove(nx,p.y,PLAYER_CONFIG.size-1)) p.x=nx;
     if(World.canMove(p.x,ny,PLAYER_CONFIG.size-1)) p.y=ny;
@@ -2310,15 +2433,20 @@ const Player = {
 
   _roll(dt){
     const p=GS.player;
+    // Sneak timer countdown
+    if(p.sneakTimer>0){ p.sneakTimer-=dt; if(p.sneakTimer<=0){ p.sneakTimer=0; UI.msg('Reappeared','rune',0.8); } }
     if(p.isRolling){
       p.rollTimer-=dt; p.rollITimer-=dt;
-      const prog=1-(p.rollTimer/PLAYER_CONFIG.rollDuration);
-      const spd=PLAYER_CONFIG.rollSpeed*(1-prog*0.5);
+      const baseDur = p.megaDash ? p.megaDashDur : PLAYER_CONFIG.rollDuration;
+      const prog=1-(p.rollTimer/baseDur);
+      const baseSpd = p.megaDash ? p.megaDashSpd : PLAYER_CONFIG.rollSpeed;
+      const spd = p.megaDash ? baseSpd*(1-prog*0.25) : baseSpd*(1-prog*0.5);
       const nx=p.x+p.rollDx*spd*dt, ny=p.y+p.rollDy*spd*dt;
       if(World.canMove(nx,p.y,PLAYER_CONFIG.size-3)) p.x=nx;
       if(World.canMove(p.x,ny,PLAYER_CONFIG.size-3)) p.y=ny;
-      p.isInvincible=(p.rollITimer>0);
-      if(p.rollTimer<=0){ p.isRolling=false; p.isInvincible=false; }
+      BossRooms.clamp(p);
+      p.isInvincible=(p.rollITimer>0); // always true throughout dash now
+      if(p.rollTimer<=0){ p.isRolling=false; p.isInvincible=false; p.megaDash=false; }
       return;
     }
     if(Input.just('Space')&&!p.isAttacking){
@@ -2326,7 +2454,7 @@ const Player = {
         p.stamina-=PLAYER_CONFIG.rollStaminaCost;
         p.isRolling=true;
         p.rollTimer=PLAYER_CONFIG.rollDuration;
-        p.rollITimer=PLAYER_CONFIG.rollIFrames;
+        p.rollITimer=PLAYER_CONFIG.rollIFrames; // full invincibility throughout
         let dx=0, dy=0;
         if(Input.down('KeyW')||Input.down('ArrowUp'))    dy-=1;
         if(Input.down('KeyS')||Input.down('ArrowDown'))  dy+=1;
@@ -2336,7 +2464,7 @@ const Player = {
         const l=Math.sqrt(dx*dx+dy*dy)||1;
         p.rollDx=dx/l; p.rollDy=dy/l;
       } else {
-        p.staminaEmpty=0.4; // flash stamina bar
+        p.staminaEmpty=0.4;
       }
     }
   },
@@ -2496,27 +2624,80 @@ const Player = {
     }
   },
 
+  _abilityTier(){ return abilityTier(GS.player.level); },
+
   _special(dt){
     const p=GS.player;
     if(p.specialCooldown>0) p.specialCooldown-=dt;
     if(!Input.just('KeyQ')) return;
-    const w=p.equipment.weapon;
-    const item=w?EQUIPMENT_ITEMS[w]:null;
-    if(item?.special==='toxic_shot'){
-      if(p.level<(item.levelReq||0)){ UI.msg(`Requires Level ${item.levelReq}`,'rune',2); return; }
-      if(p.specialCooldown>0){ UI.msg('Ability cooling down','rune',0.8); return; }
-      if(p.fp<20){ UI.msg('Not enough FP','rune',1); return; }
-      p.fp-=20; p.specialCooldown=5;
-      const spd=140; const dx=p.facing.x, dy=p.facing.y;
-      GS.projectiles.push({
-        x:p.x+dx*20, y:p.y+dy*20,
-        vx:dx*spd, vy:dy*spd,
-        dmg:40+Stats.damage(), sz:9,
-        life:3.5, color:'#2a6a10', glow:'#406020',
-        isPlayerProj:true
-      });
-      Particles.sparks(p.x+dx*20,p.y+dy*20,6);
-      UI.msg('Toxic Bolt!','rune',0.8);
+    if(!GS.playerClass){ UI.msg('Choose a class first','rune',1.5); return; }
+    if(p.specialCooldown>0){ UI.msg('Ability cooling down','rune',0.8); return; }
+    const def=CLASS_DEFS[GS.playerClass];
+    const ab=def.ability;
+    const tier=this._abilityTier();
+    const upg=ab.upgrades[tier];
+    if(p.fp<ab.fpCost){ UI.msg('Not enough FP','rune',1); return; }
+
+    p.fp-=ab.fpCost;
+    p.specialCooldown=ab.cooldown;
+
+    switch(ab.key){
+      case 'mega_slice':{
+        // Wide sweeping hitbox — hits everything in a broad arc
+        const dmg=(PLAYER_CONFIG.lightDmg+Stats.damage())*upg.dmgMult;
+        const hw=upg.w/2;
+        // Create three overlapping hitboxes to fake a wide sweep
+        const offsets=[-hw*0.55, 0, hw*0.55];
+        for(const off of offsets){
+          const ox=-p.facing.y*off, oy=p.facing.x*off;
+          const hx=p.x+p.facing.x*upg.range+ox-hw/2;
+          const hy=p.y+p.facing.y*upg.range+oy-hw/2;
+          atkHitbox={x:hx,y:hy,w:upg.w,h:upg.w,dmg,type:'heavy',timer:0.45,hit:atkHitbox?new Set([...atkHitbox.hit]):new Set()};
+          this._checkHits();
+        }
+        atkHitbox=null;
+        Particles.sparks(p.x+p.facing.x*upg.range, p.y+p.facing.y*upg.range, 14);
+        ScreenFX.flash('#c8a060',0.22,0.18);
+        UI.msg(upg.name+'!','combo',0.9);
+        break;
+      }
+      case 'mega_dash':{
+        // Supercharged dash with full i-frames
+        let dx=0,dy=0;
+        if(Input.down('KeyW')||Input.down('ArrowUp'))    dy-=1;
+        if(Input.down('KeyS')||Input.down('ArrowDown'))  dy+=1;
+        if(Input.down('KeyA')||Input.down('ArrowLeft'))  dx-=1;
+        if(Input.down('KeyD')||Input.down('ArrowRight')) dx+=1;
+        if(!dx&&!dy){ dx=p.facing.x; dy=p.facing.y; }
+        const l=Math.sqrt(dx*dx+dy*dy)||1;
+        p.rollDx=dx/l; p.rollDy=dy/l;
+        p.isRolling=true; p.megaDash=true;
+        p.megaDashSpd=upg.spd; p.megaDashDur=upg.dur;
+        p.rollTimer=upg.dur; p.rollITimer=upg.dur;
+        Particles.sparks(p.x,p.y,10);
+        UI.msg(upg.name+'!','combo',0.7);
+        break;
+      }
+      case 'mega_sneak':{
+        p.sneakTimer=upg.dur;
+        ScreenFX.flash('#283018',0.4,0.5);
+        UI.msg(upg.name+'!  ('+upg.dur.toFixed(1)+'s)','combo',1.0);
+        break;
+      }
+      case 'mega_fireball':{
+        const dx=p.facing.x, dy=p.facing.y;
+        GS.projectiles.push({
+          x:p.x+dx*22, y:p.y+dy*22,
+          vx:dx*upg.spd, vy:dy*upg.spd,
+          dmg:upg.dmg+Stats.damage(), sz:upg.sz,
+          life:4.5, color:'#ff4010', glow:'#ff8020',
+          isPlayerProj:true, isFireball:true, fireballSz:upg.sz
+        });
+        Particles.sparks(p.x+dx*22,p.y+dy*22,12);
+        ScreenFX.flash('#601008',0.20,0.25);
+        UI.msg(upg.name+'!','combo',0.9);
+        break;
+      }
     }
   },
 
@@ -2525,6 +2706,13 @@ const Player = {
     const newLevel=Math.min(LEVEL_THRESHOLDS.length, LEVEL_THRESHOLDS.filter(t=>p.totalRunes>=t).length);
     if(newLevel>p.level){
       p.pendingLevelUps+=(newLevel-p.level);
+      // Announce ability upgrade at milestones
+      if(GS.playerClass&&[5,10,15,20].includes(newLevel)){
+        const ab=CLASS_DEFS[GS.playerClass].ability;
+        const t=abilityTier(newLevel);
+        setTimeout(()=>UI.msg(`Ability upgraded: ${ab.upgrades[t].name}!`,'levelup',3),400);
+        ScreenFX.flash(CLASS_DEFS[GS.playerClass].color,0.35,0.6);
+      }
       p.level=newLevel;
       if(GS.phase==='playing'){
         GS.phase='levelup';
@@ -2572,7 +2760,7 @@ const Player = {
     p.flaskCharges=PLAYER_CONFIG.flaskCharges;
     p.x=p.bonfireX; p.y=p.bonfireY;
     p.isRolling=false; p.isAttacking=false; p.isInvincible=false;
-    p.hitFlash=0; p.combo=0; p.rootTimer=0;
+    p.hitFlash=0; p.combo=0; p.rootTimer=0; p.sneakTimer=0; p.megaDash=false;
     atkHitbox=null;
     // Unlock boss room (boss resets on respawnAll)
     GS.activeBossRoom=null;
@@ -2641,30 +2829,46 @@ const Player = {
     ctx.fillStyle=p.isRolling?'#2a3a4a':'#404850';
     ctx.fillRect(sx-8,sy+2,6,10); ctx.fillRect(sx+2,sy+2,6,10);
 
-    // --- Derive colors from equipped armor — dark iron / tarnished gold palette ---
+    // Sneak fade — archer invisibility
+    if(p.sneakTimer>0){
+      const blinkFast=Math.sin(Date.now()/120)>0;
+      ctx.globalAlpha=baseA*(p.sneakTimer<0.8?( blinkFast?0.30:0.10 ):0.22);
+    }
+
+    // --- Derive colors from equipped armor + class ---
     const eqArmor=p.equipment.armor;
-    let bodyMain, pauldronCol, legCol, trimCol;
-    if(eqArmor==='LEATHER_ARMOR'){
+    let bodyMain, pauldronCol, legCol, trimCol, hasHood=false, hasMageHat=false;
+    if(eqArmor==='LEATHER_ARMOR'||eqArmor==='LEATHER_CHESTPLATE'){
       bodyMain   = p.isAttacking?'#5e3e14':'#4a3010';
-      pauldronCol= '#30200c';
-      legCol     = '#302210';
-      trimCol    = '#9a7020';
+      pauldronCol= '#30200c'; legCol='#302210'; trimCol='#9a7020';
     } else if(eqArmor==='CHAIN_MAIL'){
       bodyMain   = p.isAttacking?'#484c52':'#3a3e44';
-      pauldronCol= '#2c3036';
-      legCol     = '#28302c';
-      trimCol    = '#686c72';
+      pauldronCol= '#2c3036'; legCol='#28302c'; trimCol='#686c72';
     } else if(eqArmor==='ASHEN_PLATE'){
       bodyMain   = p.isAttacking?'#343438':'#28282e';
-      pauldronCol= '#1e1e24';
-      legCol     = '#202028';
-      trimCol    = '#a08018'; // brighter tarnished gold
+      pauldronCol= '#1e1e24'; legCol='#202028'; trimCol='#a08018';
+    } else if(eqArmor==='OLD_CLOAK'){
+      // Assassin cloak — dark purple-gray
+      bodyMain   = p.isAttacking?'#342840':'#26203a';
+      pauldronCol= '#1a1428'; legCol='#1c1630'; trimCol='#6858a8';
+      hasHood=true;
+    } else if(eqArmor==='OLD_HOOD'){
+      // Archer hood — forest green
+      bodyMain   = p.isAttacking?'#304020':'#24301a';
+      pauldronCol= '#182414'; legCol='#1a2214'; trimCol='#486030';
+      hasHood=true;
+    } else if(eqArmor==='POINTY_HAT'){
+      // Mage robes — purple
+      bodyMain   = p.isAttacking?'#3a2050':'#2c1840';
+      pauldronCol= '#200e30'; legCol='#1e0e34'; trimCol='#9060e0';
+      hasMageHat=true;
+    } else if(eqArmor==='YETI_PELT'){
+      bodyMain   = p.isAttacking?'#b8c0d0':'#9098b0';
+      pauldronCol= '#6878a0'; legCol='#606888'; trimCol='#c8d8f0';
     } else {
-      // Unarmored — dark rags, readable earthy tone
+      // Unarmored
       bodyMain   = p.isAttacking?'#463826':'#38291a';
-      pauldronCol= '#28201a';
-      legCol     = '#241c14';
-      trimCol    = '#6a5020';
+      pauldronCol= '#28201a'; legCol='#241c14'; trimCol='#6a5020';
     }
 
     // Legs — dark iron greaves
@@ -2714,29 +2918,61 @@ const Player = {
       ctx.fillRect(sx-8,sy+1,2,2); ctx.fillRect(sx+6,sy+1,2,2);
     }
 
-    // Head — iron helm, chunky 12×12
-    ctx.fillStyle=eqArmor==='ASHEN_PLATE'?'#141416':'#2a2820';
-    ctx.fillRect(sx-6,sy-18,12,12);
-    // Black outline on head
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-7,sy-18,1,12); ctx.fillRect(sx+6,sy-18,1,12);
-    ctx.fillRect(sx-6,sy-19,12,1); ctx.fillRect(sx-6,sy-6,12,1);
-    // Helmet top band — tarnished gold
-    ctx.fillStyle=trimCol; ctx.fillRect(sx-7,sy-20,14,4);
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-8,sy-20,1,4); ctx.fillRect(sx+7,sy-20,1,4);
-    ctx.fillRect(sx-7,sy-21,14,1); ctx.fillRect(sx-7,sy-16,14,1);
-    // Helm top highlight
-    ctx.fillStyle='rgba(255,220,80,0.18)'; ctx.fillRect(sx-6,sy-20,12,1);
-
-    // Visor slit — glowing amber eyes (all armors)
-    ctx.fillStyle='#0a0808'; ctx.fillRect(sx-5,sy-14,10,4); // visor dark
-    ctx.fillStyle=p.isAttacking?'#f0a020':'#c07820';         // eyes glow amber — more visible
-    ctx.fillRect(sx-4,sy-13,3,2); ctx.fillRect(sx+1,sy-13,3,2);
-    // Ashen plate extra: brighter glow
-    if(eqArmor==='ASHEN_PLATE'){
-      ctx.fillStyle=p.isAttacking?'#ffc030':'#d88828';
-      ctx.fillRect(sx-3,sy-13,2,1); ctx.fillRect(sx+2,sy-13,2,1);
+    if(hasMageHat){
+      // Mage: bare face + tall pointy hat
+      ctx.fillStyle='#c0906c'; ctx.fillRect(sx-5,sy-18,10,10); // face skin
+      ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-19,1,10); ctx.fillRect(sx+5,sy-19,1,10);
+      ctx.fillStyle='#1e0e2e'; ctx.fillRect(sx-7,sy-18,3,10); ctx.fillRect(sx+4,sy-18,3,10); // cheeks
+      // Eyes
+      ctx.fillStyle=p.isAttacking?'#d060ff':'#9040c0';
+      ctx.fillRect(sx-4,sy-14,3,2); ctx.fillRect(sx+1,sy-14,3,2);
+      // Pointy hat body (wide brim + tall cone)
+      ctx.fillStyle='#2c1840'; ctx.fillRect(sx-9,sy-22,18,5);   // brim
+      ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-23,20,1);     // brim outline top
+      ctx.fillStyle=trimCol; ctx.fillRect(sx-9,sy-23,18,1);     // brim trim
+      ctx.fillStyle='#24143a'; ctx.fillRect(sx-6,sy-34,12,14);  // hat lower
+      ctx.fillStyle='#1c0e2e'; ctx.fillRect(sx-4,sy-46,8,14);   // hat upper
+      ctx.fillStyle='#160a24'; ctx.fillRect(sx-2,sy-54,4,10);   // hat tip
+      ctx.fillStyle=trimCol; ctx.fillRect(sx-6,sy-34,12,2);     // hat band
+      ctx.fillStyle='#c080ff'; ctx.fillRect(sx-5,sy-33,10,1);   // band gem strip
+    } else if(hasHood){
+      // Assassin/Archer: hooded look — face slightly visible
+      const skinCol='#b08060';
+      ctx.fillStyle=skinCol; ctx.fillRect(sx-4,sy-18,8,10);     // face
+      ctx.fillStyle='#000'; ctx.fillRect(sx-5,sy-18,1,10); ctx.fillRect(sx+4,sy-18,1,10);
+      // Hood fabric over head
+      ctx.fillStyle=pauldronCol; ctx.fillRect(sx-8,sy-22,16,16); // hood outer
+      ctx.fillStyle=bodyMain;    ctx.fillRect(sx-6,sy-20,12,14); // hood inner/face opening
+      ctx.fillStyle=skinCol;     ctx.fillRect(sx-4,sy-18,8,9);   // face poke-through
+      // Eyes peeking from shadow
+      ctx.fillStyle=p.isAttacking?'#e08040':'#a06030';
+      ctx.fillRect(sx-3,sy-14,2,2); ctx.fillRect(sx+1,sy-14,2,2);
+      // Hood cowl shadow — top dark cover
+      ctx.fillStyle=pauldronCol; ctx.fillRect(sx-8,sy-22,16,7);  // top cover
+      ctx.fillStyle='#000'; ctx.fillRect(sx-9,sy-22,1,16); ctx.fillRect(sx+8,sy-22,1,16);
+      ctx.fillRect(sx-8,sy-23,16,1);
+      // Trim stripe
+      ctx.fillStyle=trimCol; ctx.fillRect(sx-8,sy-16,16,2);
+    } else {
+      // Standard iron/plate helm
+      ctx.fillStyle=eqArmor==='ASHEN_PLATE'?'#141416':'#2a2820';
+      ctx.fillRect(sx-6,sy-18,12,12);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-7,sy-18,1,12); ctx.fillRect(sx+6,sy-18,1,12);
+      ctx.fillRect(sx-6,sy-19,12,1); ctx.fillRect(sx-6,sy-6,12,1);
+      ctx.fillStyle=trimCol; ctx.fillRect(sx-7,sy-20,14,4);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-8,sy-20,1,4); ctx.fillRect(sx+7,sy-20,1,4);
+      ctx.fillRect(sx-7,sy-21,14,1); ctx.fillRect(sx-7,sy-16,14,1);
+      ctx.fillStyle='rgba(255,220,80,0.18)'; ctx.fillRect(sx-6,sy-20,12,1);
+      // Visor slit
+      ctx.fillStyle='#0a0808'; ctx.fillRect(sx-5,sy-14,10,4);
+      ctx.fillStyle=p.isAttacking?'#f0a020':'#c07820';
+      ctx.fillRect(sx-4,sy-13,3,2); ctx.fillRect(sx+1,sy-13,3,2);
+      if(eqArmor==='ASHEN_PLATE'){
+        ctx.fillStyle=p.isAttacking?'#ffc030':'#d88828';
+        ctx.fillRect(sx-3,sy-13,2,1); ctx.fillRect(sx+2,sy-13,2,1);
+      }
     }
 
     // Talisman — dark cord with colored bead
@@ -2779,7 +3015,36 @@ const Player = {
 
       // Shared weapon draw — identical pixels in both rest and swing
       const drawWeaponShape=(w)=>{
-        if(w==='VINE_STAFF'){
+        if(w==='RUSTY_SWORD'){
+          ctx.fillStyle='#1a1208'; ctx.fillRect(5,-2,6,4);    // handle
+          ctx.fillStyle='#281c0c'; ctx.fillRect(9,-3,4,6);    // crossguard (worn)
+          ctx.fillStyle='#282010'; ctx.fillRect(13,-2,20,4);  // rusty blade
+          ctx.fillStyle='#342818'; ctx.fillRect(13,-2,12,2);  // face
+          ctx.fillStyle='#4a3a24'; ctx.fillRect(14,-2,6,1);   // dim spot of old gleam
+          ctx.fillStyle='#1e1808'; ctx.fillRect(33,-1,3,3);   // tip (worn)
+        } else if(w==='SMALL_DAGGER'){
+          ctx.fillStyle='#181018'; ctx.fillRect(4,-2,7,4);    // dark handle
+          ctx.fillStyle='#302040'; ctx.fillRect(10,-3,3,6);   // purple guard
+          ctx.fillStyle='#1c1828'; ctx.fillRect(13,-2,18,4);  // blade
+          ctx.fillStyle='#282438'; ctx.fillRect(13,-2,12,2);  // face
+          ctx.fillStyle='#382c4c'; ctx.fillRect(13,-2,7,1);   // gleam
+          ctx.fillStyle='#141020'; ctx.fillRect(30,0,3,2);    // sharp tip
+        } else if(w==='OLD_BOW'){
+          // Bow — vertical arc drawn rotated with player
+          ctx.fillStyle='#4a3010'; ctx.fillRect(4,-1,4,3);    // grip
+          ctx.fillStyle='#3a2408'; ctx.fillRect(8,-10,3,8);   // upper limb
+          ctx.fillStyle='#3a2408'; ctx.fillRect(8,2,3,8);     // lower limb
+          ctx.fillStyle='#503018'; ctx.fillRect(9,-2,2,4);    // center riser
+          ctx.fillStyle='#182820'; ctx.fillRect(8,-10,1,22);  // string shadow
+          ctx.fillStyle='#304820'; ctx.fillRect(9,-10,1,22);  // bowstring
+        } else if(w==='OLD_WAND'){
+          ctx.fillStyle='#2c1c08'; ctx.fillRect(4,-2,26,4);   // wand shaft
+          ctx.fillStyle='#3a2810'; ctx.fillRect(5,-1,22,2);   // face
+          ctx.fillStyle='#3a1050'; ctx.fillRect(28,-4,8,8);   // orb base
+          ctx.fillStyle='#6020a0'; ctx.fillRect(29,-3,6,6);   // magic orb
+          ctx.fillStyle='#c060ff'; ctx.fillRect(30,-2,3,3);   // orb glow
+          ctx.fillStyle='#000'; ctx.fillRect(28,-4,1,8); ctx.fillRect(36,-4,1,8); // outline
+        } else if(w==='VINE_STAFF'){
           ctx.fillStyle='#1a2c08'; ctx.fillRect(5,-2,8,4);    // handle wrap
           ctx.fillStyle='#0e1a04'; ctx.fillRect(11,-3,4,6);   // grip knot
           ctx.fillStyle='#142006'; ctx.fillRect(15,-2,28,4);  // staff shaft
@@ -3165,6 +3430,8 @@ const Enemies = {
       return;
     }
     if(p.isDead&&e.state!=='idle'){ e.state='patrol'; return; }
+    // Archer sneak — enemies lose the player
+    if(p.sneakTimer>0&&e.state!=='attack'){ e.state='idle'; e.stateTimer=0.5; return; }
     const dist=Math.hypot(p.x-e.x,p.y-e.y);
     const cfg=e.cfg;
     const spdM=(e.phase===2&&cfg.p2SpeedMult)?cfg.p2SpeedMult:1;
@@ -3581,7 +3848,19 @@ const Enemies = {
           if(e.isDead) continue;
           if(Math.hypot(e.x-pr.x,e.y-pr.y)<e.size+pr.sz){
             Enemies.damage(e,pr.dmg,pr.vx/Math.abs(pr.vx+0.001),pr.vy/Math.abs(pr.vy+0.001));
-            Particles.sparks(pr.x,pr.y,8); hit=true; break;
+            if(pr.isFireball){
+              // Fireball AOE — splash all nearby enemies
+              const aoeR=pr.fireballSz*2.8;
+              for(const e2 of GS.enemies){
+                if(e2.isDead||e2===e) continue;
+                if(Math.hypot(e2.x-pr.x,e2.y-pr.y)<aoeR)
+                  Enemies.damage(e2,pr.dmg*0.6,pr.vx/Math.abs(pr.vx+0.001),pr.vy/Math.abs(pr.vy+0.001));
+              }
+              ScreenFX.flash('#ff4010',0.25,0.25);
+              ScreenFX.shake(6,0.2);
+              for(let fi=0;fi<12;fi++) Particles.death(pr.x+(Math.random()-0.5)*aoeR,pr.y+(Math.random()-0.5)*aoeR,'#ff6010',4);
+            }
+            Particles.sparks(pr.x,pr.y,pr.isFireball?16:8); hit=true; break;
           }
         }
         if(hit){ GS.projectiles.splice(i,1); continue; }
@@ -3661,12 +3940,24 @@ const Enemies = {
       if(sx<-20||sx>SCREEN_W+20||sy<-20||sy>SCREEN_H+20) continue;
       const s=Math.max(2,pr.sz|0);
       if(pr.isPlayerProj){
-        // Toxic bolt — pulsing green blob
-        ctx.globalAlpha=0.35; ctx.fillStyle=pr.glow||'#406020';
-        ctx.fillRect(sx-(s+3>>1),sy-(s+3>>1),s+3,s+3);
-        ctx.globalAlpha=1; ctx.fillStyle=pr.color||'#2a6a10';
-        ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
-        ctx.fillStyle='#60ff40'; ctx.fillRect(sx-1,sy-1,2,2); // bright core
+        if(pr.isFireball){
+          // Fireball — layered orange glow
+          ctx.globalAlpha=0.20; ctx.fillStyle='#ff8020';
+          ctx.fillRect(sx-(s+6>>1),sy-(s+6>>1),s+6,s+6);
+          ctx.globalAlpha=0.45; ctx.fillStyle='#ff6010';
+          ctx.fillRect(sx-(s+3>>1),sy-(s+3>>1),s+3,s+3);
+          ctx.globalAlpha=1; ctx.fillStyle='#ff4010';
+          ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+          ctx.fillStyle='#ffe060'; ctx.fillRect(sx-2,sy-2,4,4); // hot core
+          ctx.fillStyle='#fff'; ctx.fillRect(sx-1,sy-1,2,2);    // white center
+        } else {
+          // Toxic bolt / generic player projectile
+          ctx.globalAlpha=0.35; ctx.fillStyle=pr.glow||'#406020';
+          ctx.fillRect(sx-(s+3>>1),sy-(s+3>>1),s+3,s+3);
+          ctx.globalAlpha=1; ctx.fillStyle=pr.color||'#2a6a10';
+          ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+          ctx.fillStyle='#60ff40'; ctx.fillRect(sx-1,sy-1,2,2); // bright core
+        }
       } else {
         // Trail
         ctx.globalAlpha=0.4; ctx.fillStyle='#FFD060';
@@ -4767,6 +5058,169 @@ const LevelUp = {
 };
 
 // ============================================================
+// CLASS SELECT SCREEN
+// ============================================================
+const ClassSelect = {
+  cursor:0,
+  _ids:['SWORDSMAN','ASSASSIN','ARCHER','MAGE'],
+
+  handleInput(){
+    if(Input.just('KeyA')||Input.just('ArrowLeft'))  this.cursor=Math.max(0,this.cursor-1);
+    if(Input.just('KeyD')||Input.just('ArrowRight')) this.cursor=Math.min(3,this.cursor+1);
+    if(Input.just('KeyW')||Input.just('ArrowUp'))    this.cursor=Math.max(0,this.cursor-1);
+    if(Input.just('KeyS')||Input.just('ArrowDown'))  this.cursor=Math.min(3,this.cursor+1);
+    // Number shortcuts
+    for(let i=1;i<=4;i++) if(Input.just(`Digit${i}`)) this.cursor=i-1;
+    if(Input.just('KeyE')||Input.just('KeyJ')||Input.just('Space')) this._confirm();
+  },
+
+  _confirm(){
+    const id=this._ids[this.cursor];
+    const def=CLASS_DEFS[id];
+    GS.playerClass=id;
+    const p=GS.player;
+    p.equipment.weapon=def.startWeapon;
+    p.equipment.armor=def.startArmor;
+    // Re-init HP/FP/STA with class bonuses applied
+    p.hp=Stats.maxHP(); p.fp=Stats.maxFP(); p.stamina=Stats.maxStamina();
+    GS.phase='playing';
+    UI.msg(def.name.toUpperCase()+'  —  '+def.ability.upgrades[0].name,'levelup',3.5);
+    ScreenFX.flash(def.color,0.55,0.9);
+    UI.msg('Crumbling Ruins','zone',3);
+  },
+
+  draw(){
+    const now=Date.now();
+    ctx.fillStyle='#000'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+
+    // Background ember particles
+    ctx.globalAlpha=0.06; ctx.fillStyle='#c8a060';
+    for(let i=0;i<18;i++){
+      const bx=((i*137+now/60)|0)%SCREEN_W;
+      const by=((i*97+now/40)|0)%SCREEN_H;
+      ctx.fillRect(bx,by,2,2);
+    }
+    ctx.globalAlpha=1;
+
+    // Title
+    R.shadow('CHOOSE YOUR CLASS',SCREEN_W/2,54,'#c8a060','#000',22,'center');
+    ctx.fillStyle='#3a2c08'; ctx.fillRect(SCREEN_W/2-220,64,440,1);
+
+    const cardW=192, cardH=290, gap=18;
+    const totalW=4*cardW+3*gap;
+    const startX=(SCREEN_W-totalW)/2|0;
+    const cardY=85;
+
+    for(let i=0;i<4;i++){
+      const id=this._ids[i];
+      const def=CLASS_DEFS[id];
+      const cx2=startX+i*(cardW+gap);
+      const sel=i===this.cursor;
+
+      // Card border
+      ctx.fillStyle=sel?def.color:'#1a1408';
+      ctx.fillRect(cx2-2,cardY-2,cardW+4,cardH+4);
+      ctx.fillStyle=sel?def.darkColor:'#0a0806';
+      ctx.fillRect(cx2,cardY,cardW,cardH);
+      // Top color bar
+      ctx.fillStyle=def.color; ctx.fillRect(cx2,cardY,cardW,4);
+
+      // Class icon / mini sprite preview area
+      const previewY=cardY+20;
+      ctx.fillStyle='#060402'; ctx.fillRect(cx2+55,previewY,82,74);
+      ctx.fillStyle=def.darkColor; ctx.fillRect(cx2+57,previewY+2,78,70);
+      // Draw mini class figure
+      this._drawMiniClass(id,cx2+96,previewY+38,sel);
+
+      // Name
+      R.shadow(def.name,cx2+cardW/2,previewY+86,sel?def.color:'#a08040','#000',15,'center');
+
+      // Description lines
+      for(let d=0;d<def.desc.length;d++)
+        R.text(def.desc[d],cx2+cardW/2,previewY+106+d*16,sel?'#c0b070':'#605030',9,'center');
+
+      // Divider
+      ctx.fillStyle=sel?def.darkColor:'#1a1408';
+      ctx.fillRect(cx2+10,previewY+148,cardW-20,1);
+
+      // Stats
+      const sb=def.statsBonus;
+      const stats=[
+        ['HP',    sb.hp,   '#e05050'],
+        ['FP',    sb.fp,   '#5090e0'],
+        ['STA',   sb.stamina,'#50c060'],
+        ['ATK',   sb.damage, '#e09040'],
+        ['DEF',   sb.defense,'#8090d0'],
+        ['SPD',   sb.speed,  '#d0c040'],
+      ];
+      for(let s2=0;s2<stats.length;s2++){
+        const [lbl,val,col]=stats[s2];
+        const row=s2%3, col2=s2<3?0:1;
+        const rx=cx2+12+col2*90, ry=previewY+162+row*20;
+        R.text(lbl+':',rx,ry,'#504030',8);
+        const sign=val>0?'+':val<0?'':' ';
+        R.bold(sign+val,rx+28,ry,val>0?'#50c060':val<0?'#e05050':'#606060',8);
+      }
+
+      // Ability box
+      ctx.fillStyle=sel?def.darkColor:'#080604';
+      ctx.fillRect(cx2+8,previewY+218,cardW-16,50);
+      ctx.fillStyle=def.color; ctx.fillRect(cx2+8,previewY+218,cardW-16,2);
+      R.text('[Q] '+def.ability.upgrades[0].name,cx2+cardW/2,previewY+230,sel?def.color:'#604830',8,'center');
+      const descLines=this._wrapText(def.ability.desc,cardW-22,8);
+      for(let dl=0;dl<Math.min(2,descLines.length);dl++)
+        R.text(descLines[dl],cx2+cardW/2,previewY+244+dl*14,sel?'#a09060':'#3a2c1a',7,'center');
+
+      // Number hint
+      if(!sel) R.text(`${i+1}`,cx2+8,cardY+12,'#302818',10);
+      else { ctx.fillStyle=def.color; ctx.fillRect(cx2,cardY+cardH-22,cardW,22);
+             R.bold('PRESS E TO CHOOSE',cx2+cardW/2,cardY+cardH-8,def.darkColor,9,'center'); }
+    }
+
+    // Bottom hint
+    R.text('A/D  Navigate    1-4  Select    E  Confirm',SCREEN_W/2,SCREEN_H-12,'#2a2010',9,'center');
+    R.vignette();
+  },
+
+  _wrapText(text,maxW,sz){
+    const words=text.split(' '); const lines=[]; let line='';
+    for(const w of words){
+      const test=line?line+' '+w:w;
+      if(test.length*sz*0.55>maxW&&line){ lines.push(line); line=w; }
+      else line=test;
+    }
+    if(line) lines.push(line);
+    return lines;
+  },
+
+  _drawMiniClass(id,cx2,cy,sel){
+    // Tiny pixel art per class
+    const def=CLASS_DEFS[id];
+    const col=sel?def.color:def.darkColor;
+    const trim=sel?'#fff':def.color;
+    ctx.fillStyle='#000'; ctx.fillRect(cx2-6,cy+4,12,8); // legs
+    ctx.fillStyle=col; ctx.fillRect(cx2-5,cy-10,10,14);  // body
+    ctx.fillStyle='#c0906c'; ctx.fillRect(cx2-4,cy-22,8,12); // head
+    if(id==='SWORDSMAN'){
+      ctx.fillStyle=trim; ctx.fillRect(cx2+5,cy-8,14,3); // sword
+      ctx.fillStyle='#8a6020'; ctx.fillRect(cx2-8,cy-10,6,8); // shield hint
+    } else if(id==='ASSASSIN'){
+      ctx.fillStyle='#181028'; ctx.fillRect(cx2-6,cy-28,12,20); // dark hood
+      ctx.fillStyle=trim; ctx.fillRect(cx2+5,cy-4,10,2); // dagger
+    } else if(id==='ARCHER'){
+      ctx.fillStyle='#285020'; ctx.fillRect(cx2-6,cy-26,12,16); // green hood
+      ctx.fillStyle='#6a3808'; ctx.fillRect(cx2+4,cy-20,2,18); // bow
+      ctx.fillStyle=trim; ctx.fillRect(cx2+2,cy-18,8,1); // bowstring
+    } else if(id==='MAGE'){
+      ctx.fillStyle='#200840'; ctx.fillRect(cx2-5,cy-36,10,18); // hat tower
+      ctx.fillStyle=col; ctx.fillRect(cx2-8,cy-22,16,4); // hat brim
+      ctx.fillStyle=trim; ctx.fillRect(cx2+4,cy-6,12,2); // wand
+      ctx.fillStyle='#c060ff'; ctx.fillRect(cx2+14,cy-8,4,6); // orb
+    }
+  },
+};
+
+// ============================================================
 // UI SYSTEM
 // ============================================================
 const UI = {
@@ -4909,34 +5363,52 @@ const UI = {
       ctx.globalAlpha=1;
     }
 
-    // Special ability indicator (Vine Staff)
-    const eqW=p.equipment.weapon;
-    if(eqW&&EQUIPMENT_ITEMS[eqW]?.special==='toxic_shot'){
-      const sbx=mg-4, sby=sy0-44, sbw=bw+22, sbh=16;
+    // ---- Class ability indicator ----
+    if(GS.playerClass){
+      const def=CLASS_DEFS[GS.playerClass];
+      const ab=def.ability;
+      const tier=abilityTier(p.level);
+      const upg=ab.upgrades[tier];
+      const sbx=mg-4, sbw=bw+22, sbh=18;
+      const sby=sy0-48;
+      const qReady=p.specialCooldown<=0&&p.fp>=ab.fpCost;
+      const abgCol=qReady?def.darkColor:'#08060a';
       ctx.fillStyle='#000'; ctx.fillRect(sbx,sby,sbw,sbh);
-      ctx.fillStyle='#060a04'; ctx.fillRect(sbx+2,sby+2,sbw-4,sbh-4);
-      const qReady=p.specialCooldown<=0&&p.fp>=20;
-      const qcol=qReady?'#60c820':'#2a4010';
-      R.text('[Q]',sbx+6,sby+12,qcol,9);
+      ctx.fillStyle=abgCol; ctx.fillRect(sbx+2,sby+2,sbw-4,sbh-4);
+      // Left color accent bar
+      ctx.fillStyle=def.color; ctx.fillRect(sbx,sby,3,sbh);
+      R.text('[Q]',sbx+8,sby+12,def.color,9);
       if(qReady){
-        R.text('Toxic Bolt  READY',sbx+28,sby+12,'#406010',9);
+        R.bold(upg.name+'  READY',sbx+28,sby+12,def.color,9);
       } else if(p.specialCooldown>0){
-        const pct=p.specialCooldown/5;
-        ctx.fillStyle='#0e1808'; ctx.fillRect(sbx+28,sby+4,sbw-36,8);
-        ctx.fillStyle='#2a5010'; ctx.fillRect(sbx+28,sby+4,(sbw-36)*(1-pct)|0,8);
-        R.text(`${p.specialCooldown.toFixed(1)}s`,sbx+sbw-8,sby+12,'#2a4010',8,'right');
+        const maxCD=ab.cooldown;
+        const bw2=sbw-44;
+        ctx.fillStyle='#0c0a10'; ctx.fillRect(sbx+28,sby+4,bw2,8);
+        ctx.fillStyle=def.darkColor; ctx.fillRect(sbx+28,sby+4,(bw2*(1-p.specialCooldown/maxCD))|0,8);
+        ctx.fillStyle=def.color; ctx.fillRect(sbx+28,sby+4,1,8);
+        R.text(p.specialCooldown.toFixed(1)+'s',sbx+sbw-6,sby+12,'#504840',8,'right');
+        R.text(upg.name,sbx+28,sby+12,'#302820',8);
       } else {
-        R.text('Not enough FP',sbx+28,sby+12,'#3a2010',9);
+        R.text('Not enough FP',sbx+28,sby+12,'#5a3020',9);
+      }
+      // Sneak timer bar (Archer)
+      if(p.sneakTimer>0){
+        const stbw=sbw-4;
+        ctx.fillStyle='#000'; ctx.fillRect(sbx,sby-20,sbw,16);
+        ctx.fillStyle='#0a140a'; ctx.fillRect(sbx+2,sby-18,stbw,12);
+        const maxDur=ab.upgrades[abilityTier(p.level)].dur;
+        ctx.fillStyle=def.color; ctx.fillRect(sbx+2,sby-18,(stbw*p.sneakTimer/maxDur)|0,12);
+        R.text('STEALTH  '+p.sneakTimer.toFixed(1)+'s',sbx+sbw/2+2,sby-8,def.color,8,'center');
       }
     }
     // Frost aura indicator (Yeti Pelt)
     if(p.equipment.armor==='YETI_PELT'){
       ctx.globalAlpha=0.55; ctx.fillStyle='#2060c0';
-      ctx.fillRect(mg-4,sy0-60,bw+22,14);
+      ctx.fillRect(mg-4,sy0-70,bw+22,14);
       ctx.globalAlpha=1;
-      ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-60,bw+22,14);
-      ctx.fillStyle='#0c1424'; ctx.fillRect(mg-2,sy0-58,bw+18,10);
-      R.text('❄ FROST AURA  — enemies slowed nearby',mg,sy0-50,'#3060a0',8);
+      ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-70,bw+22,14);
+      ctx.fillStyle='#0c1424'; ctx.fillRect(mg-2,sy0-68,bw+18,10);
+      R.text('❄ FROST AURA',mg,sy0-60,'#3060a0',8);
     }
 
     // Boss room sealed indicator
@@ -4949,8 +5421,9 @@ const UI = {
       R.text('BOSS ROOM SEALED — Defeat the enemy to escape',SCREEN_W/2,16,col,9,'center');
     }
 
-    // Controls hint (very faint, near-black)
-    R.text('WASD Move  J/K Attack  Q Special  Space Roll  E Interact  F Flask  Tab Equipment',
+    // Controls hint
+    const clsHint=GS.playerClass?`[Q] ${CLASS_DEFS[GS.playerClass].ability.name}  `:'';
+    R.text(`WASD Move  J/K Attack  ${clsHint}Space Roll  E Interact  F Flask  Tab Equip`,
            SCREEN_W-mg,13,'#1e1e1e',8,'right');
   },
 
@@ -5182,7 +5655,7 @@ const UI = {
 
     // Press any key — frame-stepped blink
     const blink=(now/500|0)%2===0;
-    if(blink) R.shadow('— PRESS ANY KEY TO BEGIN —', SCREEN_W/2, SCREEN_H*0.88|0, '#c8a060','#000',14,'center');
+    if(blink) R.shadow('— PRESS ANY KEY TO CHOOSE YOUR CLASS —', SCREEN_W/2, SCREEN_H*0.88|0, '#c8a060','#000',14,'center');
 
     R.vignette();
   },
@@ -5204,9 +5677,10 @@ function loop(ts){
 
   if(GS.phase==='title'){
     Particles.update(dt);
-    // Ambient embers on title
     if(Math.random()<0.15) Particles.embers(Math.random()*SCREEN_W+Camera.x, SCREEN_H+Camera.y+20, 1);
-    if(Input.anyKey()){ GS.phase='playing'; UI.msg('Crumbling Ruins','zone',3); }
+    if(Input.anyKey()){ GS.phase='class_select'; ClassSelect.cursor=0; }
+  } else if(GS.phase==='class_select'){
+    ClassSelect.handleInput();
   } else if(GS.phase==='bonfire_rest'){
     GS.bonfireRestTimer-=dt;
     Particles.update(dt);
@@ -5238,6 +5712,8 @@ function loop(ts){
   if(GS.phase==='title'){
     UI.drawTitle();
     Particles.draw(0,0);
+  } else if(GS.phase==='class_select'){
+    ClassSelect.draw();
   } else {
     const cx=Camera.x, cy=Camera.y;
     ctx.fillStyle='#080808'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
