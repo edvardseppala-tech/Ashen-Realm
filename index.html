@@ -69,23 +69,30 @@ const ZONES = {
   },
 };
 
-// Level thresholds — index = level reached (level 1 = index 0)
-const LEVEL_THRESHOLDS = [0, 300, 700, 1400, 2500, 4000, 6000, 8500, 11500, 15000];
-
-// Stat choices offered at level-up
-const STAT_CHOICES = [
-  {label:'Max HP    +25',  key:'hp',      val:25},
-  {label:'Max FP    +20',  key:'fp',      val:20},
-  {label:'Stamina   +25',  key:'stamina', val:25},
-  {label:'Attack    +8',   key:'damage',  val:8 },
-  {label:'Defense   +6',   key:'defense', val:6 },
+// Level thresholds — 30 levels, steep exponential curve (index = level reached)
+const LEVEL_THRESHOLDS = [
+  0, 400, 900, 1700, 2800, 4400, 6500, 9200, 12800, 17200,
+  22500, 29000, 37000, 46500, 58000, 72000, 89000, 109000, 133000, 161000,
+  194000, 232000, 276000, 326000, 384000, 450000, 525000, 610000, 705000, 810000
 ];
+
+// Stat choices — small bonuses, gear upgrades matter more than levels
+const STAT_CHOICES = [
+  {label:'Max HP    +8',   key:'hp',      val:8 },
+  {label:'Max FP    +6',   key:'fp',      val:6 },
+  {label:'Stamina   +8',   key:'stamina', val:8 },
+  {label:'Attack    +3',   key:'damage',  val:3 },
+  {label:'Defense   +2',   key:'defense', val:2 },
+];
+
+// Weapon upgrade costs per level (+0→+1, +1→+2, ...)
+const UPGRADE_COSTS = [600, 1400, 2800, 5000, 8500];
 
 const PLAYER_CONFIG = {
   maxHP:100, maxFP:60, maxStamina:100,
   staminaRegen:22,
   speed:180,
-  rollSpeed:290, rollDuration:0.28, rollStaminaCost:22, rollIFrames:0.22,
+  rollSpeed:340, rollDuration:0.32, rollStaminaCost:22, rollIFrames:0.32,
   lightDmg:15,  lightStamina:14, lightDur:0.22,
   heavyDmg:38,  heavyStamina:30, heavyDur:0.50,
   attackCooldown:0.12,
@@ -97,86 +104,86 @@ const PLAYER_CONFIG = {
 // Easy to add new enemy types — just drop a new key here
 const ENEMY_TYPES = {
   GRUNT:{
-    name:'Hollowed Grunt', maxHP:60,  speed:80,
-    meleeDmg:12, attackRange:42, detRange:210,
-    attackCD:1.5, attackDur:0.35,
+    name:'Hollowed Grunt', maxHP:72, speed:84,
+    meleeDmg:14, attackRange:42, detRange:210,
+    attackCD:1.4, attackDur:0.32,
     size:11, color:'#8B6914', darkColor:'#5a4008',
-    runesDrop:50, lootChance:0.2, behavior:'grunt'
+    runesDrop:55, lootChance:0.2, behavior:'grunt'
   },
   ARCHER:{
-    name:'Skeletal Archer', maxHP:40, speed:55,
-    meleeDmg:10, attackRange:230, detRange:260,
-    attackCD:2.0, attackDur:0.45,
+    name:'Skeletal Archer', maxHP:48, speed:58,
+    meleeDmg:12, attackRange:240, detRange:280,
+    attackCD:1.8, attackDur:0.42,
     size:10, color:'#9a9a8a', darkColor:'#5a5a50',
-    runesDrop:75, lootChance:0.3, behavior:'archer',
-    projSpeed:240, backoff:160
+    runesDrop:80, lootChance:0.3, behavior:'archer',
+    projSpeed:260, backoff:160
   },
   GRAVE_KNIGHT:{
-    name:'Grave Knight', maxHP:110, speed:65,
-    meleeDmg:18, attackRange:46, detRange:220,
-    attackCD:2.0, attackDur:0.42,
+    name:'Grave Knight', maxHP:145, speed:68,
+    meleeDmg:22, attackRange:48, detRange:230,
+    attackCD:1.8, attackDur:0.40,
     size:12, color:'#5a5c6a', darkColor:'#2a2c38',
-    runesDrop:140, lootChance:0.25, behavior:'grunt'
+    runesDrop:160, lootChance:0.25, behavior:'grunt'
   },
   BOSS:{
-    name:'The Ashen King', maxHP:500, speed:95,
-    meleeDmg:28, attackRange:85, detRange:700,
-    attackCD:1.8, attackDur:0.55,
+    name:'The Ashen King', maxHP:800, speed:105,
+    meleeDmg:42, attackRange:90, detRange:700,
+    attackCD:1.6, attackDur:0.52,
     size:28, color:'#c8a060', darkColor:'#8a6030',
-    runesDrop:3000, lootChance:1.0, behavior:'boss',
-    p2SpeedMult:1.6, p2DmgMult:1.5, p2Threshold:0.5,
-    slamDmg:40, slamRange:110, slamDelay:0.9
+    runesDrop:6000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.7, p2DmgMult:1.6, p2Threshold:0.5,
+    slamDmg:62, slamRange:120, slamDelay:0.9
   },
   // Fast, fragile skeleton — darts in for quick hits
   HOLLOW:{
-    name:'Hollow Shade', maxHP:30, speed:145,
-    meleeDmg:8, attackRange:34, detRange:250,
-    attackCD:0.9, attackDur:0.18,
+    name:'Hollow Shade', maxHP:38, speed:155,
+    meleeDmg:11, attackRange:34, detRange:260,
+    attackCD:0.85, attackDur:0.18,
     size:9, color:'#c8c0a8', darkColor:'#706848',
-    runesDrop:35, lootChance:0.15, behavior:'grunt'
+    runesDrop:40, lootChance:0.15, behavior:'grunt'
   },
-  // Heavy armored brute — slow but punishing
+  // Heavy armored brute — slow but punishing (Castle area)
   BEAST_KNIGHT:{
-    name:'Beast Knight', maxHP:200, speed:48,
-    meleeDmg:32, attackRange:52, detRange:190,
-    attackCD:2.6, attackDur:0.65,
+    name:'Beast Knight', maxHP:280, speed:50,
+    meleeDmg:46, attackRange:54, detRange:195,
+    attackCD:2.4, attackDur:0.62,
     size:16, color:'#4e3e2c', darkColor:'#26180c',
-    runesDrop:200, lootChance:0.3, behavior:'grunt'
+    runesDrop:240, lootChance:0.3, behavior:'grunt'
   },
-  // ---- Swamp area ----
+  // ---- Swamp area (mid-game) ----
   SWAMP_BEAST:{
-    name:'Swamp Spawn', maxHP:55, speed:88,
-    meleeDmg:13, attackRange:38, detRange:200,
-    attackCD:1.2, attackDur:0.28,
+    name:'Swamp Spawn', maxHP:90, speed:95,
+    meleeDmg:20, attackRange:40, detRange:210,
+    attackCD:1.1, attackDur:0.26,
     size:11, color:'#2a4a1a', darkColor:'#142410',
-    runesDrop:65, lootChance:0.18, behavior:'grunt'
+    runesDrop:90, lootChance:0.18, behavior:'grunt'
   },
   SWAMP_MONSTER:{
-    name:'The Swamp Horror', maxHP:380, speed:58,
-    meleeDmg:26, attackRange:68, detRange:520,
-    attackCD:2.0, attackDur:0.50,
+    name:'The Swamp Horror', maxHP:620, speed:70,
+    meleeDmg:44, attackRange:72, detRange:540,
+    attackCD:1.8, attackDur:0.48,
     size:24, color:'#1a3a10', darkColor:'#0c1a08',
-    runesDrop:1800, lootChance:1.0, behavior:'grunt',
-    p2SpeedMult:1.35, p2DmgMult:1.4, p2Threshold:0.5,
-    slamDmg:32, slamRange:95, slamDelay:0.85,
+    runesDrop:4000, lootChance:1.0, behavior:'grunt',
+    p2SpeedMult:1.40, p2DmgMult:1.45, p2Threshold:0.5,
+    slamDmg:52, slamRange:100, slamDelay:0.85,
     isMiniBoss:true
   },
-  // ---- Mountain area ----
+  // ---- Mountain area (late-game) ----
   SNOW_GRUNT:{
-    name:'Frost Walker', maxHP:70, speed:68,
-    meleeDmg:15, attackRange:40, detRange:200,
-    attackCD:1.4, attackDur:0.30,
+    name:'Frost Walker', maxHP:115, speed:72,
+    meleeDmg:24, attackRange:42, detRange:210,
+    attackCD:1.3, attackDur:0.28,
     size:11, color:'#b0b8c8', darkColor:'#7888a0',
-    runesDrop:70, lootChance:0.18, behavior:'grunt'
+    runesDrop:105, lootChance:0.18, behavior:'grunt'
   },
   YETI:{
-    name:'The Glacial Yeti', maxHP:450, speed:52,
-    meleeDmg:32, attackRange:72, detRange:460,
-    attackCD:2.3, attackDur:0.60,
+    name:'The Glacial Yeti', maxHP:720, speed:60,
+    meleeDmg:52, attackRange:76, detRange:480,
+    attackCD:2.1, attackDur:0.58,
     size:26, color:'#d0d8e8', darkColor:'#9098b0',
-    runesDrop:2200, lootChance:1.0, behavior:'grunt',
-    p2SpeedMult:1.45, p2DmgMult:1.5, p2Threshold:0.4,
-    slamDmg:48, slamRange:105, slamDelay:0.90,
+    runesDrop:5000, lootChance:1.0, behavior:'grunt',
+    p2SpeedMult:1.50, p2DmgMult:1.55, p2Threshold:0.4,
+    slamDmg:72, slamRange:112, slamDelay:0.90,
     isMiniBoss:true
   },
 };
@@ -189,8 +196,24 @@ const ITEMS = {
   },
   RUNE_ARC:{
     id:'rune_arc', name:'Rune Arc', color:'#a0c8ff', glow:'#4080ff',
-    effect:'runes', value:500
-  }
+    effect:'runes', value:800
+  },
+  // Boss summon items — found in specific chests, consumed on summon
+  ASHEN_SIGIL:{
+    id:'ashen_sigil', name:'Ashen Sigil', color:'#c8a060', glow:'#e8c070',
+    effect:'summon', target:'main_boss',
+    desc:'Grants audience with the Ashen King.'
+  },
+  HORROR_TOTEM:{
+    id:'horror_totem', name:'Horror Totem', color:'#3a8020', glow:'#60c030',
+    effect:'summon', target:'swamp_boss',
+    desc:'Calls forth the Swamp Horror.'
+  },
+  YETI_EFFIGY:{
+    id:'yeti_effigy', name:'Yeti Effigy', color:'#60a8e0', glow:'#90d0ff',
+    effect:'summon', target:'mtn_boss',
+    desc:'Awakens the Glacial Yeti.'
+  },
 };
 
 // ============================================================
@@ -262,96 +285,90 @@ const EQUIPMENT_ITEMS = {
 };
 
 // ============================================================
-// LOOT TABLES — define drops per enemy type and per zone (chests)
+// LOOT TABLES — enemy drops only (chests use fixedItem or zone tables)
 // ============================================================
-// Each entry: { item: EQUIPMENT_ITEMS key, chance: 0-1 }
-// Multiple entries can drop (first successful roll wins per kill)
+// RARE items (ASHEN_GREATSWORD, ASHEN_PLATE, EMBER_TALISMAN,
+//             VINE_STAFF, YETI_PELT, SOVEREIGN_RING) are
+// BOSS/MINI-BOSS exclusive — never in random chests or shops.
 const LOOT_TABLES = {
-  // Enemy drops
+  // Enemy drops — common/uncommon only
   GRUNT:  [
-    {item:'IRON_SWORD',     chance:0.08},
-    {item:'LEATHER_ARMOR',  chance:0.06},
-    {item:'WOODEN_TALISMAN',chance:0.05},
+    {item:'IRON_SWORD',     chance:0.06},
+    {item:'LEATHER_ARMOR',  chance:0.05},
+    {item:'WOODEN_TALISMAN',chance:0.04},
   ],
   ARCHER: [
-    {item:'STONE_RING',     chance:0.09},
-    {item:'WOODEN_TALISMAN',chance:0.07},
-    {item:'HOLLOW_BLADE',   chance:0.04},
+    {item:'STONE_RING',     chance:0.07},
+    {item:'WOODEN_TALISMAN',chance:0.06},
   ],
+  // Boss drops — rare gear, guaranteed
   BOSS: [
     {item:'ASHEN_GREATSWORD',chance:1.0},
     {item:'ASHEN_PLATE',     chance:1.0},
     {item:'EMBER_TALISMAN',  chance:1.0},
   ],
-  // Graveyard knight drops
   GRAVE_KNIGHT: [
-    {item:'CHAIN_MAIL',    chance:0.10},
-    {item:'HOLLOW_BLADE',  chance:0.08},
-    {item:'STONE_RING',    chance:0.07},
+    {item:'CHAIN_MAIL',    chance:0.08},
+    {item:'STONE_RING',    chance:0.06},
   ],
   HOLLOW:[
-    {item:'WOODEN_TALISMAN',chance:0.06},
-    {item:'STONE_RING',     chance:0.04},
+    {item:'WOODEN_TALISMAN',chance:0.05},
   ],
   BEAST_KNIGHT:[
-    {item:'CHAIN_MAIL',       chance:0.12},
-    {item:'ASHEN_GREATSWORD', chance:0.05},
-    {item:'CRIMSON_RING',     chance:0.08},
+    {item:'CHAIN_MAIL',    chance:0.10},
+    {item:'CRIMSON_RING',  chance:0.06},
   ],
   SWAMP_BEAST:[
-    {item:'LEATHER_ARMOR',   chance:0.07},
-    {item:'WOODEN_TALISMAN', chance:0.05},
-    {item:'STONE_RING',      chance:0.04},
+    {item:'LEATHER_ARMOR',  chance:0.06},
+    {item:'WOODEN_TALISMAN',chance:0.04},
   ],
+  // Mini-boss drops — rare gear, guaranteed
   SWAMP_MONSTER:[
     {item:'VINE_STAFF',   chance:1.0},
     {item:'CRIMSON_RING', chance:1.0},
   ],
   SNOW_GRUNT:[
-    {item:'CHAIN_MAIL',  chance:0.08},
-    {item:'STONE_RING',  chance:0.06},
-    {item:'IRON_SWORD',  chance:0.05},
+    {item:'CHAIN_MAIL',  chance:0.07},
+    {item:'STONE_RING',  chance:0.05},
   ],
   YETI:[
     {item:'YETI_PELT',      chance:1.0},
     {item:'SOVEREIGN_RING', chance:1.0},
   ],
-  // Zone chest tables
+  // Random chest tables — common items only
   RUINS:  [
-    {item:'IRON_SWORD',     chance:0.6},
-    {item:'LEATHER_ARMOR',  chance:0.5},
-    {item:'STONE_RING',     chance:0.5},
-    {item:'WOODEN_TALISMAN',chance:0.5},
+    {item:'IRON_SWORD',     chance:0.55},
+    {item:'LEATHER_ARMOR',  chance:0.50},
+    {item:'STONE_RING',     chance:0.45},
+    {item:'WOODEN_TALISMAN',chance:0.50},
   ],
   FOREST: [
-    {item:'HOLLOW_BLADE',   chance:0.5},
-    {item:'CHAIN_MAIL',     chance:0.5},
-    {item:'CRIMSON_RING',   chance:0.4},
-    {item:'STONE_RING',     chance:0.3},
+    {item:'HOLLOW_BLADE',   chance:0.45},
+    {item:'CHAIN_MAIL',     chance:0.45},
+    {item:'STONE_RING',     chance:0.40},
+    {item:'CRIMSON_RING',   chance:0.35},
   ],
   CASTLE: [
-    {item:'ASHEN_GREATSWORD',chance:0.4},
-    {item:'ASHEN_PLATE',     chance:0.4},
-    {item:'EMBER_TALISMAN',  chance:0.4},
-    {item:'SOVEREIGN_RING',  chance:0.35},
+    {item:'CHAIN_MAIL',    chance:0.50},
+    {item:'HOLLOW_BLADE',  chance:0.45},
+    {item:'CRIMSON_RING',  chance:0.40},
+    {item:'STONE_RING',    chance:0.35},
   ],
   VILLAGE: [
-    {item:'WOODEN_TALISMAN', chance:0.7},
-    {item:'STONE_RING',      chance:0.6},
-    {item:'LEATHER_ARMOR',   chance:0.5},
-    {item:'IRON_SWORD',      chance:0.4},
+    {item:'WOODEN_TALISMAN',chance:0.65},
+    {item:'STONE_RING',     chance:0.55},
+    {item:'LEATHER_ARMOR',  chance:0.50},
+    {item:'IRON_SWORD',     chance:0.40},
   ],
   SWAMP: [
-    {item:'VINE_STAFF',       chance:0.4},
-    {item:'HOLLOW_BLADE',     chance:0.5},
-    {item:'CRIMSON_RING',     chance:0.5},
-    {item:'CHAIN_MAIL',       chance:0.4},
+    {item:'HOLLOW_BLADE',   chance:0.45},
+    {item:'CHAIN_MAIL',     chance:0.40},
+    {item:'CRIMSON_RING',   chance:0.40},
   ],
   MOUNTAIN: [
-    {item:'YETI_PELT',        chance:0.4},
-    {item:'ASHEN_GREATSWORD', chance:0.45},
-    {item:'SOVEREIGN_RING',   chance:0.4},
-    {item:'EMBER_TALISMAN',   chance:0.5},
+    {item:'CHAIN_MAIL',    chance:0.50},
+    {item:'HOLLOW_BLADE',  chance:0.45},
+    {item:'CRIMSON_RING',  chance:0.35},
   ],
 };
 
@@ -381,8 +398,10 @@ const GS = {
     combo:0, comboTimer:0,    // consecutive hit tracking
     equipment:{ weapon:null, armor:null, ring:null, talisman:null },
     inventory:[],             // array of EQUIPMENT_ITEMS keys
+    consumables:[],           // array of ITEMS keys (summon items, etc.)
     equipCursor:0,            // selected row in equipment menu
     statPoints:{hp:0,fp:0,stamina:0,damage:0,defense:0}, // accumulated level bonuses
+    weaponUpgrades:{},        // e.g. {IRON_SWORD:2} — upgrade level per weapon
     specialCooldown:0,        // Q-ability cooldown
     levelupCursor:0,          // cursor in level-up menu
   },
@@ -397,8 +416,8 @@ const GS = {
 
   bossActive:false, bossDefeated:false, bossRef:null,
   miniBosses:{
-    swamp:    {active:false, defeated:false, ref:null, entered:false},
-    mountain: {active:false, defeated:false, ref:null, entered:false},
+    swamp:    {active:false, defeated:false, ref:null, summoned:false},
+    mountain: {active:false, defeated:false, ref:null, summoned:false},
   },
 
   currentZone:'RUINS', discoveredZones:new Set(['RUINS']),
@@ -406,7 +425,9 @@ const GS = {
   messages:[],  // {text, type, timer, max}
 
   flags:{ fogGateEntered:false, bossArenaOpen:false },
-  // TODO: quest flags, NPC states, shop inventory
+
+  // Shop state
+  shopOpen:false, shopRef:null, shopCursor:0,
 
   tileMap:null,
 };
@@ -573,7 +594,21 @@ const DmgNums = {
 const Stats = {
   _sum(key){ let v=0; for(const id of Object.values(GS.player.equipment)) if(id) v+=EQUIPMENT_ITEMS[id].bonuses[key]||0; return v; },
   _sp(key)  { return GS.player.statPoints[key]||0; },
-  damage()    { return this._sum('damage')   + this._sp('damage');  },
+  _upgBonus(){
+    // Each weapon upgrade level adds 25% of that weapon's base damage bonus
+    const p=GS.player;
+    const w=p.equipment.weapon;
+    if(!w) return 0;
+    const upg=p.weaponUpgrades[w]||0;
+    if(upg<=0) return 0;
+    const baseDmg=EQUIPMENT_ITEMS[w]?.bonuses?.damage||0;
+    return Math.round(baseDmg * upg * 0.25);
+  },
+  weaponUpgLevel(){
+    const p=GS.player; const w=p.equipment.weapon;
+    return w ? (p.weaponUpgrades[w]||0) : 0;
+  },
+  damage()    { return this._sum('damage') + this._sp('damage') + this._upgBonus(); },
   defense()   { return this._sum('defense')  + this._sp('defense'); },
   maxHP()     { return PLAYER_CONFIG.maxHP      + this._sum('hp')      + this._sp('hp');      },
   maxFP()     { return PLAYER_CONFIG.maxFP      + this._sum('fp')      + this._sp('fp');      },
@@ -1536,6 +1571,8 @@ const Bonfires = {
   },
 
   interact(px,py){
+    const anyBoss=GS.bossActive||GS.miniBosses.swamp.active||GS.miniBosses.mountain.active;
+    if(anyBoss){ UI.msg('Cannot rest during a boss fight!','rune',2); return false; }
     for(const bf of this.list)
       if(Math.hypot(px-bf.x,py-bf.y)<50){ this.rest(bf); return true; }
     return false;
@@ -1632,26 +1669,39 @@ const Chests = {
   list: GS.chests,
 
   init(){
+    // fixedItem: guaranteed item key (equipment or consumable summon)
+    // fixedConsumable: true if the fixedItem is from ITEMS (not EQUIPMENT_ITEMS)
+    // zone: used for random loot fallback when no fixedItem
     const pos=[
-      // Ruins — standard
-      {tx:23,ty:50,zone:'RUINS'}, {tx:52,ty:62,zone:'RUINS'},
-      // Ruins — HIDDEN: far western dead-end behind cliff face
-      {tx:8, ty:92,zone:'RUINS'},
-      // Forest — standard
-      {tx:88,ty:22,zone:'FOREST'}, {tx:113,ty:65,zone:'FOREST'},
-      // Forest — HIDDEN: northeast corner near village connector, off main path
-      {tx:163,ty:8, zone:'FOREST'},
-      // Castle — standard
-      {tx:55,ty:130,zone:'CASTLE'}, {tx:195,ty:148,zone:'CASTLE'},
-      // Village — gift from villagers, back of the church
-      {tx:186,ty:43,zone:'VILLAGE'},
-      // Swamp — hidden in the murk
-      {tx:252,ty:22,zone:'SWAMP'}, {tx:263,ty:58,zone:'SWAMP'},
-      // Mountain — icy treasure caches
-      {tx:232,ty:152,zone:'MOUNTAIN'}, {tx:258,ty:168,zone:'MOUNTAIN'},
+      // ---- SPECIFIC CHESTS (guaranteed items) ----
+      // Summon items — needed to fight bosses
+      {tx:127,ty:161,zone:'CASTLE',  fixedItem:'ASHEN_SIGIL',   fixedConsumable:true},  // near fog gate
+      {tx:262,ty:40, zone:'SWAMP',   fixedItem:'HORROR_TOTEM',  fixedConsumable:true},  // deep swamp altar
+      {tx:251,ty:168,zone:'MOUNTAIN',fixedItem:'YETI_EFFIGY',   fixedConsumable:true},  // mountain peak
+      // Guaranteed progression gear
+      {tx:45, ty:55, zone:'RUINS',   fixedItem:'HOLLOW_BLADE'},                         // ruins secret
+      {tx:155,ty:18, zone:'FOREST',  fixedItem:'CHAIN_MAIL'},                           // forest depths
+      {tx:190,ty:38, zone:'VILLAGE', fixedItem:'CRIMSON_RING'},                         // village gift
+      // ---- RANDOM CHESTS (zone loot table) ----
+      {tx:23, ty:50, zone:'RUINS'},
+      {tx:52, ty:62, zone:'RUINS'},
+      {tx:8,  ty:92, zone:'RUINS'},
+      {tx:88, ty:22, zone:'FOREST'},
+      {tx:113,ty:65, zone:'FOREST'},
+      {tx:55, ty:130,zone:'CASTLE'},
+      {tx:195,ty:148,zone:'CASTLE'},
+      {tx:252,ty:22, zone:'SWAMP'},
+      {tx:263,ty:58, zone:'SWAMP'},
+      {tx:232,ty:152,zone:'MOUNTAIN'},
+      {tx:258,ty:165,zone:'MOUNTAIN'},
     ];
     for(const p of pos)
-      this.list.push({x:p.tx*TILE_SIZE+16, y:p.ty*TILE_SIZE+16, zone:p.zone, opened:false});
+      this.list.push({
+        x:p.tx*TILE_SIZE+16, y:p.ty*TILE_SIZE+16,
+        zone:p.zone, opened:false,
+        fixedItem:p.fixedItem||null,
+        fixedConsumable:p.fixedConsumable||false,
+      });
   },
 
   interact(px,py){
@@ -1664,14 +1714,32 @@ const Chests = {
 
   _open(chest){
     chest.opened=true;
-    const table=LOOT_TABLES[chest.zone]||[];
-    const candidates=table.filter(e=>Math.random()<e.chance);
-    if(candidates.length){
-      const entry=candidates[Math.floor(Math.random()*candidates.length)];
-      const drop=_makeDropItem(entry.item, chest.x+(Math.random()-0.5)*20, chest.y+(Math.random()-0.5)*20);
-      if(drop){ GS.items.push(drop); UI.msg(`${RARITY_LABEL[drop.rarity]}: ${drop.name}`,'item',2.5); }
+    const ix=chest.x+(Math.random()-0.5)*20, iy=chest.y+(Math.random()-0.5)*20;
+
+    if(chest.fixedItem){
+      if(chest.fixedConsumable){
+        // It's a consumable / summon item from ITEMS
+        const def=ITEMS[chest.fixedItem];
+        if(def){
+          GS.items.push({...def, ikey:chest.fixedItem, x:ix, y:iy, pt:0, collected:false,
+            isConsumable:true });
+          UI.msg(`Found: ${def.name}`,'item',3);
+        }
+      } else {
+        // It's equipment from EQUIPMENT_ITEMS
+        const drop=_makeDropItem(chest.fixedItem, ix, iy);
+        if(drop){ GS.items.push(drop); UI.msg(`${RARITY_LABEL[drop.rarity]}: ${drop.name}`,'item',3); }
+      }
     } else {
-      UI.msg('Empty Chest','rune',1.5);
+      const table=LOOT_TABLES[chest.zone]||[];
+      const candidates=table.filter(e=>Math.random()<e.chance);
+      if(candidates.length){
+        const entry=candidates[Math.floor(Math.random()*candidates.length)];
+        const drop=_makeDropItem(entry.item, ix, iy);
+        if(drop){ GS.items.push(drop); UI.msg(`${RARITY_LABEL[drop.rarity]}: ${drop.name}`,'item',2.5); }
+      } else {
+        UI.msg('Empty Chest','rune',1.5);
+      }
     }
     Particles.sparks(chest.x,chest.y,14);
     ScreenFX.flash('#c8a060',0.15,0.3);
@@ -1706,6 +1774,364 @@ const Chests = {
         }
       }
     }
+  },
+};
+
+// ============================================================
+// SHOP SYSTEM — merchants scattered around the world
+// ============================================================
+const SHOP_DEFS = [
+  {
+    id:'ruins_merchant', name:'Ruins Merchant', tx:15, ty:52,
+    isBlacksmith:false,
+    stock:[
+      {type:'equip', id:'IRON_SWORD',      price:400},
+      {type:'equip', id:'LEATHER_ARMOR',   price:500},
+      {type:'equip', id:'WOODEN_TALISMAN', price:280},
+      {type:'equip', id:'STONE_RING',      price:380},
+      {type:'item',  id:'RUNE_ARC',        price:320},
+      {type:'item',  id:'GOLDEN_TEAR',     price:500},
+    ]
+  },
+  {
+    id:'forest_herbalist', name:'Forest Herbalist', tx:100, ty:45,
+    isBlacksmith:false,
+    stock:[
+      {type:'equip', id:'HOLLOW_BLADE',  price:1100},
+      {type:'equip', id:'CHAIN_MAIL',    price:1300},
+      {type:'equip', id:'CRIMSON_RING',  price:900},
+      {type:'equip', id:'STONE_RING',    price:400},
+      {type:'item',  id:'RUNE_ARC',      price:480},
+      {type:'item',  id:'GOLDEN_TEAR',   price:700},
+    ]
+  },
+  {
+    id:'village_blacksmith', name:'Village Blacksmith', tx:198, ty:32,
+    isBlacksmith:true,
+    stock:[
+      {type:'equip', id:'HOLLOW_BLADE',  price:1200},
+      {type:'equip', id:'CHAIN_MAIL',    price:1400},
+      {type:'equip', id:'CRIMSON_RING',  price:950},
+      {type:'item',  id:'GOLDEN_TEAR',   price:750},
+      {type:'upgrade', price:0},
+    ]
+  },
+  {
+    id:'castle_armorer', name:'Castle Armorer', tx:88, ty:132,
+    isBlacksmith:true,
+    stock:[
+      {type:'equip', id:'HOLLOW_BLADE',   price:1400},
+      {type:'equip', id:'CHAIN_MAIL',     price:1600},
+      {type:'equip', id:'STONE_RING',     price:450},
+      {type:'item',  id:'RUNE_ARC',       price:600},
+      {type:'item',  id:'GOLDEN_TEAR',    price:900},
+      {type:'upgrade', price:0},
+    ]
+  },
+];
+
+const Shops = {
+  list:[],
+
+  init(){
+    for(const d of SHOP_DEFS)
+      this.list.push({...d, x:d.tx*TILE_SIZE+16, y:d.ty*TILE_SIZE+16});
+  },
+
+  interact(px,py){
+    if(GS.shopOpen) return false;
+    for(const s of this.list){
+      if(Math.hypot(px-s.x,py-s.y)<52){
+        GS.shopOpen=true; GS.shopRef=s; GS.shopCursor=0;
+        GS.phase='shop';
+        UI.msg(s.name,'zone',1.5);
+        return true;
+      }
+    }
+    return false;
+  },
+
+  close(){
+    GS.shopOpen=false; GS.shopRef=null; GS.shopCursor=0;
+    GS.phase='playing';
+  },
+
+  handleInput(){
+    const s=GS.shopRef; if(!s) return;
+    const p=GS.player;
+    const items=this._visibleItems(s);
+    const n=items.length;
+    if(Input.just('Escape')||Input.just('Tab')){ this.close(); return; }
+    if(Input.just('ArrowUp')||Input.just('KeyW')) GS.shopCursor=(GS.shopCursor-1+n)%n;
+    if(Input.just('ArrowDown')||Input.just('KeyS')) GS.shopCursor=(GS.shopCursor+1)%n;
+    if(Input.just('KeyE')||Input.just('KeyJ')||Input.just('Space')){
+      const sel=items[GS.shopCursor]; if(!sel) return;
+      this._buy(s, sel);
+    }
+  },
+
+  _visibleItems(s){
+    // Build the effective item list, computing upgrade entry price dynamically
+    return s.stock.map(entry=>{
+      if(entry.type!=='upgrade') return entry;
+      const p=GS.player;
+      const w=p.equipment.weapon;
+      if(!w) return {...entry, label:'Upgrade Weapon', price:-1, unavail:'No weapon equipped'};
+      const curLvl=p.weaponUpgrades[w]||0;
+      if(curLvl>=5) return {...entry, label:`${EQUIPMENT_ITEMS[w].name}  MAX`, price:-1, unavail:'Already max level'};
+      const cost=UPGRADE_COSTS[curLvl];
+      return {...entry, label:`Upgrade ${EQUIPMENT_ITEMS[w].name} +${curLvl+1}`, price:cost, unavail:null};
+    });
+  },
+
+  _buy(s, entry){
+    const p=GS.player;
+    if(entry.unavail){ UI.msg(entry.unavail,'rune',1.5); return; }
+    if(entry.price<0){ UI.msg('Cannot upgrade','rune',1.5); return; }
+    if(p.runes<entry.price){ UI.msg('Not enough Runes','rune',1.5); return; }
+
+    if(entry.type==='equip'){
+      const def=EQUIPMENT_ITEMS[entry.id];
+      if(!def) return;
+      if(p.inventory.includes(entry.id)){ UI.msg('Already owned','rune',1.5); return; }
+      p.runes-=entry.price;
+      p.inventory.push(entry.id);
+      UI.msg(`Bought: ${def.name}`,'item',2.5);
+      Particles.rune(p.x,p.y);
+    } else if(entry.type==='item'){
+      const def=ITEMS[entry.id];
+      if(!def) return;
+      p.runes-=entry.price;
+      if(def.effect==='flask') p.flaskCharges=Math.min(9,p.flaskCharges+1);
+      else if(def.effect==='runes'){ p.runes+=def.value; p.totalRunes+=def.value; }
+      UI.msg(`Bought: ${def.name}`,'item',2);
+      Particles.rune(p.x,p.y);
+    } else if(entry.type==='upgrade'){
+      const w=p.equipment.weapon;
+      if(!w) return;
+      const curLvl=p.weaponUpgrades[w]||0;
+      p.runes-=entry.price;
+      p.weaponUpgrades[w]=curLvl+1;
+      UI.msg(`${EQUIPMENT_ITEMS[w].name} upgraded to +${curLvl+1}!`,'item',3);
+      ScreenFX.flash('#c8a060',0.25,0.4);
+      Particles.sparks(p.x,p.y,12);
+    }
+  },
+
+  draw(cx,cy){
+    for(const s of this.list){
+      const sx=(s.x-cx)|0, sy=(s.y-cy)|0;
+      if(sx<-50||sx>SCREEN_W+50||sy<-50||sy>SCREEN_H+50) continue;
+      // Merchant NPC sprite
+      this._drawMerchant(sx,sy,s.isBlacksmith);
+      // Interaction prompt
+      if(GS.phase==='playing'){
+        const dist=Math.hypot(GS.player.x-s.x,GS.player.y-s.y);
+        if(dist<60) R.text('[E] Talk',sx,sy-22,'#c8a060',10,'center');
+      }
+    }
+  },
+
+  _drawMerchant(sx,sy,isBs){
+    const cc=isBs?'#3a2808':'#2a3028'; // blacksmith=brown, merchant=dark green
+    const tc=isBs?'#c88030':'#60a040'; // trim color
+    // Legs
+    ctx.fillStyle='#1a1814'; ctx.fillRect(sx-5,sy+4,4,9); ctx.fillRect(sx+1,sy+4,4,9);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy+4,1,9); ctx.fillRect(sx+5,sy+4,1,9);
+    // Body — robe/apron
+    ctx.fillStyle=cc; ctx.fillRect(sx-7,sy-8,14,13);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-8,1,13); ctx.fillRect(sx+7,sy-8,1,13);
+    ctx.fillRect(sx-7,sy-9,14,1); ctx.fillRect(sx-7,sy+5,14,1);
+    ctx.fillStyle=tc; ctx.fillRect(sx-7,sy-8,14,2); // trim
+    // Head
+    ctx.fillStyle='#4a3a28'; ctx.fillRect(sx-5,sy-19,10,12);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-19,1,12); ctx.fillRect(sx+5,sy-19,1,12);
+    ctx.fillRect(sx-5,sy-20,10,1); ctx.fillRect(sx-5,sy-7,10,1);
+    // Hood/hat
+    ctx.fillStyle=cc; ctx.fillRect(sx-6,sy-22,12,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-23,12,1);
+    // Eyes
+    ctx.fillStyle='#c8b060'; ctx.fillRect(sx-3,sy-15,2,2); ctx.fillRect(sx+1,sy-15,2,2);
+    if(isBs){
+      // Hammer
+      ctx.fillStyle='#382818'; ctx.fillRect(sx+8,sy-14,3,20);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+7,sy-14,1,20); ctx.fillRect(sx+11,sy-14,1,20);
+      ctx.fillStyle='#484440'; ctx.fillRect(sx+7,sy-16,7,6);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+7,sy-17,7,1); ctx.fillRect(sx+14,sy-16,1,6);
+      ctx.fillStyle='#606058'; ctx.fillRect(sx+8,sy-16,5,4); // face gleam
+    } else {
+      // Scroll/bag
+      ctx.fillStyle='#503810'; ctx.fillRect(sx-11,sy-6,6,10);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-12,sy-6,1,10); ctx.fillRect(sx-5,sy-6,1,10);
+      ctx.fillStyle='#c8a040'; ctx.fillRect(sx-11,sy-6,6,2); ctx.fillRect(sx-11,sy+2,6,2);
+    }
+  },
+
+  drawUI(){
+    const s=GS.shopRef; if(!s) return;
+    const p=GS.player;
+    const W=420, H=360, bx=(SCREEN_W-W)/2|0, by=(SCREEN_H-H)/2|0;
+    // Panel
+    ctx.fillStyle='rgba(0,0,0,0.85)'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+    ctx.fillStyle='#0c0a08'; ctx.fillRect(bx,by,W,H);
+    ctx.fillStyle='#000'; ctx.fillRect(bx-3,by-3,W+6,H+6);
+    ctx.fillStyle='#2a2006'; ctx.fillRect(bx,by,W,3); // gold top trim
+    // Title
+    R.shadow(s.name.toUpperCase(), bx+W/2, by+24, '#c8a060','#000',20,'center');
+    R.text(`Runes: ${p.runes}`, bx+W-14, by+24,'#FFD040',13,'right');
+    // Items
+    const items=this._visibleItems(s);
+    const rowH=44, startY=by+54;
+    for(let i=0;i<items.length;i++){
+      const entry=items[i];
+      const iy=startY+i*rowH;
+      const sel=(i===GS.shopCursor);
+      // Row bg
+      ctx.fillStyle=sel?'#201e0e':'#0e0c08'; ctx.fillRect(bx+10,iy,W-20,rowH-4);
+      if(sel){ ctx.fillStyle='#c8a060'; ctx.fillRect(bx+10,iy,3,rowH-4); }
+      // Label
+      let label='', desc='', priceStr='', priceCol='#FFD040';
+      if(entry.type==='equip'){
+        const def=EQUIPMENT_ITEMS[entry.id]||{};
+        const owned=p.inventory.includes(entry.id);
+        label=def.name||entry.id;
+        desc=def.desc||'';
+        priceStr=owned?'Owned':`${entry.price} Runes`;
+        priceCol=owned?'#606060':'#FFD040';
+      } else if(entry.type==='item'){
+        const def=ITEMS[entry.id]||{};
+        label=def.name||entry.id;
+        desc=def.desc||`Effect: ${def.effect}`;
+        priceStr=`${entry.price} Runes`;
+      } else if(entry.type==='upgrade'){
+        label=entry.label||'Upgrade Weapon';
+        desc=entry.unavail||'Upgrades weapon damage +25% per level';
+        priceStr=entry.price>0?`${entry.price} Runes`:(entry.unavail?'—':'MAX');
+        priceCol=p.runes>=(entry.price||0)?'#FFD040':'#a03030';
+      }
+      const canAfford=(entry.type!=='upgrade'||!entry.unavail)&&
+                       (entry.type==='equip'?!p.inventory.includes(entry.id):true)&&
+                       p.runes>=(entry.price||0);
+      R.bold(label, bx+22, iy+17, sel?'#ffe090':'#c8a060', 12,'left');
+      R.text(desc, bx+22, iy+33, '#604a2a', 10,'left');
+      R.bold(priceStr, bx+W-22, iy+17, priceCol, 12,'right');
+    }
+    // Footer
+    ctx.fillStyle='#1a1810'; ctx.fillRect(bx,by+H-26,W,26);
+    R.text('[↑↓] Navigate  [E/J] Buy  [Esc] Close', bx+W/2, by+H-9,'#503c20',10,'center');
+    // Upgrade tooltip
+    if(p.equipment.weapon){
+      const upg=p.weaponUpgrades[p.equipment.weapon]||0;
+      const wname=EQUIPMENT_ITEMS[p.equipment.weapon]?.name||'?';
+      R.text(`Equipped: ${wname} +${upg}  │  Total ATK: ${Stats.damage()}`, bx+W/2, by+H-40,'#888070',10,'center');
+    }
+  },
+};
+
+// ============================================================
+// ALTAR SYSTEM — summon boss fights at dedicated shrines
+// ============================================================
+const ALTAR_DEFS = [
+  // Main boss — near the fog gate corridor
+  {id:'main_boss', label:'Ashen Altar', tx:129, ty:163,
+   item:'ASHEN_SIGIL', zone:'CASTLE',
+   unlockMsg:'THE ASHEN KING AWAKENS',
+   flashCol:'#6020a0',
+   spawn(){ Enemies.spawnBoss(); GS.flags.fogGateEntered=true; }
+  },
+  // Swamp mini-boss — deep in the swamp
+  {id:'swamp_boss', label:'Cursed Totem', tx:261, ty:38,
+   item:'HORROR_TOTEM', zone:'SWAMP',
+   unlockMsg:'THE SWAMP HORROR STIRS',
+   flashCol:'#204010',
+   spawn(){ Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp'); GS.miniBosses.swamp.summoned=true; }
+  },
+  // Mountain mini-boss — mountain peak shrine
+  {id:'mtn_boss', label:'Frost Shrine', tx:250, ty:167,
+   item:'YETI_EFFIGY', zone:'MOUNTAIN',
+   unlockMsg:'THE GLACIAL YETI AWAKENS',
+   flashCol:'#202840',
+   spawn(){ Enemies.spawnMiniBoss('YETI','mountain'); GS.miniBosses.mountain.summoned=true; }
+  },
+];
+
+const Altars = {
+  list:[],
+
+  init(){
+    for(const d of ALTAR_DEFS)
+      this.list.push({...d, x:d.tx*TILE_SIZE+16, y:d.ty*TILE_SIZE+16, activated:false});
+  },
+
+  interact(px,py){
+    for(const alt of this.list){
+      if(alt.activated) continue;
+      if(Math.hypot(px-alt.x,py-alt.y)<52){
+        this._tryActivate(alt);
+        return true;
+      }
+    }
+    return false;
+  },
+
+  _tryActivate(alt){
+    const p=GS.player;
+    // Check if already defeated
+    if(alt.id==='main_boss'&&GS.bossDefeated){ UI.msg('The Ashen King has been slain.','rune',2); return; }
+    if(alt.id==='swamp_boss'&&GS.miniBosses.swamp.defeated){ UI.msg('The Swamp Horror is dead.','rune',2); return; }
+    if(alt.id==='mtn_boss'&&GS.miniBosses.mountain.defeated){ UI.msg('The Glacial Yeti is slain.','rune',2); return; }
+
+    const hasItem=p.consumables.includes(alt.item);
+    if(!hasItem){
+      const def=ITEMS[alt.item]; if(!def) return;
+      UI.msg(`The shrine hungers for a ${def.name}.`,'rune',3);
+      return;
+    }
+    // Consume item and spawn boss
+    p.consumables.splice(p.consumables.indexOf(alt.item),1);
+    alt.activated=true;
+    alt.spawn();
+    UI.msg(alt.unlockMsg,'boss',4);
+    ScreenFX.flash(alt.flashCol,0.6,1.0);
+    ScreenFX.shake(8,0.5);
+  },
+
+  draw(cx,cy){
+    for(const alt of this.list){
+      const sx=(alt.x-cx)|0, sy=(alt.y-cy)|0;
+      if(sx<-50||sx>SCREEN_W+50||sy<-50||sy>SCREEN_H+50) continue;
+      if(alt.activated) continue;
+      this._drawAltar(sx,sy,alt);
+      if(GS.phase==='playing'){
+        const dist=Math.hypot(GS.player.x-alt.x,GS.player.y-alt.y);
+        if(dist<60) R.text('[E] Offer',sx,sy-28,'#c8a060',10,'center');
+      }
+    }
+  },
+
+  _drawAltar(sx,sy,alt){
+    const now=Date.now();
+    // Stone base
+    ctx.fillStyle='#1e1e28'; ctx.fillRect(sx-14,sy+8,28,8);
+    ctx.fillStyle='#2a2838'; ctx.fillRect(sx-12,sy+2,24,8);
+    ctx.fillStyle='#343248'; ctx.fillRect(sx-10,sy-4,20,8);
+    // Rune etching
+    ctx.fillStyle='#4a3878'; ctx.fillRect(sx-8,sy,16,2);
+    ctx.fillStyle='#6040a0'; ctx.fillRect(sx-4,sy-2,8,2);
+    // Flame/glow atop altar
+    const pulse=(now/400|0)%2;
+    const gcol=alt.id==='swamp_boss'?'#204010':alt.id==='mtn_boss'?'#102030':'#300828';
+    ctx.globalAlpha=0.28+pulse*0.10;
+    ctx.fillStyle=gcol; ctx.fillRect(sx-16,sy-20,32,24);
+    ctx.globalAlpha=1;
+    // Orb
+    const ocol=alt.id==='swamp_boss'?'#60c030':alt.id==='mtn_boss'?'#60a8e0':'#a040d0';
+    ctx.fillStyle=ocol; ctx.fillRect(sx-4,sy-14,8,8);
+    ctx.fillStyle='#fff'; ctx.fillRect(sx-2,sy-12,3,3);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-4,sy-14,1,8); ctx.fillRect(sx+4,sy-14,1,8);
+    ctx.fillRect(sx-4,sy-15,8,1); ctx.fillRect(sx-4,sy-6,8,1);
+    // Label
+    R.text(alt.label,sx,sy-20,ocol,9,'center');
   },
 };
 
@@ -1863,6 +2289,8 @@ const Player = {
     const p=GS.player;
     if(Bonfires.interact(p.x,p.y)) return;
     if(Chests.interact(p.x,p.y)) return;
+    if(Altars.interact(p.x,p.y)) return;
+    if(Shops.interact(p.x,p.y)) return;
     if(Quest.interactElder(p.x,p.y)) return;
     // Bloodstain recovery
     if(p.bloodstainX!==null && Math.hypot(p.x-p.bloodstainX,p.y-p.bloodstainY)<32){
@@ -1898,6 +2326,15 @@ const Player = {
     const p=GS.player;
     if(GS.flags.fogGateEntered) return;
     if(World.tile(p.x,p.y)===T.FOG_GATE){
+      const hasSigil=p.consumables.includes('ASHEN_SIGIL');
+      if(!hasSigil){
+        UI.msg('A seal bars your path... Find the Ashen Sigil.','rune',3);
+        // Push player back
+        p.x-=p.facing.x*16; p.y-=p.facing.y*16;
+        return;
+      }
+      // Consume sigil and summon boss
+      p.consumables.splice(p.consumables.indexOf('ASHEN_SIGIL'),1);
       GS.flags.fogGateEntered=true;
       Enemies.spawnBoss();
       UI.msg('THE ASHEN KING AWAKENS','boss',4);
@@ -1917,6 +2354,10 @@ const Player = {
           UI.msg(`${RARITY_LABEL[EQUIPMENT_ITEMS[item.equipId]?.rarity||'common']}: ${item.name}`,'item',2);
         } else if(item.effect==='flask'){ p.flaskCharges=Math.min(9,p.flaskCharges+item.value); UI.msg(`+1 ${item.name}`,'item',2); }
         else if(item.effect==='runes'){ p.runes+=item.value; p.totalRunes+=item.value; UI.msg(`+${item.value} Runes`,'rune',2); }
+        else if(item.effect==='summon'){
+          if(!p.consumables.includes(item.ikey)) p.consumables.push(item.ikey);
+          UI.msg(`Obtained: ${item.name}`,'item',3);
+        }
         Particles.rune(p.x,p.y);
       }
     }
@@ -1960,22 +2401,8 @@ const Player = {
   },
 
   _checkMiniBossZone(){
-    const p=GS.player;
-    const zone=GS.currentZone;
-    // Swamp mini-boss spawn on first entry
-    if(zone==='SWAMP'&&!GS.miniBosses.swamp.entered&&!GS.miniBosses.swamp.defeated){
-      GS.miniBosses.swamp.entered=true;
-      Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp');
-      UI.msg('THE SWAMP HORROR STIRS','boss',4);
-      ScreenFX.flash('#204010',0.55,1.0); ScreenFX.shake(6,0.4);
-    }
-    // Mountain mini-boss spawn on first entry
-    if(zone==='MOUNTAIN'&&!GS.miniBosses.mountain.entered&&!GS.miniBosses.mountain.defeated){
-      GS.miniBosses.mountain.entered=true;
-      Enemies.spawnMiniBoss('YETI','mountain');
-      UI.msg('THE GLACIAL YETI AWAKENS','boss',4);
-      ScreenFX.flash('#202840',0.55,1.0); ScreenFX.shake(6,0.4);
-    }
+    // Mini-bosses are now summoned via altars — this method is a no-op
+    // (kept for structure; actual summoning handled by Altars.interact)
   },
 
   takeDamage(dmg){
@@ -3686,8 +4113,10 @@ const Equipment = {
     R.text(`HP       ${Math.ceil(p.hp)} / ${mHP}`, LX+10,STY+26,'#cc6060',9);
     R.text(`FP       ${Math.ceil(p.fp)} / ${mFP2}`, LX+10,STY+38,'#4060c0',9);
     R.text(`Stamina  ${Math.ceil(p.stamina)} / ${mST}`, LX+10,STY+50,'#60a030',9);
-    R.text(`Attack   base + ${dmg}`,                 LX+10,STY+62,'#c8a060',9);
-    R.text(`Defense  base + ${def}`,                 LX+10,STY+74,'#6090c0',9);
+    const upg=p.equipment.weapon?(p.weaponUpgrades[p.equipment.weapon]||0):0;
+    const upgStr=upg>0?` (+${upg})`:''
+    R.text(`Attack   base + ${dmg}${upgStr}`,         LX+10,STY+62,'#c8a060',9);
+    R.text(`Defense  base + ${def}`,                  LX+10,STY+74,'#6090c0',9);
 
     // ---- RIGHT COLUMN: inventory list (x=PX+228) ----
     const RX=PX+228;
@@ -3720,6 +4149,18 @@ const Equipment = {
     // Scroll indicator
     if(p.inventory.length>maxVisible)
       R.text(`${p.equipCursor+1}/${p.inventory.length}`,RX+284,PY+42,'#403828',8,'right');
+
+    // ---- KEY ITEMS / CONSUMABLES ----
+    if(p.consumables.length>0){
+      const KY=STY+102;
+      ctx.fillStyle='#000'; ctx.fillRect(LX,KY,200,14+p.consumables.length*14);
+      ctx.fillStyle='#0c0a06'; ctx.fillRect(LX+2,KY+2,196,10+p.consumables.length*14);
+      R.text('KEY ITEMS',LX+100,KY+12,'#604828',8,'center');
+      for(let i=0;i<p.consumables.length;i++){
+        const def=ITEMS[p.consumables[i]]; if(!def) continue;
+        R.text(`· ${def.name}`,LX+10,KY+24+i*13,'#a08840',9);
+      }
+    }
 
     // ---- FOOTER ----
     ctx.fillStyle='#0e0a06'; ctx.fillRect(PX,PY+PH-18,PW,18);
@@ -3880,11 +4321,21 @@ const UI = {
     R.bar(mg+18,sy2,bw,bh,p.stamina,mST,stFlash?'#601008':'#6a5208','#0a0802');
     R.text(`${Math.ceil(p.stamina)}/${mST}`,mg+22,sy2+bh-1,'#5a4808',8);
 
-    // Level badge — dark iron box with tarnished gold text
-    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-22,42,16);
-    ctx.fillStyle='#100e0a'; ctx.fillRect(mg-3,sy0-21,40,14);
-    ctx.fillStyle='#2a2006'; ctx.fillRect(mg-3,sy0-21,40,2); // gold top trim
-    R.text(`Lv.${p.level}`,mg,sy0-9,'#6a5618',9);
+    // Level badge + XP progress bar
+    ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-28,bw+12,20);
+    ctx.fillStyle='#100e0a'; ctx.fillRect(mg-3,sy0-27,bw+10,18);
+    ctx.fillStyle='#2a2006'; ctx.fillRect(mg-3,sy0-27,bw+10,2);
+    const nextThresh=LEVEL_THRESHOLDS[p.level]||LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length-1];
+    const prevThresh=LEVEL_THRESHOLDS[p.level-1]||0;
+    const xpFrac=p.level>=LEVEL_THRESHOLDS.length?1:
+      Math.min(1,(p.totalRunes-prevThresh)/Math.max(1,nextThresh-prevThresh));
+    const xpBarW=Math.max(0,(bw+8)*xpFrac)|0;
+    ctx.fillStyle='#181008'; ctx.fillRect(mg-3,sy0-14,bw+10,6);
+    ctx.fillStyle='#7a5e10'; ctx.fillRect(mg-3,sy0-14,xpBarW,6);
+    R.text(`Lv.${p.level}/${LEVEL_THRESHOLDS.length}`,mg,sy0-16,'#6a5618',9);
+    const wpnUpg=p.equipment.weapon?(p.weaponUpgrades[p.equipment.weapon]||0):0;
+    if(p.equipment.weapon)
+      R.text(`+${wpnUpg}`,mg+bw-2,sy0-16,'#a08030',9,'right');
 
     // Rune counter — dark iron box, tarnished gold rune symbol
     const rw=96;
@@ -4232,6 +4683,8 @@ function loop(ts){
     if(Input.just('Tab')||Input.just('Escape')) GS.phase='playing';
   } else if(GS.phase==='levelup'){
     LevelUp.handleInput();
+  } else if(GS.phase==='shop'){
+    Shops.handleInput();
   } else if(GS.phase==='playing'){
     if(Input.just('Escape')){ GS.phase='paused'; }
     if(Input.just('Tab')){ GS.phase='equipment'; GS.player.equipCursor=0; }
@@ -4257,6 +4710,8 @@ function loop(ts){
     World.draw(cx,cy);
     Bonfires.draw(cx,cy);
     Chests.draw(cx,cy);
+    Altars.draw(cx,cy);
+    Shops.draw(cx,cy);
     Village.draw(cx,cy);
     Quest.draw(cx,cy);
     Enemies.draw(cx,cy);
@@ -4276,6 +4731,7 @@ function loop(ts){
     if(GS.phase==='paused')       UI.drawPause();
     else if(GS.phase==='equipment') Equipment.draw();
     else if(GS.phase==='levelup')   { UI.draw(); LevelUp.draw(); }
+    else if(GS.phase==='shop')      { UI.draw(); Shops.drawUI(); }
     else UI.draw();
   }
 
@@ -4293,6 +4749,8 @@ function init(){
   World.generate();
   Bonfires.init();
   Chests.init();
+  Shops.init();
+  Altars.init();
   Village.init();
   Quest.init();
   Enemies.init();
