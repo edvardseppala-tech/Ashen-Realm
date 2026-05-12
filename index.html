@@ -32,6 +32,7 @@ const T = {
   WATER:10, VILLAGE_FLOOR:11, VILLAGE_WALL:12, GRAVEYARD_FLOOR:13,
   SWAMP_FLOOR:14, SWAMP_WALL:15,
   MOUNTAIN_FLOOR:16, MOUNTAIN_WALL:17,
+  GRASS_FLOOR:18, GRASS_WALL:19,
 };
 
 // ============================================================
@@ -66,6 +67,10 @@ const ZONES = {
   MOUNTAIN: {
     name:'Frosted Peaks',    bounds:{x:220, y:132, w:57,  h:65},
     ambientColor:'#0c1018',  fogTint:'rgba(20,25,40,0.18)'
+  },
+  GRASSLAND:{
+    name:'Verdant Expanse',  bounds:{x:5,   y:1,   w:155, h:36},
+    ambientColor:'#080e06',  fogTint:'rgba(8,18,5,0.14)'
   },
 };
 
@@ -186,6 +191,34 @@ const ENEMY_TYPES = {
     slamDmg:72, slamRange:112, slamDelay:0.90,
     isMiniBoss:true
   },
+  // ---- Grassland area ----
+  BANDIT:{
+    name:'Bandit Thug', maxHP:90, speed:145, meleeDmg:19, attackRange:42, detRange:220,
+    attackCD:1.1, attackDur:0.24, size:11, color:'#6a4820', darkColor:'#3a2810',
+    runesDrop:120, lootChance:0.18, behavior:'grunt'
+  },
+  BANDIT_ARCHER:{
+    name:'Bandit Marksman', maxHP:68, speed:85, meleeDmg:14, attackRange:260, detRange:300,
+    attackCD:1.6, attackDur:0.38, size:10, color:'#5a4018', darkColor:'#2e2008',
+    runesDrop:140, lootChance:0.25, behavior:'archer', projSpeed:280, backoff:180
+  },
+  VINE_LURKER:{
+    name:'Vine Lurker', maxHP:130, speed:50, meleeDmg:25, attackRange:50, detRange:200,
+    attackCD:1.5, attackDur:0.35, size:12, color:'#1e4010', darkColor:'#0e2008',
+    runesDrop:150, lootChance:0.20, behavior:'grunt'
+  },
+  FOREST_KNIGHT:{
+    name:'Forest Knight', maxHP:220, speed:52, meleeDmg:38, attackRange:52, detRange:210,
+    attackCD:2.0, attackDur:0.48, size:13, color:'#3a4820', darkColor:'#1a2410',
+    runesDrop:260, lootChance:0.28, behavior:'grunt'
+  },
+  VERDANT_WARDEN:{
+    name:'The Verdant Warden', maxHP:800, speed:78, meleeDmg:46, attackRange:88, detRange:600,
+    attackCD:1.7, attackDur:0.52, size:26, color:'#2a6018', darkColor:'#123008',
+    runesDrop:5500, lootChance:1.0, behavior:'grunt',
+    p2SpeedMult:1.55, p2DmgMult:1.6, p2Threshold:0.45,
+    slamDmg:58, slamRange:110, slamDelay:0.88, isMiniBoss:true
+  },
 };
 
 // Easy to add new consumable items
@@ -213,6 +246,11 @@ const ITEMS = {
     id:'yeti_effigy', name:'Yeti Effigy', color:'#60a8e0', glow:'#90d0ff',
     effect:'summon', target:'mtn_boss',
     desc:'Awakens the Glacial Yeti.'
+  },
+  WARDEN_SEAL:{
+    id:'warden_seal', name:"Warden's Seal", color:'#3a8020', glow:'#60c030',
+    effect:'summon', target:'grassland_boss',
+    desc:'Breaks the seal of the Verdant Warden.'
   },
 };
 
@@ -315,6 +353,45 @@ const EQUIPMENT_ITEMS = {
     id:'POINTY_HAT', name:'Pointy Hat', slot:'armor', rarity:'common',
     bonuses:{damage:0,defense:1,hp:-5,stamina:-5,fp:20}, desc:'+20 FP  +1 DEF  -5 HP'
   },
+  // --- BOWS ---
+  HUNTERS_BOW:{
+    id:'HUNTERS_BOW', name:"Hunter's Bow", slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:18,defense:0,hp:0,stamina:8,fp:0}, desc:'+18 ATK  +8 STA'
+  },
+  LONGBOW:{
+    id:'LONGBOW', name:'Longbow', slot:'weapon', rarity:'rare',
+    bonuses:{damage:28,defense:0,hp:0,stamina:10,fp:0}, desc:'+28 ATK  +10 STA'
+  },
+  FOREST_BOW:{
+    id:'FOREST_BOW', name:'Forest Bow', slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:15,defense:0,hp:0,stamina:16,fp:0}, desc:'+15 ATK  +16 STA  Fast'
+  },
+  WARDEN_BOW:{
+    id:'WARDEN_BOW', name:'Warden Bow', slot:'weapon', rarity:'rare',
+    bonuses:{damage:36,defense:0,hp:10,stamina:14,fp:0}, desc:'+36 ATK  +14 STA  +10 HP'
+  },
+  // --- WANDS ---
+  OAK_STAFF:{
+    id:'OAK_STAFF', name:'Oak Staff', slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:16,defense:0,hp:0,stamina:0,fp:18}, desc:'+16 ATK  +18 FP'
+  },
+  CRYSTAL_WAND:{
+    id:'CRYSTAL_WAND', name:'Crystal Wand', slot:'weapon', rarity:'rare',
+    bonuses:{damage:24,defense:0,hp:0,stamina:0,fp:28}, desc:'+24 ATK  +28 FP'
+  },
+  EMBER_ROD:{
+    id:'EMBER_ROD', name:'Ember Rod', slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:20,defense:0,hp:0,stamina:0,fp:14}, desc:'+20 ATK  +14 FP'
+  },
+  ARCANE_TOME:{
+    id:'ARCANE_TOME', name:'Arcane Tome', slot:'weapon', rarity:'rare',
+    bonuses:{damage:32,defense:0,hp:0,stamina:0,fp:40}, desc:'+32 ATK  +40 FP'
+  },
+  // --- TALISMAN (grassland quest reward) ---
+  ARCHER_TALISMAN:{
+    id:'ARCHER_TALISMAN', name:'Archer Talisman', slot:'talisman', rarity:'rare',
+    bonuses:{damage:6,defense:0,hp:8,stamina:12,fp:0}, desc:'+6 ATK  +12 STA  +8 HP'
+  },
 };
 
 // ============================================================
@@ -368,6 +445,27 @@ const LOOT_TABLES = {
     {item:'YETI_PELT',      chance:1.0},
     {item:'SOVEREIGN_RING', chance:1.0},
   ],
+  // Grassland enemies
+  BANDIT:[
+    {item:'HUNTERS_BOW',  chance:0.08},
+    {item:'LEATHER_ARMOR',chance:0.06},
+  ],
+  BANDIT_ARCHER:[
+    {item:'HUNTERS_BOW',  chance:0.12},
+    {item:'FOREST_BOW',   chance:0.06},
+  ],
+  VINE_LURKER:[
+    {item:'WOODEN_TALISMAN',chance:0.07},
+  ],
+  FOREST_KNIGHT:[
+    {item:'CHAIN_MAIL',   chance:0.09},
+    {item:'HUNTERS_BOW',  chance:0.06},
+  ],
+  VERDANT_WARDEN:[
+    {item:'WARDEN_BOW',      chance:1.0},
+    {item:'ARCANE_TOME',     chance:1.0},
+    {item:'ARCHER_TALISMAN', chance:0.5},
+  ],
   // Random chest tables — common items only
   RUINS:  [
     {item:'IRON_SWORD',     chance:0.55},
@@ -402,6 +500,12 @@ const LOOT_TABLES = {
     {item:'CHAIN_MAIL',    chance:0.50},
     {item:'HOLLOW_BLADE',  chance:0.45},
     {item:'CRIMSON_RING',  chance:0.35},
+  ],
+  GRASSLAND: [
+    {item:'HUNTERS_BOW',  chance:0.55},
+    {item:'FOREST_BOW',   chance:0.45},
+    {item:'OAK_STAFF',    chance:0.40},
+    {item:'EMBER_ROD',    chance:0.40},
   ],
 };
 
@@ -535,6 +639,7 @@ const GS = {
   enemies:[], projectiles:[], particles:[], items:[], npcs:[],
   quest:{ phase:0, found:[false,false,false] },
   // quest phases: 0=not started  1=active  2=all found  3=rewarded
+  grasslandQuest:{ phase:0 }, // 0=inactive 1=active 2=boss_killed 3=rewarded
   slamIndicators:[],          // AOE warning circles for boss slam
   bonfires:[], chests:[],
 
@@ -542,6 +647,7 @@ const GS = {
   miniBosses:{
     swamp:    {active:false, defeated:false, ref:null, summoned:false},
     mountain: {active:false, defeated:false, ref:null, summoned:false},
+    grassland:{active:false, defeated:false, ref:null, summoned:false},
   },
 
   currentZone:'RUINS', discoveredZones:new Set(['RUINS']),
@@ -637,6 +743,18 @@ const R = {
     ctx.fillStyle='rgba(0,0,0,0.12)'; ctx.fillRect(46,0,12,H); ctx.fillRect(S-58,0,12,H);
   },
 };
+
+// Compact pixel-sprite renderer — each char maps to a CSS color, '.' = transparent
+// px,py = top-left corner, rows = string array, pal = {char:color}, sc = pixel scale
+function pxS(px,py,rows,pal,sc=2){
+  for(let y=0;y<rows.length;y++){
+    const row=rows[y];
+    for(let x=0;x<row.length;x++){
+      const c=pal[row[x]];
+      if(c){ ctx.fillStyle=c; ctx.fillRect((px+x*sc)|0,(py+y*sc)|0,sc,sc); }
+    }
+  }
+}
 
 // CRT scanline overlay — drawn last each frame
 function drawScanlines(){
@@ -752,6 +870,8 @@ const World = {
   generate(){
     // Fill entire world with impassable void
     for(let y=0;y<WORLD_H;y++){ this.map[y]=[]; for(let x=0;x<WORLD_W;x++) this.map[y][x]=T.WALL; }
+    // Grassland first so ruins/forest can overwrite overlapping tiles
+    this._grassland();
     // Carve zones in order (later calls overwrite earlier for overlaps)
     this._ruins();
     this._forest();
@@ -1133,6 +1253,50 @@ const World = {
     for(let y=0;y<WORLD_H;y++){ this.map[y][0]=T.WALL; this.map[y][WORLD_W-1]=T.WALL; }
   },
 
+  _grassland(){
+    const b=ZONES.GRASSLAND.bounds; // x:5 y:1 w:155 h:36
+    this._fill(b.x,b.y,b.w,b.h,T.GRASS_FLOOR);
+    const lg=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.GRASS_WALL);
+
+    // Border hedge
+    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.GRASS_WALL); }
+    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.GRASS_WALL); this._set(b.x+b.w-1,y,T.GRASS_WALL); }
+
+    // Hedge/rock formations (interior obstacles)
+    lg(4,3,8,4);  lg(15,2,6,5);  lg(25,4,8,3);  lg(36,3,5,4);  lg(48,2,7,4);
+    lg(60,4,6,3); lg(70,2,8,4);  lg(82,3,6,4);  lg(95,2,7,3);  lg(108,4,5,4);
+    lg(120,2,8,3); lg(132,3,6,4); lg(143,2,7,4);
+    lg(4,14,5,6); lg(18,13,6,5); lg(30,15,5,5); lg(42,13,7,5); lg(56,14,5,6);
+    lg(68,13,6,5); lg(80,15,7,4); lg(92,13,5,6); lg(105,14,6,5); lg(118,13,7,5);
+    lg(130,15,5,5); lg(142,13,6,5);
+    lg(4,25,7,5);  lg(18,24,5,6); lg(30,26,7,4); lg(44,24,5,6); lg(58,25,6,5);
+    lg(72,24,7,5); lg(86,26,5,5); lg(100,24,6,5); lg(114,25,7,4); lg(128,24,5,6);
+
+    // Village clearing — open 30×16 area at (x:35, y:14 local) → abs (40,15)
+    const vx=b.x+35, vy=b.y+14;
+    this._fill(vx,vy,30,16,T.GRASS_FLOOR);
+    // Inn building
+    this._fill(vx+2,vy+2,10,8,T.GRASS_WALL);
+    this._fill(vx+3,vy+3,8,6,T.GRASS_FLOOR); // hollow interior
+    this._set(vx+7,vy+8,T.GRASS_FLOOR); // door
+    // Shop building
+    this._fill(vx+16,vy+2,10,8,T.GRASS_WALL);
+    this._fill(vx+17,vy+3,8,6,T.GRASS_FLOOR);
+    this._set(vx+21,vy+8,T.GRASS_FLOOR); // door
+
+    // Boss arena — far right, open 28×24 at local (x:120, y:6) → abs (125,7)
+    const ax=b.x+120, ay=b.y+6;
+    this._fill(ax,ay,28,24,T.GRASS_FLOOR);
+    // Boss room hedge border (semi-enclosed)
+    for(let x=ax;x<ax+28;x++){ this._set(x,ay,T.GRASS_WALL); this._set(x,ay+24,T.GRASS_WALL); }
+    for(let y=ay;y<ay+25;y++){ this._set(ax,y,T.GRASS_WALL); this._set(ax+27,y,T.GRASS_WALL); }
+    // Boss fog gate — west entrance (ay+8 to ay+14)
+    for(let fy=ay+8;fy<=ay+14;fy++) this._set(ax,fy,T.FOG_GATE);
+
+    // Connector: south edge of grassland connects to ruins north (y:38) via corridor at x:35-42
+    for(let cy=b.y+b.h-2;cy<=38;cy++) for(let cx=35;cx<=42;cx++) this._set(cx,cy,T.GRASS_FLOOR);
+  },
+
   tile(wx,wy){
     const tx=wx/TILE_SIZE|0, ty=wy/TILE_SIZE|0;
     if(tx<0||ty<0||tx>=WORLD_W||ty>=WORLD_H) return T.WALL;
@@ -1142,7 +1306,7 @@ const World = {
   passable(t){
     return t!==T.WALL&&t!==T.RUINS_WALL&&t!==T.FOREST_TREE&&
            t!==T.CASTLE_WALL&&t!==T.WATER&&t!==T.VILLAGE_WALL&&
-           t!==T.SWAMP_WALL&&t!==T.MOUNTAIN_WALL;
+           t!==T.SWAMP_WALL&&t!==T.MOUNTAIN_WALL&&t!==T.GRASS_WALL;
   },
 
   canMove(wx,wy,r){
@@ -1153,7 +1317,7 @@ const World = {
 
   zoneAt(wx,wy){
     const tx=wx/TILE_SIZE, ty=wy/TILE_SIZE;
-    const order=['BOSS_ARENA','SWAMP','MOUNTAIN','VILLAGE','FOREST','RUINS','CASTLE'];
+    const order=['BOSS_ARENA','SWAMP','MOUNTAIN','VILLAGE','FOREST','GRASSLAND','RUINS','CASTLE'];
     for(const id of order){
       const b=ZONES[id].bounds;
       if(tx>=b.x&&tx<b.x+b.w&&ty>=b.y&&ty<b.y+b.h) return id;
@@ -1602,6 +1766,49 @@ const World = {
         }
         break;}
 
+      // ---- Verdant Expanse — lush grass, bright greens ----
+      case T.GRASS_FLOOR:{
+        const gf=((tx+ty)%2===0)?'#2a4018':'#304a1c';
+        ctx.fillStyle=gf; ctx.fillRect(sx,sy,S,S);
+        // dark border
+        ctx.fillStyle='#182810'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // random grass detail rects
+        if((tx*7+ty*3)%5===0){
+          ctx.fillStyle='#3a5a20';
+          ctx.fillRect(sx+5,sy+8,3,10); ctx.fillRect(sx+14,sy+4,2,14); ctx.fillRect(sx+22,sy+10,3,9);
+        }
+        if((tx*3+ty*11)%7===0){
+          ctx.fillStyle='#204010';
+          ctx.fillRect(sx+10,sy+6,2,12); ctx.fillRect(sx+24,sy+14,2,8);
+        }
+        if((tx*5+ty*9)%11===0){
+          ctx.fillStyle='#3a5a20';
+          ctx.fillRect(sx+2,sy+18,4,8); ctx.fillRect(sx+18,sy+20,3,6);
+        }
+        break;}
+
+      case T.GRASS_WALL:{
+        // Mossy hedge/rock
+        ctx.fillStyle='#1a2e10'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#0c1808'; ctx.fillRect(sx,sy,S,1); ctx.fillRect(sx,sy,1,S);
+        // Rock face blocks
+        const gw=((ty%2)===0)?0:6;
+        ctx.fillStyle='#243818';
+        ctx.fillRect(sx+gw+1, sy+2,  13,12); ctx.fillRect(sx+gw+18,sy+2,  11,12);
+        ctx.fillRect(sx+gw+1, sy+16, 14,12); ctx.fillRect(sx+gw+19,sy+16,  9,12);
+        // Mossy highlight
+        ctx.fillStyle='#3a4c28';
+        ctx.fillRect(sx+gw+1, sy+2,  13,2); ctx.fillRect(sx+gw+18,sy+2,  11,2);
+        ctx.fillRect(sx+gw+1, sy+16, 14,2);
+        // Deep shadow
+        ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(sx,sy+28,S,4);
+        // Moss spots
+        if((tx*9+ty*5)%13===0){
+          ctx.fillStyle='#2e4a1a';
+          ctx.fillRect(sx+gw+3,sy+5,5,4); ctx.fillRect(sx+gw+12,sy+19,5,4);
+        }
+        break;}
+
       default:
         ctx.fillStyle='#040404'; ctx.fillRect(sx,sy,S,S);
     }
@@ -1696,14 +1903,15 @@ const Bonfires = {
       {id:3, x:205*TILE_SIZE+16,y:46*TILE_SIZE+16, lit:false, name:'Village Bonfire'},
       {id:4, x:152*TILE_SIZE+16,y:148*TILE_SIZE+16,lit:false, name:'Castle Bonfire'},
       {id:5, x:249*TILE_SIZE+16,y:10*TILE_SIZE+16, lit:false, name:'Swamp Bonfire'},
-      {id:6, x:228*TILE_SIZE+16,y:143*TILE_SIZE+16,lit:false, name:'Peak Bonfire'}
+      {id:6, x:228*TILE_SIZE+16,y:143*TILE_SIZE+16,lit:false, name:'Peak Bonfire'},
+      {id:7, x:48*TILE_SIZE+16, y:20*TILE_SIZE+16, lit:false, name:'Verdant Bonfire'}
     );
     const p=GS.player;
     p.bonfireX=this.list[0].x; p.bonfireY=this.list[0].y;
   },
 
   interact(px,py){
-    const anyBoss=GS.bossActive||GS.miniBosses.swamp.active||GS.miniBosses.mountain.active;
+    const anyBoss=GS.bossActive||GS.miniBosses.swamp.active||GS.miniBosses.mountain.active||GS.miniBosses.grassland.active;
     if(anyBoss){ UI.msg('Cannot rest during a boss fight!','rune',2); return false; }
     for(const bf of this.list)
       if(Math.hypot(px-bf.x,py-bf.y)<50){ this.rest(bf); return true; }
@@ -1810,6 +2018,7 @@ const Chests = {
       {tx:127,ty:161,zone:'CASTLE',  fixedItem:'ASHEN_SIGIL',   fixedConsumable:true},  // near fog gate
       {tx:262,ty:40, zone:'SWAMP',   fixedItem:'HORROR_TOTEM',  fixedConsumable:true},  // deep swamp altar
       {tx:251,ty:168,zone:'MOUNTAIN',fixedItem:'YETI_EFFIGY',   fixedConsumable:true},  // mountain peak
+      {tx:110, ty:20,zone:'GRASSLAND',fixedItem:'WARDEN_SEAL', fixedConsumable:true},  // grassland vault
       // Guaranteed progression gear
       {tx:45, ty:55, zone:'RUINS',   fixedItem:'HOLLOW_BLADE'},                         // ruins secret
       {tx:155,ty:18, zone:'FOREST',  fixedItem:'CHAIN_MAIL'},                           // forest depths
@@ -1958,6 +2167,18 @@ const SHOP_DEFS = [
       {type:'item',  id:'RUNE_ARC',       price:600},
       {type:'item',  id:'GOLDEN_TEAR',    price:900},
       {type:'upgrade', price:0},
+    ]
+  },
+  {
+    id:'sylvan_trader', name:'Sylvan Trader', tx:59, ty:19,
+    isBlacksmith:false,
+    stock:[
+      {type:'equip', id:'HUNTERS_BOW',  price:480},
+      {type:'equip', id:'FOREST_BOW',   price:520},
+      {type:'equip', id:'OAK_STAFF',    price:440},
+      {type:'equip', id:'EMBER_ROD',    price:500},
+      {type:'equip', id:'LONGBOW',      price:900},
+      {type:'equip', id:'CRYSTAL_WAND', price:850},
     ]
   },
 ];
@@ -2306,6 +2527,16 @@ const BOSS_ROOM_DEFS = {
     isDefeated(){ return GS.miniBosses.mountain.defeated; },
     isActive(){   return GS.miniBosses.mountain.active; },
   },
+  grassland: {
+    // Grassland boss arena tile bounds x:125..153, y:7..31
+    px0:125*32, py0:7*32, px1:153*32, py1:31*32,
+    requiredItem:'WARDEN_SEAL',
+    unlockMsg:'THE VERDANT WARDEN AWAKENS', flashCol:'#204010',
+    noItemMsg:"Ancient roots bar the way... Find the Warden's Seal.",
+    spawn(){ Enemies.spawnMiniBoss('VERDANT_WARDEN','grassland'); GS.miniBosses.grassland.summoned=true; },
+    isDefeated(){ return GS.miniBosses.grassland.defeated; },
+    isActive(){   return GS.miniBosses.grassland.active; },
+  },
 };
 
 const BossRooms = {
@@ -2375,6 +2606,16 @@ const BossRooms = {
       }
       const sx=234*32-cx|0, sy=(149*32)-cy|0;
       R.text('SEALED',sx-4,sy,'#3060a8',10,'right');
+    } else if(id==='grassland'){
+      for(let ty=15;ty<=23;ty++){
+        const sx=125*32-cx|0, sy=ty*32-cy|0;
+        if(sy<-40||sy>SCREEN_H+40) continue;
+        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle='#102808';
+        ctx.fillRect(sx,sy,32,32);
+        ctx.globalAlpha=1;
+      }
+      const sx=125*32-cx|0, sy=(19*32)-cy|0;
+      R.text('SEALED',sx-4,sy,'#40a020',10,'right');
     }
   },
 };
@@ -2585,6 +2826,7 @@ const Player = {
     if(tx>=127&&tx<=131&&ty>=164&&ty<=166) roomId='main';
     else if(tx>=253&&tx<=266&&ty===24)      roomId='swamp';
     else if(tx===234&&ty>=140&&ty<=158)     roomId='mountain';
+    else if(tx===125&&ty>=15&&ty<=23)       roomId='grassland';
     if(!roomId) return;
 
     const def=BOSS_ROOM_DEFS[roomId];
@@ -2768,6 +3010,7 @@ const Player = {
     if(GS.bossActive){ GS.bossActive=false; GS.bossRef=null; GS.flags.fogGateEntered=false; }
     if(GS.miniBosses.swamp.active){ GS.miniBosses.swamp.active=false; GS.miniBosses.swamp.ref=null; GS.miniBosses.swamp.summoned=false; }
     if(GS.miniBosses.mountain.active){ GS.miniBosses.mountain.active=false; GS.miniBosses.mountain.ref=null; GS.miniBosses.mountain.summoned=false; }
+    if(GS.miniBosses.grassland.active){ GS.miniBosses.grassland.active=false; GS.miniBosses.grassland.ref=null; GS.miniBosses.grassland.summoned=false; }
     Enemies.respawnAll();
     GS.messages=GS.messages.filter(m=>m.type!=='death');
   },
@@ -3053,6 +3296,45 @@ const Player = {
           ctx.fillStyle='#1e5808'; ctx.fillRect(44,-3,6,6);   // toxic orb
           ctx.fillStyle='#60c820'; ctx.fillRect(45,-2,3,3);   // orb glow
           ctx.fillStyle='#182c06'; ctx.fillRect(43,-4,1,8); ctx.fillRect(51,-4,1,8); // outline
+        } else if(w==='HUNTERS_BOW'||w==='FOREST_BOW'){
+          const bowCol=w==='FOREST_BOW'?'#2a4010':'#3a2808';
+          ctx.fillStyle=bowCol; ctx.fillRect(4,-1,4,3);    // grip
+          ctx.fillStyle=bowCol; ctx.fillRect(8,-12,4,10);  // upper limb
+          ctx.fillStyle=bowCol; ctx.fillRect(8,2,4,10);    // lower limb
+          ctx.fillStyle='#503018'; ctx.fillRect(9,-2,2,4); // center riser
+          ctx.fillStyle='#304820'; ctx.fillRect(10,-12,1,26); // bowstring
+          if(w==='FOREST_BOW'){ctx.fillStyle='#204010'; ctx.fillRect(7,-14,3,4); ctx.fillRect(7,10,3,4);} // limb tips
+        } else if(w==='LONGBOW'||w==='WARDEN_BOW'){
+          const lbCol=w==='WARDEN_BOW'?'#2a4a18':'#4a3010';
+          ctx.fillStyle=lbCol; ctx.fillRect(4,-1,5,3);     // grip
+          ctx.fillStyle=lbCol; ctx.fillRect(8,-14,5,12);   // upper limb
+          ctx.fillStyle=lbCol; ctx.fillRect(8,2,5,12);     // lower limb
+          ctx.fillStyle='#6a4818'; ctx.fillRect(9,-2,3,4); // center riser
+          ctx.fillStyle='#304828'; ctx.fillRect(11,-14,1,30); // bowstring
+          if(w==='WARDEN_BOW'){ctx.fillStyle='#40c820'; ctx.fillRect(10,-16,3,4); ctx.fillRect(10,12,3,4);} // glowing tips
+        } else if(w==='OAK_STAFF'||w==='EMBER_ROD'){
+          const stCol=w==='EMBER_ROD'?'#3a1808':'#2c1c08';
+          ctx.fillStyle=stCol; ctx.fillRect(4,-2,26,4);    // staff shaft
+          ctx.fillStyle=w==='EMBER_ROD'?'#5a2810':'#3a2810'; ctx.fillRect(5,-1,22,2); // face
+          const orbCol=w==='EMBER_ROD'?'#e04010':'#a060e0';
+          ctx.fillStyle=orbCol; ctx.fillRect(28,-5,10,10); // orb
+          ctx.fillStyle='#fff'; ctx.fillRect(30,-3,3,3);   // orb highlight
+          ctx.fillStyle='#000'; ctx.fillRect(28,-5,1,10); ctx.fillRect(38,-5,1,10); // outline
+        } else if(w==='CRYSTAL_WAND'||w==='ARCANE_TOME'){
+          if(w==='ARCANE_TOME'){
+            ctx.fillStyle='#1a0c30'; ctx.fillRect(4,-4,18,8);  // tome base
+            ctx.fillStyle='#2a1840'; ctx.fillRect(5,-3,16,6);  // tome cover
+            ctx.fillStyle='#8040c0'; ctx.fillRect(6,-3,2,6);   // spine
+            ctx.fillStyle='#c080ff'; ctx.fillRect(7,-2,8,1);   // rune line
+            ctx.fillStyle='#ff80ff'; ctx.fillRect(22,-3,6,6);  // magic gem
+            ctx.fillStyle='#fff'; ctx.fillRect(23,-2,3,3);
+          } else {
+            ctx.fillStyle='#0a1028'; ctx.fillRect(4,-2,24,4);   // crystal shaft
+            ctx.fillStyle='#182048'; ctx.fillRect(5,-1,22,2);   // face
+            ctx.fillStyle='#2040a8'; ctx.fillRect(27,-6,10,10); // crystal orb
+            ctx.fillStyle='#80b0ff'; ctx.fillRect(29,-4,6,6);   // glow
+            ctx.fillStyle='#e0f0ff'; ctx.fillRect(30,-3,3,3);   // core
+          }
         } else if(w==='ASHEN_GREATSWORD'){
           ctx.fillStyle='#3a2008'; ctx.fillRect(4,-3,10,6);   // handle
           ctx.fillStyle='#6a4010'; ctx.fillRect(12,-6,6,12);  // crossguard
@@ -3221,6 +3503,22 @@ const Enemies = {
       {t:'SNOW_GRUNT',x:230,y:158},{t:'SNOW_GRUNT',x:240,y:165},{t:'SNOW_GRUNT',x:248,y:152},
       {t:'SNOW_GRUNT',x:256,y:140},{t:'SNOW_GRUNT',x:260,y:155},{t:'SNOW_GRUNT',x:264,y:145},
       {t:'SNOW_GRUNT',x:232,y:172},{t:'SNOW_GRUNT',x:250,y:174},{t:'SNOW_GRUNT',x:265,y:165},
+
+      // ====== Verdant Expanse (Grassland) ======
+      // Bandits near entry (abs x:8-30, y:4-36)
+      {t:'BANDIT',x:10,y:6},{t:'BANDIT',x:18,y:8},{t:'BANDIT',x:26,y:5},
+      {t:'BANDIT',x:12,y:12},{t:'BANDIT',x:22,y:10},{t:'BANDIT',x:28,y:14},
+      {t:'BANDIT',x:14,y:18},{t:'BANDIT',x:24,y:20},{t:'BANDIT',x:10,y:25},
+      // Vine Lurkers in the middle (abs x:35-90, y:4-36)
+      {t:'VINE_LURKER',x:38,y:7},{t:'VINE_LURKER',x:50,y:5},{t:'VINE_LURKER',x:62,y:8},
+      {t:'VINE_LURKER',x:44,y:18},{t:'VINE_LURKER',x:58,y:22},{t:'VINE_LURKER',x:72,y:10},
+      {t:'VINE_LURKER',x:80,y:16},{t:'VINE_LURKER',x:88,y:20},{t:'VINE_LURKER',x:76,y:28},
+      // Bandit Archers in mid-east (abs x:60-115, y:4-36)
+      {t:'BANDIT_ARCHER',x:66,y:6},{t:'BANDIT_ARCHER',x:78,y:12},{t:'BANDIT_ARCHER',x:92,y:8},
+      {t:'BANDIT_ARCHER',x:105,y:14},{t:'BANDIT_ARCHER',x:112,y:20},{t:'BANDIT_ARCHER',x:98,y:28},
+      // Forest Knights near boss approach (abs x:100-125, y:4-36)
+      {t:'FOREST_KNIGHT',x:102,y:6},{t:'FOREST_KNIGHT',x:112,y:10},{t:'FOREST_KNIGHT',x:118,y:18},
+      {t:'FOREST_KNIGHT',x:108,y:26},{t:'FOREST_KNIGHT',x:120,y:28},
     ];
     this.respawnAll();
   },
@@ -3282,9 +3580,12 @@ const Enemies = {
     const mb=GS.miniBosses[zone];
     if(mb.defeated) return;
     const cfg=ENEMY_TYPES[type]; if(!cfg) return;
-    // Place in center of zone
-    const bounds=zone==='swamp'?ZONES.SWAMP.bounds:ZONES.MOUNTAIN.bounds;
-    const tx=(bounds.x+bounds.w/2)|0, ty=(bounds.y+bounds.h/2)|0;
+    // Place in center of zone bounds
+    let bounds;
+    if(zone==='swamp') bounds=ZONES.SWAMP.bounds;
+    else if(zone==='mountain') bounds=ZONES.MOUNTAIN.bounds;
+    else if(zone==='grassland'){ bounds=null; } // use fixed spawn for grassland
+    const tx=bounds?(bounds.x+bounds.w/2)|0:138, ty=bounds?(bounds.y+bounds.h/2)|0:18;
     const e=this.spawn(type, tx, ty, false);
     if(e){
       e.isMiniBoss=true;
@@ -3329,9 +3630,10 @@ const Enemies = {
     }
     // Mini-boss handling
     if(e.isMiniBoss){
-      const isSwamp=e.type==='SWAMP_MONSTER', isMtn=e.type==='YETI';
+      const isSwamp=e.type==='SWAMP_MONSTER', isMtn=e.type==='YETI', isWarden=e.type==='VERDANT_WARDEN';
       if(isSwamp){ GS.miniBosses.swamp.defeated=true; GS.miniBosses.swamp.active=false; }
       if(isMtn){   GS.miniBosses.mountain.defeated=true; GS.miniBosses.mountain.active=false; }
+      if(isWarden){ GS.miniBosses.grassland.defeated=true; GS.miniBosses.grassland.active=false; }
       UI.msg('GREAT ENEMY FELLED','boss_won',5);
       ScreenFX.flash('#FFD060',0.5,1.0); ScreenFX.shake(10,0.5);
       for(let i=0;i<6;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*80,e.y+(Math.random()-0.5)*60),i*200);
@@ -3543,6 +3845,27 @@ const Enemies = {
         if(canSpecial&&r<0.35) return 'dash_slash';
         if(canSpecial&&r<0.55) return 'sweep';
         return 'slash';
+      case 'BANDIT':
+        if(canSpecial&&r<0.30) return 'lunge';
+        if(canSpecial&&r<0.50) return 'smoke_step';
+        return 'slash';
+      case 'BANDIT_ARCHER':
+        if(canSpecial&&r<0.40) return 'volley';
+        return 'arrow';
+      case 'VINE_LURKER':
+        if(canSpecial&&r<0.30) return 'vine_grab';
+        if(canSpecial&&r<0.50) return 'thorn_burst';
+        return 'claw';
+      case 'FOREST_KNIGHT':
+        if(canSpecial&&r<0.25) return 'sweep';
+        if(canSpecial&&r<0.45) return 'shield_bash';
+        if(canSpecial&&r<0.60) return 'charge';
+        return 'thrust';
+      case 'VERDANT_WARDEN':
+        if(canSpecial&&p2&&r<0.18) return 'leaf_storm';
+        if(canSpecial&&r<0.35) return 'root_trap';
+        if(canSpecial&&r<0.55) return 'vine_whip';
+        return 'slam_melee';
       default:
         return 'slash';
     }
@@ -3780,6 +4103,59 @@ const Enemies = {
           Particles.sparks(e.x,e.y,18); ScreenFX.flash('#300808',0.2,0.25); }
         break;
 
+      case 'smoke_step':
+        // Bandit dashes sideways, repositions
+        e.specialMoveCD=2.0;
+        { const perp={x:-GS.player.facing.y||1, y:GS.player.facing.x||0};
+          const side=(Math.random()<0.5?1:-1)*80;
+          e.knockVx=perp.x*side; e.knockVy=perp.y*side;
+          e.chargeActive=false; }
+        break;
+
+      case 'thorn_burst': {
+        // Vine Lurker: 4 projectiles outward
+        e.specialMoveCD=2.5;
+        const angles=[0,Math.PI/2,Math.PI,Math.PI*1.5];
+        for(const ang of angles){
+          GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(ang)*120,vy:Math.sin(ang)*120,
+            dmg:cfg.meleeDmg*dmgM*0.75, sz:7, life:3.0, color:'#2a6010', glow:'#40a018'});
+        }
+        Particles.death(e.x,e.y,'#2a6010',10);
+        break;}
+
+      case 'leaf_storm': {
+        // Verdant Warden phase 2: 8 projectiles in all directions
+        e.specialMoveCD=4.5;
+        for(let i=0;i<8;i++){
+          const ang2=i*(Math.PI/4);
+          GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(ang2)*140,vy:Math.sin(ang2)*140,
+            dmg:cfg.meleeDmg*dmgM*0.60, sz:8, life:3.5, color:'#3a7818', glow:'#60c030'});
+        }
+        ScreenFX.flash('#204010',0.25,0.4);
+        UI.msg('Leaf Storm!','boss',1.0);
+        break;}
+
+      case 'root_trap':
+        // Verdant Warden: roots the player
+        e.specialMoveCD=5.0;
+        if(dist<cfg.attackRange*2.0){
+          GS.player.rootTimer=1.8;
+          UI.msg('Roots ensnare you!','rune',1.5);
+          Particles.death(GS.player.x,GS.player.y,'#204010',14);
+          ScreenFX.flash('#204010',0.2,0.4);
+        }
+        break;
+
+      case 'vine_whip':
+        // Verdant Warden: heavy vine strike
+        e.specialMoveCD=2.8;
+        if(dist<cfg.attackRange*1.4){
+          Player.takeDamage(cfg.meleeDmg*dmgM*1.6);
+          Particles.sparks(e.x,e.y,16);
+          ScreenFX.shake(6,0.25);
+        }
+        break;
+
       case 'crown_beam': {
         // Boss phase 2: aimed beam after telegraph
         e.specialMoveCD=5.5;
@@ -3982,10 +4358,13 @@ const Enemies = {
     if(e.isBoss) this._drawBoss(e,sx,sy);
     else if(e.type==='SWAMP_MONSTER') this._drawSwampMonster(e,sx,sy);
     else if(e.type==='YETI') this._drawYeti(e,sx,sy);
+    else if(e.type==='VERDANT_WARDEN') this._drawVerdantWarden(e,sx,sy);
     else if(e.type==='HOLLOW') this._drawHollow(e,sx,sy);
     else if(e.type==='BEAST_KNIGHT') this._drawBeastKnight(e,sx,sy);
     else if(e.type==='SWAMP_BEAST') this._drawSwampBeast(e,sx,sy);
     else if(e.type==='SNOW_GRUNT') this._drawSnowGrunt(e,sx,sy);
+    else if(e.type==='BANDIT'||e.type==='FOREST_KNIGHT') this._drawBandit(e,sx,sy);
+    else if(e.type==='VINE_LURKER') this._drawVineLurker(e,sx,sy);
     else if(e.cfg.behavior==='archer') this._drawArcher(e,sx,sy);
     else this._drawGrunt(e,sx,sy);
 
@@ -4604,6 +4983,144 @@ const Enemies = {
       ctx.globalAlpha=1;
     }
   },
+
+  _drawBandit(e,sx,sy){
+    // Bandit Thug / Forest Knight — readable earthy rogues
+    const atk=e.isAttacking;
+    const isFK=e.type==='FOREST_KNIGHT';
+    const bc=isFK?'#304020':'#4a3010';
+    const dc=isFK?'#1a2410':'#2e1808';
+    // Legs
+    ctx.fillStyle=dc; ctx.fillRect(sx-7,sy+4,6,9); ctx.fillRect(sx+1,sy+4,6,9);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
+    ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
+    // Body
+    ctx.fillStyle=atk?(isFK?'#3e5030':'#5e4018'):bc; ctx.fillRect(sx-9,sy-7,18,13);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-10,sy-7,1,13); ctx.fillRect(sx+9,sy-7,1,13);
+    ctx.fillRect(sx-9,sy-8,18,1); ctx.fillRect(sx-9,sy+6,18,1);
+    // Pauldrons
+    ctx.fillStyle=dc; ctx.fillRect(sx-13,sy-7,6,7); ctx.fillRect(sx+7,sy-7,6,7);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-7,1,7); ctx.fillRect(sx+13,sy-7,1,7);
+    // Head / hood
+    ctx.fillStyle=isFK?'#283a18':'#3a2808'; ctx.fillRect(sx-6,sy-20,12,13);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-7,sy-20,1,13); ctx.fillRect(sx+6,sy-20,1,13);
+    ctx.fillRect(sx-6,sy-21,12,1); ctx.fillRect(sx-6,sy-7,12,1);
+    // Eyes
+    ctx.fillStyle=atk?(isFK?'#80c040':'#e06010'):(isFK?'#508030':'#a04010');
+    ctx.fillRect(sx-4,sy-15,3,2); ctx.fillRect(sx+1,sy-15,3,2);
+    // Weapon
+    if(isFK){
+      // Sword
+      ctx.fillStyle='#1a2010'; ctx.fillRect(sx+11,sy-22,4,28);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+10,sy-22,1,28); ctx.fillRect(sx+15,sy-22,1,28);
+      ctx.fillStyle='#304a20'; ctx.fillRect(sx+11,sy-22,3,18);
+      ctx.fillStyle='#283818'; ctx.fillRect(sx+8,sy-10,10,3);
+    } else {
+      // Dagger
+      ctx.fillStyle='#281808'; ctx.fillRect(sx+10,sy-16,3,20);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-16,1,20); ctx.fillRect(sx+13,sy-16,1,20);
+      ctx.fillStyle='#3a2c18'; ctx.fillRect(sx+10,sy-16,2,12);
+    }
+  },
+
+  _drawVineLurker(e,sx,sy){
+    // Vine Lurker — camouflaged plant-creature, dark greens
+    const atk=e.isAttacking;
+    // Vine-wrapped legs
+    ctx.fillStyle='#1a3008'; ctx.fillRect(sx-7,sy+4,5,10); ctx.fillRect(sx+2,sy+4,5,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy+4,1,10); ctx.fillRect(sx+7,sy+4,1,10);
+    // Body — bulky plant mass
+    ctx.fillStyle=atk?'#204010':'#183408'; ctx.fillRect(sx-9,sy-8,18,14);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-8,1,14); ctx.fillRect(sx+9,sy-8,1,14);
+    ctx.fillRect(sx-9,sy-9,18,1); ctx.fillRect(sx-9,sy+6,18,1);
+    // Vine tendrils
+    ctx.fillStyle='#103008';
+    ctx.fillRect(sx-12,sy-4,5,3); ctx.fillRect(sx+7,sy-2,5,3);
+    ctx.fillRect(sx-11,sy+2,4,3); ctx.fillRect(sx+8,sy+4,4,3);
+    // Head — mossy mass
+    ctx.fillStyle='#182c0c'; ctx.fillRect(sx-7,sy-21,14,13);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-21,1,13); ctx.fillRect(sx+7,sy-21,1,13);
+    ctx.fillRect(sx-7,sy-22,14,1); ctx.fillRect(sx-7,sy-8,14,1);
+    // Glowing eyes
+    ctx.fillStyle=atk?'#70d020':'#40a010';
+    ctx.fillRect(sx-5,sy-16,4,3); ctx.fillRect(sx+1,sy-16,4,3);
+    // Claw
+    ctx.fillStyle='#102008'; ctx.fillRect(sx+10,sy-14,4,20);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-14,1,20); ctx.fillRect(sx+14,sy-14,1,20);
+    ctx.fillStyle='#285010'; ctx.fillRect(sx+10,sy-14,3,10);
+  },
+
+  _drawVerdantWarden(e,sx,sy){
+    // The Verdant Warden — massive green tree-colossus
+    const r=e.size; const p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    // Green aura
+    ctx.globalAlpha=ba*0.14; ctx.fillStyle=p2?'#20a008':'#0c4004';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4);
+    ctx.globalAlpha=ba;
+    // Massive trunk-legs
+    ctx.fillStyle=p2?'#1a5008':'#142808'; ctx.fillRect(sx-22,sy+12,15,24); ctx.fillRect(sx+7,sy+12,15,24);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-23,sy+12,1,24); ctx.fillRect(sx+22,sy+12,1,24);
+    ctx.fillRect(sx-22,sy+36,15,1); ctx.fillRect(sx+7,sy+36,15,1);
+    // Root feet
+    ctx.fillStyle='#102008';
+    ctx.fillRect(sx-26,sy+30,8,8); ctx.fillRect(sx+18,sy+30,8,8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-26,sy+38,8,1); ctx.fillRect(sx+18,sy+38,8,1);
+    // Main body — bark torso
+    ctx.fillStyle=p2?'#204a0c':'#183808'; ctx.fillRect(sx-22,sy-16,44,30);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-23,sy-16,1,30); ctx.fillRect(sx+22,sy-16,1,30);
+    ctx.fillRect(sx-22,sy-17,44,1); ctx.fillRect(sx-22,sy+14,44,1);
+    // Bark-plate trim
+    ctx.fillStyle=p2?'#30700c':'#204808';
+    ctx.fillRect(sx-22,sy-16,44,3); ctx.fillRect(sx-22,sy+12,44,3);
+    // Vine wrappings
+    ctx.fillStyle='#102008';
+    for(let i=0;i<4;i++) ctx.fillRect(sx-22+i*12,sy-8,10,2);
+    // Shoulder masses
+    ctx.fillStyle=p2?'#183a08':'#102408'; ctx.fillRect(sx-34,sy-14,14,18); ctx.fillRect(sx+20,sy-14,14,18);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-35,sy-14,1,18); ctx.fillRect(sx+34,sy-14,1,18);
+    // Branch horns
+    ctx.fillStyle=p2?'#284a10':'#1c3008';
+    ctx.fillRect(sx-28,sy-22,6,12); ctx.fillRect(sx+22,sy-22,6,12);
+    ctx.fillRect(sx-32,sy-16,5,8); ctx.fillRect(sx+27,sy-16,5,8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-28,sy-23,6,1); ctx.fillRect(sx+22,sy-23,6,1);
+    // Head — ancient bark visage
+    ctx.fillStyle=p2?'#1e4a0c':'#142808'; ctx.fillRect(sx-16,sy-40,32,26);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-17,sy-40,1,26); ctx.fillRect(sx+16,sy-40,1,26);
+    ctx.fillRect(sx-16,sy-41,32,1); ctx.fillRect(sx-16,sy-14,32,1);
+    // Leaf crown
+    ctx.fillStyle=p2?'#38800c':'#204a08';
+    ctx.fillRect(sx-14,sy-46,28,8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-15,sy-46,1,8); ctx.fillRect(sx+14,sy-46,1,8);
+    ctx.fillRect(sx-14,sy-47,28,1);
+    // Crown leaf tips
+    ctx.fillStyle=p2?'#50a010':'#306010';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-12+i*6,sy-50,4,6);
+    // Eyes — blazing green
+    ctx.fillStyle='#040804'; ctx.fillRect(sx-12,sy-34,10,7); ctx.fillRect(sx+2,sy-34,10,7);
+    ctx.fillStyle=p2?'#70e020':'#40a010';
+    ctx.fillRect(sx-11,sy-33,8,5); ctx.fillRect(sx+3,sy-33,8,5);
+    ctx.fillStyle=p2?'#a0ff40':'#70d020';
+    ctx.fillRect(sx-10,sy-32,6,3); ctx.fillRect(sx+4,sy-32,6,3);
+    ctx.globalAlpha=ba*0.28; ctx.fillStyle=p2?'#80e020':'#40a010';
+    ctx.fillRect(sx-14,sy-36,14,11); ctx.fillRect(sx+0,sy-36,14,11);
+    ctx.globalAlpha=ba;
+    // Massive root-arm weapon
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+2,sy-r-25,8,r*2+36);
+    ctx.fillStyle=p2?'#204808':'#142408'; ctx.fillRect(sx+r+3,sy-r-24,6,r*2+34);
+    ctx.fillStyle=p2?'#386010':'#2a4810';
+    ctx.fillRect(sx+r+4,sy-r-24,3,r*2+34);
+    // Slam windup
+    if(e.slamPending){
+      const t3=1-(e.slamTimer/(e.cfg.slamDelay||0.88));
+      ctx.globalAlpha=ba*t3*0.50; ctx.fillStyle='#208010';
+      ctx.fillRect(sx-r*2,sy-r*2,r*4,2); ctx.fillRect(sx-r*2,sy+r*2,r*4,2);
+      ctx.fillRect(sx-r*2,sy-r*2,2,r*4); ctx.fillRect(sx+r*2,sy-r*2,2,r*4);
+      ctx.globalAlpha=ba;
+    }
+  },
 };
 
 // ============================================================
@@ -4634,6 +5151,7 @@ const Village = {
     {tx:212,ty:28,color:'#607050',hair:'#302010',name:'Herbalist'},
     {tx:196,ty:56,color:'#9a7050',hair:'#1a1008',name:'Blacksmith'},
     {tx:222,ty:42,color:'#7080a0',hair:'#0a0c18',name:'Wanderer'},
+    {tx:57, ty:22, color:'#5a7040',hair:'#1a2010',name:'Grassland Elder', type:'grassland_elder'},
   ],
 
   init(){
@@ -4722,6 +5240,11 @@ const Quest = {
 
   // Called from Player._interact()
   interactElder(px,py){
+    // Check grassland elder first
+    const gElder=Village.list.find(n=>n.type==='grassland_elder');
+    if(gElder&&Math.hypot(px-gElder.x,py-gElder.y)<=55){
+      return this._interactGrasslandElder(gElder);
+    }
     const e=this.elder; if(!e) return false;
     if(Math.hypot(px-e.x,py-e.y)>55) return false;
     const q=this.q;
@@ -4749,9 +5272,35 @@ const Quest = {
     return true;
   },
 
+  _interactGrasslandElder(e){
+    const gq=GS.grasslandQuest;
+    if(gq.phase===0){
+      gq.phase=1;
+      UI.msg("Elder: 'A monstrous warden has corrupted these lands. Seek the Warden\\'s Seal east of here, then face it.'",'rune',6);
+      UI.msg("Grassland Quest started",'item',3);
+      ScreenFX.flash('#204010',0.25,0.8);
+    } else if(gq.phase===1){
+      UI.msg("Elder: 'Find the Warden\\'s Seal in the treasure vault to the east, then face the Warden.'",'rune',4);
+    } else if(gq.phase===2){
+      gq.phase=3;
+      GS.player.inventory.push('ARCHER_TALISMAN');
+      UI.msg("Elder: 'You\\'ve done it! Take this — the Archer\\'s Talisman, blessed by the wind.'",'rune',5);
+      UI.msg("Rare: Archer Talisman",'item',3);
+      ScreenFX.flash('#40a020',0.4,1.2);
+      Particles.rune(e.x,e.y);
+    } else if(gq.phase===3){
+      UI.msg("Elder: 'The Verdant Expanse is at peace once more. May the wind guide you.'",'rune',3);
+    }
+    return true;
+  },
+
   // Called once per frame during 'playing' phase
   update(dt){
-    const q=this.q; if(q.phase!==1) return;
+    const q=this.q;
+    // Grassland quest phase check
+    const gq=GS.grasslandQuest;
+    if(gq.phase===1&&GS.miniBosses.grassland.defeated) gq.phase=2;
+    if(q.phase!==1) return;
     const p=GS.player;
     this._frags.forEach((f,i)=>{
       if(q.found[i]) return;
@@ -4804,6 +5353,14 @@ const Quest = {
       const sx=(e.x-cx)|0, sy=(e.y-cy)|0;
       if(Math.hypot(GS.player.x-e.x,GS.player.y-e.y)<60)
         R.text('[E] Talk',sx,sy-32,'#c8a060',10,'center');
+    }
+    // Grassland elder talk prompt
+    const gElder=Village.list.find(n=>n.type==='grassland_elder');
+    const gq=GS.grasslandQuest;
+    if(gElder&&gq.phase!==3){
+      const gsx=(gElder.x-cx)|0, gsy=(gElder.y-cy)|0;
+      if(Math.hypot(GS.player.x-gElder.x,GS.player.y-gElder.y)<60)
+        R.text('[E] Talk',gsx,gsy-32,'#60c030',10,'center');
     }
     // Minimap fragment dots (shown during active quest)
     if(q.phase===1){
