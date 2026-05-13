@@ -33,6 +33,7 @@ const T = {
   SWAMP_FLOOR:14, SWAMP_WALL:15,
   MOUNTAIN_FLOOR:16, MOUNTAIN_WALL:17,
   GRASS_FLOOR:18, GRASS_WALL:19,
+  HOUSE_WALL:20,  HOUSE_FLOOR:21,
 };
 
 // ============================================================
@@ -73,6 +74,28 @@ const ZONES = {
     ambientColor:'#080e06',  fogTint:'rgba(8,18,5,0.14)'
   },
 };
+
+// House regions — used for interior/exterior clip rendering
+// Tile coords: outer wall bounds, interior bounds, door tile
+const HOUSE_DEFS = [
+  {
+    name:'Inn',
+    // Outer wall: tile x 42..51, y 17..24 (10×8)
+    wx:42, wy:17, ww:10, wh:8,
+    // Interior floor: tile x 43..50, y 18..23 (8×6)
+    ix:43, iy:18, iw:8, ih:6,
+    // Door gap in south wall
+    doorX:47, doorY:24,
+  },
+  {
+    name:'Shop',
+    // Outer wall: tile x 56..65, y 17..24 (10×8)
+    wx:56, wy:17, ww:10, wh:8,
+    // Interior floor: tile x 57..64, y 18..23 (8×6)
+    ix:57, iy:18, iw:8, ih:6,
+    doorX:61, doorY:24,
+  },
+];
 
 // Level thresholds — 30 levels, steep exponential curve (index = level reached)
 const LEVEL_THRESHOLDS = [
@@ -701,6 +724,7 @@ const GS = {
   // Boss room seal state — null when no room is active
   // { id:'main'|'swamp'|'mountain', px0,py0,px1,py1 }
   activeBossRoom: null,
+  insideHouse: null,   // HOUSE_DEF entry when player is inside a house, else null
 
   // Shop state
   shopOpen:false, shopRef:null, shopCursor:0,
@@ -817,13 +841,14 @@ function pxSM(px,py,rows,pal,sc=2){
 // Walk alternates stride[0] ↔ idle[0] each half-cycle for a 2-frame walk loop
 // ============================================================
 const CLS_SPRITES = {
-  // ── ARCHER ── dark skin · green dome helm · green leather vest
+  // ── ARCHER ── worn green leather, weathered ranger, dark skin
   ARCHER:{
     pal:{
-      K:'#080806', H:'#192f08', h:'#254410', n:'#356020',
-      S:'#3a1e0e', s:'#5a3018', f:'#7a4828', W:'#ebe0c8',
-      A:'#1a3208', a:'#264810', v:'#366020', V:'#467428',
-      B:'#a07818', P:'#141008', p:'#201c0c', L:'#0a0806',
+      K:'#080806', H:'#162606', h:'#1e3008', n:'#2c4c14',
+      S:'#3a1e0e', s:'#582c14', f:'#7a4828', W:'#d0c49a',
+      A:'#162606', a:'#1e3008', v:'#2a4a14', V:'#386018',
+      B:'#886810', P:'#141008', p:'#1c180a', L:'#0a0806',
+      r:'#1e1a0a',
     },
     idle:[
       ['....KHhhHK....',
@@ -835,10 +860,10 @@ const CLS_SPRITES = {
        '..KHsffffsHK..',
        '...KKssssKK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaaVrVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVvvvvVVaK.',
-       '.KaaVVVVVVaaK.',
+       '.KaVVrvvvVVaK.',
+       '.KaaVVrVVVaaK.',
        '...KKpPPpKK...',
        '..KPpK..KpPK..',
        '..KPpK..KpPK..',
@@ -858,10 +883,10 @@ const CLS_SPRITES = {
        '..KHsffffsHK..',
        '...KKssssKK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaaVrVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVvvvvVVaK.',
-       '.KaaVVVVVVaaK.',
+       '.KaVVrvvvVVaK.',
+       '.KaaVVrVVVaaK.',
        '...KKpPPpKK...',
        '.KPpK...KpPK..',
        '.KPpK...KpPK..',
@@ -881,10 +906,10 @@ const CLS_SPRITES = {
        '..KHsffffsHK..',
        '...KKssssKK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaaVrVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVvvvvVVaK.',
-       '.KaaVVVVVVaaK.',
+       '.KaVVrvvvVVaK.',
+       '.KaaVVrVVVaaK.',
        '...KKpPPpKK...',
        '..KPpK..KpPK..',
        '..KPpK..KpPK..',
@@ -896,14 +921,15 @@ const CLS_SPRITES = {
     ],
   },
 
-  // ── SWORDSMAN ── iron plate helm · full face visible through visor opening · grey armour
+  // ── SWORDSMAN ── rusty iron, dented visor, weathered veteran
   SWORDSMAN:{
     pal:{
-      K:'#080808', H:'#1a1a20', h:'#252530', n:'#343440',
-      S:'#3a1e0e', s:'#5a3018', f:'#7a4828', W:'#ebe0c8',
-      V:'#e08020', // visor amber glow
-      A:'#1e2028', a:'#282c38', v:'#383c48', G:'#484c58',
-      B:'#887820', P:'#141418', p:'#1e1e24', L:'#0e0e14',
+      K:'#080808', H:'#141418', h:'#1e1e2a', n:'#2c2c3c',
+      S:'#3a1e0e', s:'#582c14', f:'#7a4828', W:'#e0d0b0',
+      V:'#c07018',
+      A:'#1a1a26', a:'#1e2230', v:'#2c3044', G:'#3c4050',
+      B:'#7a6c14', P:'#121218', p:'#1c1c22', L:'#0c0c12',
+      r:'#7a3810', R:'#9a4a14',
     },
     idle:[
       ['...KHhhhHK....',
@@ -915,10 +941,10 @@ const CLS_SPRITES = {
        '.KHHKsssKHHK..',
        '..KHHHhhHHHK..',
        '...KaGGGGaK...',
-       '..KaGGGGGGaK..',
+       '..KaGRGGGRaK..',
        '.KaGGBBBBGGaK.',
-       '.KaGGGGGGGGaK.',
-       '.KaaGGGGGGaaK.',
+       '.KaGRGGGGRGaK.',
+       '.KaaGRGGRGaaK.',
        '...KKpPPpKK...',
        '..KPpK..KpPK..',
        '..KPpK..KpPK..',
@@ -938,10 +964,10 @@ const CLS_SPRITES = {
        '.KHHKsssKHHK..',
        '..KHHHhhHHHK..',
        '...KaGGGGaK...',
-       '..KaGGGGGGaK..',
+       '..KaGRGGGRaK..',
        '.KaGGBBBBGGaK.',
-       '.KaGGGGGGGGaK.',
-       '.KaaGGGGGGaaK.',
+       '.KaGRGGGGRGaK.',
+       '.KaaGRGGRGaaK.',
        '...KKpPPpKK...',
        '.KPpK...KpPK..',
        '.KPpK...KpPK..',
@@ -961,10 +987,10 @@ const CLS_SPRITES = {
        '.KHHKhhhKHHK..',
        '..KHHHhhHHHK..',
        '...KaGGGGaK...',
-       '..KaGGGGGGaK..',
+       '..KaGRGGGRaK..',
        '.KaGGBBBBGGaK.',
-       '.KaGGGGGGGGaK.',
-       '.KaaGGGGGGaaK.',
+       '.KaGRGGGGRGaK.',
+       '.KaaGRGGRGaaK.',
        '...KKpPPpKK...',
        '..KPpK..KpPK..',
        '..KPpK..KpPK..',
@@ -976,13 +1002,14 @@ const CLS_SPRITES = {
     ],
   },
 
-  // ── ASSASSIN ── dark purple hood · barely-visible face · slim body
+  // ── ASSASSIN ── tattered shadow-cloth, frayed hood, worn leathers
   ASSASSIN:{
     pal:{
-      K:'#080608', H:'#0e0818', h:'#161028', n:'#221838',
-      S:'#3a1e0e', s:'#5a3018', f:'#785040', W:'#ddd4bc',
-      A:'#140c22', a:'#1e1232', v:'#281c44', V:'#3a2858',
-      B:'#5a40a0', P:'#100e18', p:'#181620', L:'#0a0810',
+      K:'#080608', H:'#0a0612', h:'#12081e', n:'#1c102c',
+      S:'#3a1e0e', s:'#582c14', f:'#785040', W:'#ccc4a8',
+      A:'#0e0a1c', a:'#160c28', v:'#1c1238', V:'#281848',
+      B:'#403088', P:'#100e18', p:'#161420', L:'#0a0810',
+      r:'#0e0a1a',
     },
     idle:[
       ['....KHhhHK....',
@@ -994,9 +1021,9 @@ const CLS_SPRITES = {
        '..KHHssssHHK..',
        '...KKHHHHkK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaarVVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVvvvvVVaK.',
+       '.KaVVrvvvVVaK.',
        '..KaVVVVVaKK..',
        '...KKpPPpKK...',
        '..KPpK..KpPK..',
@@ -1017,9 +1044,9 @@ const CLS_SPRITES = {
        '..KHHssssHHK..',
        '...KKHHHHkK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaarVVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVvvvvVVaK.',
+       '.KaVVrvvvVVaK.',
        '..KaVVVVVaKK..',
        '...KKpPPpKK...',
        '.KPpK...KpPK..',
@@ -1040,9 +1067,9 @@ const CLS_SPRITES = {
        '..KHHssssHHK..',
        '...KKHHHHkK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaarVVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVvvvvVVaK.',
+       '.KaVVrvvvVVaK.',
        '..KaVVVVVaKK..',
        '...KKpPPpKK...',
        '..KPpK..KpPK..',
@@ -1055,13 +1082,14 @@ const CLS_SPRITES = {
     ],
   },
 
-  // ── MAGE ── tall purple hat · glowing eyes during cast · flowing robes
+  // ── MAGE ── faded purple robes, worn wizard, weathered staff-wielder
   MAGE:{
     pal:{
-      K:'#080608', H:'#180828', h:'#220e40', n:'#301458',
-      S:'#3a1e0e', s:'#5a3018', f:'#785040', W:'#ebe0c8',
-      A:'#1c0a30', a:'#281042', v:'#381864', V:'#4c228c',
-      B:'#c050ff', P:'#160a28', p:'#201038', L:'#100820',
+      K:'#080608', H:'#140624', h:'#1c0a38', n:'#260c4a',
+      S:'#3a1e0e', s:'#582c14', f:'#785040', W:'#d8cca8',
+      A:'#160830', a:'#200e3c', v:'#2c1250', V:'#3c1870',
+      B:'#9030d8', P:'#140a28', p:'#1e1038', L:'#0e0820',
+      r:'#180a2c',
     },
     idle:[
       ['....KHhhHK....',
@@ -1075,12 +1103,12 @@ const CLS_SPRITES = {
        '..KHsffffsHK..',
        '...KKssssKK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaaVrVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVVVVVVaK..',
-       '.KaaVVVVVaaK..',
+       '.KaVVrVVVVaK..',
+       '.KaaVVrVVVaaK.',
        '..KaaVVVVaaK..',
-       '..KppVVVVppK..',
+       '..KppVVrVppK..',
        '..KpPKKKPpK...',
        '..KLLKKKLLK...',
        '...KKKKKKKK...',
@@ -1098,12 +1126,12 @@ const CLS_SPRITES = {
        '..KHsffffsHK..',
        '...KKssssKK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaaVrVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVVVVVVaK..',
-       '.KaaVVVVVaaK..',
+       '.KaVVrVVVVaK..',
+       '.KaaVVrVVVaaK.',
        '..KaaVVVVaaK..',
-       '..KppVVVVppK..',
+       '..KppVVrVppK..',
        '.KpPK...KPpK..',
        '..KLLKKKLLK...',
        '...KKKKKKKK...',
@@ -1121,12 +1149,12 @@ const CLS_SPRITES = {
        '..KHsffffsHK..',
        '...KKssssKK...',
        '...KaaVVaaK...',
-       '..KaaVVVVaaK..',
+       '..KaaVrVVaaK..',
        '.KaVVBBBBVVaK.',
-       '.KaVVVVVVVaK..',
-       '.KaaVVVVVaaK..',
+       '.KaVVrVVVVaK..',
+       '.KaaVVrVVVaaK.',
        '..KaaVVVVaaK..',
-       '..KppVVVVppK..',
+       '..KppVVrVppK..',
        '..KpPKKKPpK...',
        '..KLLKKKLLK...',
        '...KKKKKKKK...',
@@ -1271,6 +1299,7 @@ const World = {
     // Mountain boss room entry — west edge of boss clearing (tx=234, ty=140..158)
     for(let fy=140;fy<=158;fy++) this._set(234,fy,T.FOG_GATE);
     this._border();
+    this._fillVoids();
     GS.tileMap=this.map;
   },
 
@@ -1628,8 +1657,53 @@ const World = {
   },
 
   _border(){
-    for(let x=0;x<WORLD_W;x++){ this.map[0][x]=T.WALL; this.map[WORLD_H-1][x]=T.WALL; }
-    for(let y=0;y<WORLD_H;y++){ this.map[y][0]=T.WALL; this.map[y][WORLD_W-1]=T.WALL; }
+    // World edges are ocean water (impassable but visually correct)
+    for(let x=0;x<WORLD_W;x++){ this.map[0][x]=T.WATER; this.map[WORLD_H-1][x]=T.WATER; }
+    for(let y=0;y<WORLD_H;y++){ this.map[y][0]=T.WATER; this.map[y][WORLD_W-1]=T.WATER; }
+  },
+
+  _fillVoids(){
+    // Post-generation pass: replace all remaining T.WALL void tiles with contextual terrain.
+    // Zone layout reference:
+    //   GRASSLAND   x:5-160,   y:1-36
+    //   RUINS       x:5-75,    y:38-101
+    //   FOREST      x:70-170,  y:5-94
+    //   VILLAGE     x:170-240, y:5-79
+    //   CASTLE      x:18-220,  y:112-169
+    //   BOSS_ARENA  x:108-152, y:168-196
+    //   SWAMP       x:241-277, y:0-77
+    //   MOUNTAIN    x:220-277, y:132-196
+    for(let ty=0;ty<WORLD_H;ty++){
+      for(let tx=0;tx<WORLD_W;tx++){
+        if(this.map[ty][tx]!==T.WALL) continue;
+        let rep=T.MOUNTAIN_WALL; // default: stone cliff
+        // ── Ocean border band ────────────────────────────────────
+        if(tx<=3||ty<=3||tx>=WORLD_W-4||ty>=WORLD_H-4) rep=T.WATER;
+        // North coast (above all zones)
+        else if(ty<5) rep=T.WATER;
+        // West ocean (left of ruins/grassland)
+        else if(tx<5) rep=T.WATER;
+        // East ocean (right of swamp/mountain)
+        else if(tx>=WORLD_W-5) rep=T.WATER;
+        // South ocean (below everything)
+        else if(ty>=WORLD_H-5) rep=T.WATER;
+        // ── Single-tile gap between GRASSLAND south and RUINS north (y=37) ──
+        else if(ty===37&&tx>=5&&tx<75) rep=T.GRASS_FLOOR;
+        // ── West cliff: left of RUINS/CASTLE ────────────────────
+        else if(tx<18&&ty>=38) rep=T.MOUNTAIN_WALL;
+        // ── South edge of FOREST/RUINS above water strip ────────
+        else if(ty>=95&&ty<103&&tx>=75&&tx<128) rep=T.RUINS_FLOOR;
+        else if(ty>=95&&ty<103&&tx>=140&&tx<170) rep=T.FOREST_FLOOR;
+        // ── Village-to-Mountain gap (below VILLAGE, left of MOUNTAIN) ───
+        else if(tx>=170&&tx<220&&ty>=78&&ty<132) rep=T.MOUNTAIN_WALL;
+        // ── Between SWAMP south and MOUNTAIN north ───────────────
+        else if(tx>=220&&tx<241&&ty>=78&&ty<132) rep=T.MOUNTAIN_WALL;
+        // ── South void below CASTLE (deep dungeon stone) ─────────
+        else if(ty>=170&&tx>=18&&tx<220) rep=T.CASTLE_WALL;
+        // remaining fallback → MOUNTAIN_WALL
+        this.map[ty][tx]=rep;
+      }
+    }
   },
 
   _grassland(){
@@ -1654,14 +1728,20 @@ const World = {
     // Village clearing — open 30×16 area at (x:35, y:14 local) → abs (40,15)
     const vx=b.x+35, vy=b.y+14;
     this._fill(vx,vy,30,16,T.GRASS_FLOOR);
-    // Inn building
-    this._fill(vx+2,vy+2,10,8,T.GRASS_WALL);
-    this._fill(vx+3,vy+3,8,6,T.GRASS_FLOOR); // hollow interior
-    this._set(vx+7,vy+8,T.GRASS_FLOOR); // door
-    // Shop building
-    this._fill(vx+16,vy+2,10,8,T.GRASS_WALL);
-    this._fill(vx+17,vy+3,8,6,T.GRASS_FLOOR);
-    this._set(vx+21,vy+8,T.GRASS_FLOOR); // door
+
+    // ── Inn (HOUSE_DEFS[0]: outer x:42..51 y:17..24, interior x:43..50 y:18..23)
+    this._fill(vx+2,vy+2,10,8,T.HOUSE_WALL);   // outer wall / roof
+    this._fill(vx+3,vy+3,8,6,T.HOUSE_FLOOR);   // interior floor
+    // Door gap in south wall (vx+7 = tile 47, vy+9 = tile 24)
+    this._set(vx+7,vy+9,T.HOUSE_FLOOR); // south wall doorway
+    this._set(vx+7,vy+8,T.HOUSE_FLOOR); // entry threshold
+
+    // ── Shop (HOUSE_DEFS[1]: outer x:56..65 y:17..24, interior x:57..64 y:18..23)
+    this._fill(vx+16,vy+2,10,8,T.HOUSE_WALL);  // outer wall / roof
+    this._fill(vx+17,vy+3,8,6,T.HOUSE_FLOOR);  // interior floor
+    // Door gap in south wall (vx+21 = tile 61, vy+9 = tile 24)
+    this._set(vx+21,vy+9,T.HOUSE_FLOOR); // south wall doorway
+    this._set(vx+21,vy+8,T.HOUSE_FLOOR); // entry threshold
 
     // Boss arena — far right, open 28×24 at local (x:120, y:6) → abs (125,7)
     const ax=b.x+120, ay=b.y+6;
@@ -1685,7 +1765,8 @@ const World = {
   passable(t){
     return t!==T.WALL&&t!==T.RUINS_WALL&&t!==T.FOREST_TREE&&
            t!==T.CASTLE_WALL&&t!==T.WATER&&t!==T.VILLAGE_WALL&&
-           t!==T.SWAMP_WALL&&t!==T.MOUNTAIN_WALL&&t!==T.GRASS_WALL;
+           t!==T.SWAMP_WALL&&t!==T.MOUNTAIN_WALL&&t!==T.GRASS_WALL&&
+           t!==T.HOUSE_WALL;
   },
 
   canMove(wx,wy,r){
@@ -2186,6 +2267,45 @@ const World = {
           ctx.fillStyle='#2e4a1a';
           ctx.fillRect(sx+gw+3,sy+5,5,4); ctx.fillRect(sx+gw+12,sy+19,5,4);
         }
+        break;}
+
+      case T.HOUSE_WALL:{
+        // Roof tile — terracotta/dark timber viewed from top
+        const isEdgeTop = ty === HOUSE_DEFS.find(h=>tx>=h.wx&&tx<h.wx+h.ww&&ty===h.wy)?.wy;
+        ctx.fillStyle='#2a1208'; ctx.fillRect(sx,sy,S,S); // base
+        // Horizontal roof tile rows
+        const rBand=(ty%2)===0;
+        ctx.fillStyle=rBand?'#38180c':'#301408';
+        ctx.fillRect(sx,sy+4,S,10); ctx.fillRect(sx,sy+18,S,10);
+        ctx.fillStyle='#4a2010';
+        ctx.fillRect(sx+2,sy+4,S-4,3); ctx.fillRect(sx+2,sy+18,S-4,3); // ridge top
+        // Ridge line between bands
+        ctx.fillStyle='#1a0c06'; ctx.fillRect(sx,sy+14,S,4);
+        // Mortar joints
+        const jo=(tx%3)*11;
+        ctx.fillStyle='#221008'; ctx.fillRect(sx+jo%S,sy+2,2,S-4);
+        // Corner post darkening
+        ctx.fillStyle='rgba(0,0,0,0.30)'; ctx.fillRect(sx,sy,4,S); ctx.fillRect(sx+S-4,sy,4,S);
+        break;}
+
+      case T.HOUSE_FLOOR:{
+        // Wooden plank floor — warm tan with horizontal grain
+        const planks=ty%3;
+        ctx.fillStyle=planks===0?'#5a4228':planks===1?'#4e3820':'#543e24';
+        ctx.fillRect(sx,sy,S,S);
+        // Plank grain lines
+        ctx.fillStyle='#3e2c14';
+        ctx.fillRect(sx,sy+8,S,2); ctx.fillRect(sx,sy+20,S,2);
+        ctx.fillStyle='#6a4e30';
+        ctx.fillRect(sx+2,sy+1,S-4,7); // plank face highlight
+        ctx.fillRect(sx+2,sy+11,S-4,8);
+        // Joint gap between planks
+        const jx=(tx%4)*8;
+        ctx.fillStyle='#2e1e0c'; ctx.fillRect(sx+jx,sy,2,S);
+        // Light dot (nail)
+        ctx.fillStyle='#7a5a38'; ctx.fillRect(sx+jx+1,sy+4,2,2); ctx.fillRect(sx+jx+1,sy+17,2,2);
+        // Edge shadow
+        ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.fillRect(sx,sy,1,S); ctx.fillRect(sx,sy,S,1);
         break;}
 
       default:
@@ -2879,9 +2999,7 @@ const BOSS_ROOM_DEFS = {
   main: {
     // BOSS_ARENA tile bounds x:108..152, y:168..197
     px0:108*32, py0:168*32, px1:152*32, py1:197*32,
-    requiredItem:'ASHEN_SIGIL',
     unlockMsg:'THE ASHEN KING AWAKENS', flashCol:'#6020a0',
-    noItemMsg:'A seal bars your path... Find the Ashen Sigil.',
     spawn(){ Enemies.spawnBoss(); GS.flags.fogGateEntered=true; },
     isDefeated(){ return GS.bossDefeated; },
     isActive(){   return GS.bossActive; },
@@ -2889,9 +3007,7 @@ const BOSS_ROOM_DEFS = {
   swamp: {
     // Swamp boss clearing tile bounds x:248..271, y:1..25
     px0:248*32, py0:32, px1:271*32, py1:25*32,
-    requiredItem:'HORROR_TOTEM',
     unlockMsg:'THE SWAMP HORROR STIRS', flashCol:'#204010',
-    noItemMsg:'A cursed seal bars the inner sanctum... Find the Horror Totem.',
     spawn(){ Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp'); GS.miniBosses.swamp.summoned=true; },
     isDefeated(){ return GS.miniBosses.swamp.defeated; },
     isActive(){   return GS.miniBosses.swamp.active; },
@@ -2899,9 +3015,7 @@ const BOSS_ROOM_DEFS = {
   mountain: {
     // Mountain boss clearing tile bounds x:233..265, y:136..162
     px0:233*32, py0:136*32, px1:265*32, py1:162*32,
-    requiredItem:'YETI_EFFIGY',
     unlockMsg:'THE GLACIAL YETI AWAKENS', flashCol:'#202840',
-    noItemMsg:'Frost seals this passage... Find the Yeti Effigy.',
     spawn(){ Enemies.spawnMiniBoss('YETI','mountain'); GS.miniBosses.mountain.summoned=true; },
     isDefeated(){ return GS.miniBosses.mountain.defeated; },
     isActive(){   return GS.miniBosses.mountain.active; },
@@ -2909,9 +3023,7 @@ const BOSS_ROOM_DEFS = {
   grassland: {
     // Grassland boss arena tile bounds x:125..153, y:7..31
     px0:125*32, py0:7*32, px1:153*32, py1:31*32,
-    requiredItem:'WARDEN_SEAL',
     unlockMsg:'THE VERDANT WARDEN AWAKENS', flashCol:'#204010',
-    noItemMsg:"Ancient roots bar the way... Find the Warden's Seal.",
     spawn(){ Enemies.spawnMiniBoss('VERDANT_WARDEN','grassland'); GS.miniBosses.grassland.summoned=true; },
     isDefeated(){ return GS.miniBosses.grassland.defeated; },
     isActive(){   return GS.miniBosses.grassland.active; },
@@ -3066,10 +3178,13 @@ const Player = {
       const baseSpd = p.megaDash ? p.megaDashSpd : PLAYER_CONFIG.rollSpeed;
       const spd = p.megaDash ? baseSpd*(1-prog*0.25) : baseSpd*(1-prog*0.5);
       const nx=p.x+p.rollDx*spd*dt, ny=p.y+p.rollDy*spd*dt;
-      if(World.canMove(nx,p.y,PLAYER_CONFIG.size-3)) p.x=nx;
-      if(World.canMove(p.x,ny,PLAYER_CONFIG.size-3)) p.y=ny;
+      const okX=World.canMove(nx,p.y,PLAYER_CONFIG.size-3);
+      const okY=World.canMove(p.x,ny,PLAYER_CONFIG.size-3);
+      if(okX) p.x=nx; else p.rollDx=0; // absorb x on wall hit → slide along y
+      if(okY) p.y=ny; else p.rollDy=0; // absorb y on wall hit → slide along x
+      if(!okX&&!okY){ p.isRolling=false; p.isInvincible=false; p.megaDash=false; return; }
       BossRooms.clamp(p);
-      p.isInvincible=(p.rollITimer>0); // always true throughout dash now
+      p.isInvincible=(p.rollITimer>0);
       if(p.rollTimer<=0){ p.isRolling=false; p.isInvincible=false; p.megaDash=false; }
       return;
     }
@@ -3239,6 +3354,15 @@ const Player = {
       if(ZONES[z]) UI.msg(ZONES[z].name,'zone',3);
       ScreenFX.flash('#ffffff',0.12,0.5);
     }
+    // House interior detection
+    if(World.tile(p.x,p.y)===T.HOUSE_FLOOR){
+      const tx=p.x/TILE_SIZE|0, ty=p.y/TILE_SIZE|0;
+      GS.insideHouse=HOUSE_DEFS.find(
+        h=>tx>=h.wx&&tx<h.wx+h.ww&&ty>=h.wy&&ty<h.wy+h.wh
+      )||null;
+    } else {
+      GS.insideHouse=null;
+    }
   },
 
   _checkFogGate(){
@@ -3259,15 +3383,7 @@ const Player = {
     if(def.isDefeated()) return;
     // Boss room already active — player inside, clamping handles rest
     if(def.isActive()) return;
-    // Check for required item
-    const hasItem=p.consumables.includes(def.requiredItem);
-    if(!hasItem){
-      UI.msg(def.noItemMsg,'rune',3);
-      p.x-=p.facing.x*18; p.y-=p.facing.y*18;
-      return;
-    }
-    // Consume item, enter room
-    p.consumables.splice(p.consumables.indexOf(def.requiredItem),1);
+    // Auto-enter — no item required (like Elden Ring fog walls)
     BossRooms.enter(roomId);
   },
 
@@ -3679,13 +3795,14 @@ const Player = {
     p.isRolling=false; p.isAttacking=false; p.isInvincible=false;
     p.hitFlash=0; p.combo=0; p.rootTimer=0; p.sneakTimer=0; p.megaDash=false;
     atkHitbox=null;
-    // Unlock boss room (boss resets on respawnAll)
+    // Unlock boss room — full reset of boss state, but defeated flags persist (one-time kill)
     GS.activeBossRoom=null;
-    // Reset boss references so they can be re-summoned
-    if(GS.bossActive){ GS.bossActive=false; GS.bossRef=null; GS.flags.fogGateEntered=false; }
-    if(GS.miniBosses.swamp.active){ GS.miniBosses.swamp.active=false; GS.miniBosses.swamp.ref=null; GS.miniBosses.swamp.summoned=false; }
-    if(GS.miniBosses.mountain.active){ GS.miniBosses.mountain.active=false; GS.miniBosses.mountain.ref=null; GS.miniBosses.mountain.summoned=false; }
-    if(GS.miniBosses.grassland.active){ GS.miniBosses.grassland.active=false; GS.miniBosses.grassland.ref=null; GS.miniBosses.grassland.summoned=false; }
+    // Reset boss so it can be re-summoned at full HP when player re-enters
+    GS.bossActive=false; GS.bossRef=null; GS.flags.fogGateEntered=false;
+    const mb=GS.miniBosses;
+    if(!mb.swamp.defeated){    mb.swamp.active=false;    mb.swamp.ref=null;    mb.swamp.summoned=false; }
+    if(!mb.mountain.defeated){ mb.mountain.active=false; mb.mountain.ref=null; mb.mountain.summoned=false; }
+    if(!mb.grassland.defeated){ mb.grassland.active=false; mb.grassland.ref=null; mb.grassland.summoned=false; }
     Enemies.respawnAll();
     GS.messages=GS.messages.filter(m=>m.type!=='death');
   },
@@ -3789,6 +3906,13 @@ const Player = {
         const xo=sx-14;      // sprite top-left x
         // R(col, row, colWidth, rowHeight, color) — draw on sprite grid (2px/cell)
         const R=(c,r,cw,rh,col)=>{ ctx.fillStyle=col; ctx.fillRect(xo+c*2,yo+r*2,cw*2,rh*2); };
+        // Walk-phase leg offsets — left/right leg animate ±2 px in opposite directions
+        const wf=p.isMoving?Math.floor(p.walkPhase)%2:-1;
+        const lLegOff= wf===0?-2:(wf===1? 2:0); // left leg y offset px
+        const rLegOff=-lLegOff;                   // right leg opposite
+        // Leg-aware draw: L=left-leg column range (2-5), R=right-leg (8-11)
+        const Rl=(c,r,cw,rh,col)=>{ ctx.fillStyle=col; ctx.fillRect(xo+c*2,yo+r*2+lLegOff,cw*2,rh*2); };
+        const Rr=(c,r,cw,rh,col)=>{ ctx.fillStyle=col; ctx.fillRect(xo+c*2,yo+r*2+rLegOff,cw*2,rh*2); };
         ctx.globalAlpha=baseA;
         switch(armorId){
           case 'OLD_HOOD':
@@ -3851,9 +3975,9 @@ const Player = {
             R(2,12,10,1,'#5a3010'); // belt face
             R(5,12, 4,2,'#7a4e10'); // buckle plate
             R(6,12, 2,1,'#c09030'); // buckle shine
-            // Knee guards
-            R(2,14, 3,2,'#4a2808'); R(2,14, 3,1,'#6a3c14');
-            R(9,14, 3,2,'#4a2808'); R(9,14, 3,1,'#6a3c14');
+            // Knee guards (leg-animated)
+            Rl(2,14, 3,2,'#4a2808'); Rl(2,14, 3,1,'#6a3c14');
+            Rr(9,14, 3,2,'#4a2808'); Rr(9,14, 3,1,'#6a3c14');
             break;
           case 'LEATHER_ARMOR':
             // Full leather — large pauldrons, knee guards, boot reinforcements, rivets
@@ -3872,12 +3996,12 @@ const Player = {
             R(3,11,1,1,'#6a3c14'); R(11,11,1,1,'#6a3c14'); // lower rivets
             // Belt
             R(2,12,10,2,'#3a2008'); R(5,12,4,2,'#6a4010'); R(6,12,2,1,'#c08030');
-            // Knee guards (wider)
-            R(2,14, 4,2,'#4a2808'); R(2,14, 4,1,'#6a3c14'); R(3,15,2,1,'#8a5018');
-            R(8,14, 4,2,'#4a2808'); R(8,14, 4,1,'#6a3c14'); R(9,15,2,1,'#8a5018');
-            // Boot caps
-            R(2,17, 4,2,'#3a2008'); R(2,18, 4,1,'#5a3010');
-            R(8,17, 4,2,'#3a2008'); R(8,18, 4,1,'#5a3010');
+            // Knee guards (wider, leg-animated)
+            Rl(2,14, 4,2,'#4a2808'); Rl(2,14, 4,1,'#6a3c14'); Rl(3,15,2,1,'#8a5018');
+            Rr(8,14, 4,2,'#4a2808'); Rr(8,14, 4,1,'#6a3c14'); Rr(9,15,2,1,'#8a5018');
+            // Boot caps (leg-animated)
+            Rl(2,17, 4,2,'#3a2008'); Rl(2,18, 4,1,'#5a3010');
+            Rr(8,17, 4,2,'#3a2008'); Rr(8,18, 4,1,'#5a3010');
             break;
           case 'CHAIN_MAIL':
             // Silver chainmail — coif at collar, full torso, leg coverage
@@ -3895,11 +4019,11 @@ const Player = {
             // Chain pattern (staggered dot grid)
             ctx.fillStyle='#262c38';
             for(let rr=0;rr<5;rr++){ const off=(rr%2)*2; for(let cc=0;cc<9;cc++) ctx.fillRect(xo+4+cc*4+off,yo+16+rr*4,2,2); }
-            // Leg mail
-            R(2,13,4,4,'#343c48'); R(2,13,4,1,'#484e5c');
-            R(8,13,4,4,'#343c48'); R(8,13,4,1,'#484e5c');
+            // Leg mail (leg-animated)
+            Rl(2,13,4,4,'#343c48'); Rl(2,13,4,1,'#484e5c');
+            Rr(8,13,4,4,'#343c48'); Rr(8,13,4,1,'#484e5c');
             ctx.fillStyle='#262c38';
-            for(let rr=0;rr<3;rr++){ const off=(rr%2)*2; for(let cc=0;cc<3;cc++) ctx.fillRect(xo+4+cc*4+off,yo+26+rr*4,2,2); for(let cc=0;cc<3;cc++) ctx.fillRect(xo+16+cc*4+off,yo+26+rr*4,2,2); }
+            for(let rr=0;rr<3;rr++){ const off=(rr%2)*2; for(let cc=0;cc<3;cc++) ctx.fillRect(xo+4+cc*4+off,yo+26+rr*4+lLegOff,2,2); for(let cc=0;cc<3;cc++) ctx.fillRect(xo+16+cc*4+off,yo+26+rr*4+rLegOff,2,2); }
             break;
           case 'ASHEN_PLATE':
             // Massive dark plate armor with ember-glow crack lines
@@ -3920,11 +4044,11 @@ const Player = {
             R(5,9, 4,1,'#ff5020'); // center hot
             R(4,10, 1,1,'#ff8040'); R(9,10,1,1,'#ff8040'); // drips
             R(3,11, 2,1,'#601808'); R(9,11,2,1,'#601808'); // lower cracks
-            // Leg greaves
-            R(2,13, 4,5,'#1c1c28'); R(2,13, 4,1,'#282838'); R(3,15,2,1,'#c03010'); // left
-            R(8,13, 4,5,'#1c1c28'); R(8,13, 4,1,'#282838'); R(9,15,2,1,'#c03010'); // right
-            // Sabatons (armored boots)
-            R(2,18, 4,1,'#222234'); R(8,18,4,1,'#222234');
+            // Leg greaves (leg-animated)
+            Rl(2,13, 4,5,'#1c1c28'); Rl(2,13, 4,1,'#282838'); Rl(3,15,2,1,'#c03010'); // left
+            Rr(8,13, 4,5,'#1c1c28'); Rr(8,13, 4,1,'#282838'); Rr(9,15,2,1,'#c03010'); // right
+            // Sabatons (armored boots, leg-animated)
+            Rl(2,18, 4,1,'#222234'); Rr(8,18,4,1,'#222234');
             break;
           case 'YETI_PELT':
             // Massive white fur pelt — fluffy collar and body
@@ -3938,11 +4062,11 @@ const Player = {
             R(2,9,10,3,'#d0ccc4'); R(2,9,10,1,'#e4e0d8');
             // Belt holding pelt
             R(3,12, 8,2,'#6a3810'); R(6,12,2,2,'#a05018'); R(6,12,2,1,'#d07a28'); // buckle
-            // Fur leg trim
-            R(2,16, 4,2,'#cac6be'); R(2,16, 4,1,'#dedad4');
-            R(8,16, 4,2,'#cac6be'); R(8,16, 4,1,'#dedad4');
-            // Fur boot cuffs
-            R(2,18, 4,1,'#d8d4cc'); R(8,18,4,1,'#d8d4cc');
+            // Fur leg trim (leg-animated)
+            Rl(2,16, 4,2,'#cac6be'); Rl(2,16, 4,1,'#dedad4');
+            Rr(8,16, 4,2,'#cac6be'); Rr(8,16, 4,1,'#dedad4');
+            // Fur boot cuffs (leg-animated)
+            Rl(2,18, 4,1,'#d8d4cc'); Rr(8,18,4,1,'#d8d4cc');
             break;
         }
         ctx.globalAlpha=baseA;
@@ -7302,7 +7426,20 @@ function loop(ts){
     ctx.fillStyle='#080808'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
 
     ScreenFX.apply();
-    World.draw(cx,cy);
+    if(GS.insideHouse){
+      // Inside a house: fill screen with dark interior colour, clip world to house bounds
+      const h=GS.insideHouse;
+      ctx.fillStyle='#100c08'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+      // Convert house tile bounds to screen px (include 1 tile margin for walls)
+      const hsx=(h.wx*TILE_SIZE-cx)|0, hsy=(h.wy*TILE_SIZE-cy)|0;
+      const hsw=h.ww*TILE_SIZE,         hsh=h.wh*TILE_SIZE;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(hsx,hsy,hsw,hsh); ctx.clip();
+      World.draw(cx,cy);
+      ctx.restore();
+    } else {
+      World.draw(cx,cy);
+    }
     BossRooms.draw(cx,cy);
     Bonfires.draw(cx,cy);
     Chests.draw(cx,cy);
