@@ -632,6 +632,7 @@ const GS = {
     weaponUpgrades:{},        // e.g. {IRON_SWORD:2} — upgrade level per weapon
     specialCooldown:0,        // Q-ability cooldown
     levelupCursor:0,          // cursor in level-up menu
+    walkPhase:0, isMoving:false, // animation tracking
   },
 
   camera:{ x:0, y:0 },
@@ -755,6 +756,343 @@ function pxS(px,py,rows,pal,sc=2){
     }
   }
 }
+
+// Mirror version of pxS — flips sprite horizontally
+function pxSM(px,py,rows,pal,sc=2){
+  const w=rows[0].length;
+  for(let y=0;y<rows.length;y++){
+    const row=rows[y];
+    for(let x=0;x<row.length;x++){
+      const c=pal[row[w-1-x]];
+      if(c){ ctx.fillStyle=c; ctx.fillRect((px+x*sc)|0,(py+y*sc)|0,sc,sc); }
+    }
+  }
+}
+
+// ============================================================
+// CLASS SPRITES  — 14 wide × 20 tall pixel art, rendered 2× (28×40 canvas px)
+// Anchor: top-left at (sx-14, sy-34)  →  feet ~sy+6, head ~sy-34
+// Each class: pal={char:color}, idle[2frames], walk[1stride], attack[1frame]
+// Walk alternates stride[0] ↔ idle[0] each half-cycle for a 2-frame walk loop
+// ============================================================
+const CLS_SPRITES = {
+  // ── ARCHER ── dark skin · green dome helm · green leather vest
+  ARCHER:{
+    pal:{
+      K:'#080806', H:'#192f08', h:'#254410', n:'#356020',
+      S:'#3a1e0e', s:'#5a3018', f:'#7a4828', W:'#ebe0c8',
+      A:'#1a3208', a:'#264810', v:'#366020', V:'#467428',
+      B:'#a07818', P:'#141008', p:'#201c0c', L:'#0a0806',
+    },
+    idle:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KHnSSSSnHK..',
+       '..KHSsffsSHK..',
+       '..KHsfWWfsHK..',
+       '..KHsffffsHK..',
+       '...KKssssKK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVvvvvVVaK.',
+       '.KaaVVVVVVaaK.',
+       '...KKpPPpKK...',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KLLK..KLLK..',
+       '..KLLLKKLLLK..',
+       '...KKKKKKKK...',
+      ],
+    ],
+    walk:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KHnSSSSnHK..',
+       '..KHSsffsSHK..',
+       '..KHsfWWfsHK..',
+       '..KHsffffsHK..',
+       '...KKssssKK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVvvvvVVaK.',
+       '.KaaVVVVVVaaK.',
+       '...KKpPPpKK...',
+       '.KPpK...KpPK..',
+       '.KPpK...KpPK..',
+       '.KPpK...KpPK..',
+       '.KLLK...KLLK..',
+       '.KLLLKKKLLLK..',
+       '..KKKKKKKK....',
+      ],
+    ],
+    attack:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KHnSSSSnHK..',
+       '..KHSKffKSHK..',
+       '..KHsfWWfsHK..',
+       '..KHsffffsHK..',
+       '...KKssssKK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVvvvvVVaK.',
+       '.KaaVVVVVVaaK.',
+       '...KKpPPpKK...',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KLLK..KLLK..',
+       '..KLLLKKLLLK..',
+       '...KKKKKKKK...',
+      ],
+    ],
+  },
+
+  // ── SWORDSMAN ── iron plate helm · full face visible through visor opening · grey armour
+  SWORDSMAN:{
+    pal:{
+      K:'#080808', H:'#1a1a20', h:'#252530', n:'#343440',
+      S:'#3a1e0e', s:'#5a3018', f:'#7a4828', W:'#ebe0c8',
+      V:'#e08020', // visor amber glow
+      A:'#1e2028', a:'#282c38', v:'#383c48', G:'#484c58',
+      B:'#887820', P:'#141418', p:'#1e1e24', L:'#0e0e14',
+    },
+    idle:[
+      ['...KHhhhHK....',
+       '..KHhnnnnhHK..',
+       '.KHHhnnnnhHHK.',
+       '.KHHhhhhhhHHK.',
+       '.KHHhSSSShHHK.',
+       '.KHHsfWWfsHHK.',
+       '.KHHKsssKHHK..',
+       '..KHHHhhHHHK..',
+       '...KaGGGGaK...',
+       '..KaGGGGGGaK..',
+       '.KaGGBBBBGGaK.',
+       '.KaGGGGGGGGaK.',
+       '.KaaGGGGGGaaK.',
+       '...KKpPPpKK...',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KLLK..KLLK..',
+       '..KLLLKKLLLK..',
+       '...KKKKKKKK...',
+      ],
+    ],
+    walk:[
+      ['...KHhhhHK....',
+       '..KHhnnnnhHK..',
+       '.KHHhnnnnhHHK.',
+       '.KHHhhhhhhHHK.',
+       '.KHHhSSSShHHK.',
+       '.KHHsfWWfsHHK.',
+       '.KHHKsssKHHK..',
+       '..KHHHhhHHHK..',
+       '...KaGGGGaK...',
+       '..KaGGGGGGaK..',
+       '.KaGGBBBBGGaK.',
+       '.KaGGGGGGGGaK.',
+       '.KaaGGGGGGaaK.',
+       '...KKpPPpKK...',
+       '.KPpK...KpPK..',
+       '.KPpK...KpPK..',
+       '.KPpK...KpPK..',
+       '.KLLK...KLLK..',
+       '.KLLLKKKLLLK..',
+       '..KKKKKKKK....',
+      ],
+    ],
+    attack:[
+      ['...KHhhhHK....',
+       '..KHhnnnnhHK..',
+       '.KHHhnnnnhHHK.',
+       '.KHHhhhhhhHHK.',
+       '.KHHhhhhhHHHK.',
+       '.KHHhVVVhHHK..',
+       '.KHHKhhhKHHK..',
+       '..KHHHhhHHHK..',
+       '...KaGGGGaK...',
+       '..KaGGGGGGaK..',
+       '.KaGGBBBBGGaK.',
+       '.KaGGGGGGGGaK.',
+       '.KaaGGGGGGaaK.',
+       '...KKpPPpKK...',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KLLK..KLLK..',
+       '..KLLLKKLLLK..',
+       '...KKKKKKKK...',
+      ],
+    ],
+  },
+
+  // ── ASSASSIN ── dark purple hood · barely-visible face · slim body
+  ASSASSIN:{
+    pal:{
+      K:'#080608', H:'#0e0818', h:'#161028', n:'#221838',
+      S:'#3a1e0e', s:'#5a3018', f:'#785040', W:'#ddd4bc',
+      A:'#140c22', a:'#1e1232', v:'#281c44', V:'#3a2858',
+      B:'#5a40a0', P:'#100e18', p:'#181620', L:'#0a0810',
+    },
+    idle:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KHnSSSSnHK..',
+       '..KHnSSSSnHK..',
+       '..KHssWWssHK..',
+       '..KHHssssHHK..',
+       '...KKHHHHkK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVvvvvVVaK.',
+       '..KaVVVVVaKK..',
+       '...KKpPPpKK...',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KLLK..KLLK..',
+       '..KLLLKKLLLK..',
+       '...KKKKKKKK...',
+      ],
+    ],
+    walk:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KHnSSSSnHK..',
+       '..KHnSSSSnHK..',
+       '..KHssWWssHK..',
+       '..KHHssssHHK..',
+       '...KKHHHHkK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVvvvvVVaK.',
+       '..KaVVVVVaKK..',
+       '...KKpPPpKK...',
+       '.KPpK...KpPK..',
+       '.KPpK...KpPK..',
+       '.KPpK...KpPK..',
+       '.KLLK...KLLK..',
+       '.KLLLKKKLLLK..',
+       '..KKKKKKKK....',
+      ],
+    ],
+    attack:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KHnSSSSnHK..',
+       '..KHnKSSKnHK..',
+       '..KHnssssHHK..',
+       '..KHHssssHHK..',
+       '...KKHHHHkK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVvvvvVVaK.',
+       '..KaVVVVVaKK..',
+       '...KKpPPpKK...',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KPpK..KpPK..',
+       '..KLLK..KLLK..',
+       '..KLLLKKLLLK..',
+       '...KKKKKKKK...',
+      ],
+    ],
+  },
+
+  // ── MAGE ── tall purple hat · glowing eyes during cast · flowing robes
+  MAGE:{
+    pal:{
+      K:'#080608', H:'#180828', h:'#220e40', n:'#301458',
+      S:'#3a1e0e', s:'#5a3018', f:'#785040', W:'#ebe0c8',
+      A:'#1c0a30', a:'#281042', v:'#381864', V:'#4c228c',
+      B:'#c050ff', P:'#160a28', p:'#201038', L:'#100820',
+    },
+    idle:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KKHhnnhHKK..',
+       '.KKKHhhhhHKKK.',
+       '..KHnSSSSnHK..',
+       '..KHSsffsSHK..',
+       '..KHsfWWfsHK..',
+       '..KHsffffsHK..',
+       '...KKssssKK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVVVVVVaK..',
+       '.KaaVVVVVaaK..',
+       '..KaaVVVVaaK..',
+       '..KppVVVVppK..',
+       '..KpPKKKPpK...',
+       '..KLLKKKLLK...',
+       '...KKKKKKKK...',
+      ],
+    ],
+    walk:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KKHhnnhHKK..',
+       '.KKKHhhhhHKKK.',
+       '..KHnSSSSnHK..',
+       '..KHSsffsSHK..',
+       '..KHsfWWfsHK..',
+       '..KHsffffsHK..',
+       '...KKssssKK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVVVVVVaK..',
+       '.KaaVVVVVaaK..',
+       '..KaaVVVVaaK..',
+       '..KppVVVVppK..',
+       '.KpPK...KPpK..',
+       '..KLLKKKLLK...',
+       '...KKKKKKKK...',
+      ],
+    ],
+    attack:[
+      ['....KHhhHK....',
+       '...KHhnnhHK...',
+       '..KHhnnnnhHK..',
+       '..KKHhnnhHKK..',
+       '.KKKHhhhhHKKK.',
+       '..KHnSSSSnHK..',
+       '..KHSsffsSHK..',
+       '..KHsfBBfsHK..',
+       '..KHsffffsHK..',
+       '...KKssssKK...',
+       '...KaaVVaaK...',
+       '..KaaVVVVaaK..',
+       '.KaVVBBBBVVaK.',
+       '.KaVVVVVVVaK..',
+       '.KaaVVVVVaaK..',
+       '..KaaVVVVaaK..',
+       '..KppVVVVppK..',
+       '..KpPKKKPpK...',
+       '..KLLKKKLLK...',
+       '...KKKKKKKK...',
+      ],
+    ],
+  },
+};
 
 // CRT scanline overlay — drawn last each frame
 function drawScanlines(){
@@ -2649,6 +2987,7 @@ const Player = {
 
   _move(dt){
     const p=GS.player;
+    p.isMoving=false; // reset each frame; set true below if keys held
     // Root effect (vine grab, etc.) — can't move but can still act
     if(p.rootTimer>0){ p.rootTimer-=dt; BossRooms.clamp(p); return; }
     if(p.isRolling) return;
@@ -2663,6 +3002,8 @@ const Player = {
     if(dx||dy){
       const len=Math.sqrt(dx*dx+dy*dy); dx/=len; dy/=len;
       p.facing.x=dx; p.facing.y=dy;
+      p.isMoving=true;
+      p.walkPhase=(p.walkPhase+dt*3.5)%4; // 3.5 strides/sec → smooth 2-frame cycle
     }
     const spd=p.isAttacking ? Stats.speed()*0.35 : Stats.speed();
     const nx=p.x+dx*spd*dt, ny=p.y+dy*spd*dt;
@@ -3021,7 +3362,7 @@ const Player = {
     const baseA=p.isDead?Math.max(0,p.deathTimer/2):1;
     ctx.globalAlpha=baseA;
 
-    // Roll ghost trail (chunky rects)
+    // Roll ghost trail
     if(p.isRolling){
       for(let i=3;i>=1;i--){
         ctx.globalAlpha=baseA*(0.14-i*0.04);
@@ -3031,211 +3372,100 @@ const Player = {
       ctx.globalAlpha=baseA;
     }
 
-    // I-frame glow (solid border rect, no arc)
+    // I-frame glow (outer border rect)
     if(p.isInvincible){
       ctx.fillStyle='#3060a0';
-      ctx.fillRect(sx-16,sy-20,32,36);
+      ctx.fillRect(sx-16,sy-36,32,46);
     }
 
-    // Root effect — green vine glow
+    // Root vine glow
     if(p.rootTimer>0){
       const rf=Math.sin(Date.now()/80)*0.15+0.35;
       ctx.globalAlpha=baseA*rf; ctx.fillStyle='#204010';
-      ctx.fillRect(sx-20,sy-24,40,44);
+      ctx.fillRect(sx-18,sy-38,36,50);
       ctx.globalAlpha=baseA; ctx.fillStyle='#30601c';
-      ctx.fillRect(sx-20,sy+16,40,4);
-      ctx.fillRect(sx-20,sy-22,4,40);
-      ctx.fillRect(sx+16,sy-22,4,40);
+      ctx.fillRect(sx-18,sy+12,36,4);
+      ctx.fillRect(sx-18,sy-38,4,50);
+      ctx.fillRect(sx+14,sy-38,4,50);
       ctx.globalAlpha=baseA;
     }
 
-    // Frost aura shimmer (Yeti Pelt)
+    // Frost aura (Yeti Pelt)
     if(p.equipment.armor==='YETI_PELT'){
       const ft=((Date.now()/300)|0)%3;
       ctx.globalAlpha=baseA*0.22; ctx.fillStyle='#2060c0';
-      ctx.fillRect(sx-18-ft,sy-22-ft,36+ft*2,40+ft*2);
+      ctx.fillRect(sx-16-ft,sy-38-ft,32+ft*2,46+ft*2);
       ctx.globalAlpha=baseA;
     }
 
     // Hit flash border
     if(p.hitFlash>0){
       ctx.fillStyle='#FF2020';
-      ctx.fillRect(sx-16,sy-20,32,36);
+      ctx.fillRect(sx-16,sy-36,32,46);
     }
 
-    // Shadow (flat rect)
-    ctx.globalAlpha=baseA*0.45; ctx.fillStyle='#000';
-    ctx.fillRect(sx-12,sy+12,24,5);
+    // Ground shadow
+    ctx.globalAlpha=baseA*0.42; ctx.fillStyle='#000';
+    ctx.fillRect(sx-10,sy+8,20,5);
     ctx.globalAlpha=baseA;
 
-    // Legs — chunky Terraria-style
-    ctx.fillStyle=p.isRolling?'#2a3a4a':'#404850';
-    ctx.fillRect(sx-8,sy+2,6,10); ctx.fillRect(sx+2,sy+2,6,10);
-
-    // Sneak fade — archer invisibility
+    // Sneak fade (Archer invisibility)
     if(p.sneakTimer>0){
       const blinkFast=Math.sin(Date.now()/120)>0;
-      ctx.globalAlpha=baseA*(p.sneakTimer<0.8?( blinkFast?0.30:0.10 ):0.22);
+      ctx.globalAlpha=baseA*(p.sneakTimer<0.8?(blinkFast?0.30:0.10):0.22);
     }
 
-    // --- Derive colors from equipped armor + class ---
-    const eqArmor=p.equipment.armor;
-    let bodyMain, pauldronCol, legCol, trimCol, hasHood=false, hasMageHat=false;
-    if(eqArmor==='LEATHER_ARMOR'||eqArmor==='LEATHER_CHESTPLATE'){
-      bodyMain   = p.isAttacking?'#5e3e14':'#4a3010';
-      pauldronCol= '#30200c'; legCol='#302210'; trimCol='#9a7020';
-    } else if(eqArmor==='CHAIN_MAIL'){
-      bodyMain   = p.isAttacking?'#484c52':'#3a3e44';
-      pauldronCol= '#2c3036'; legCol='#28302c'; trimCol='#686c72';
-    } else if(eqArmor==='ASHEN_PLATE'){
-      bodyMain   = p.isAttacking?'#343438':'#28282e';
-      pauldronCol= '#1e1e24'; legCol='#202028'; trimCol='#a08018';
-    } else if(eqArmor==='OLD_CLOAK'){
-      // Assassin cloak — dark purple-gray
-      bodyMain   = p.isAttacking?'#342840':'#26203a';
-      pauldronCol= '#1a1428'; legCol='#1c1630'; trimCol='#6858a8';
-      hasHood=true;
-    } else if(eqArmor==='OLD_HOOD'){
-      // Archer hood — forest green
-      bodyMain   = p.isAttacking?'#304020':'#24301a';
-      pauldronCol= '#182414'; legCol='#1a2214'; trimCol='#486030';
-      hasHood=true;
-    } else if(eqArmor==='POINTY_HAT'){
-      // Mage robes — purple
-      bodyMain   = p.isAttacking?'#3a2050':'#2c1840';
-      pauldronCol= '#200e30'; legCol='#1e0e34'; trimCol='#9060e0';
-      hasMageHat=true;
-    } else if(eqArmor==='YETI_PELT'){
-      bodyMain   = p.isAttacking?'#b8c0d0':'#9098b0';
-      pauldronCol= '#6878a0'; legCol='#606888'; trimCol='#c8d8f0';
+    // ── Pixel-art class sprite ──────────────────────────────
+    const cls=GS.playerClass||'SWORDSMAN';
+    const spr=CLS_SPRITES[cls]||CLS_SPRITES.SWORDSMAN;
+
+    let sprRows, yOff=0;
+    if(p.isDead){
+      sprRows=spr.idle[0]; yOff=8;
+    } else if(p.isRolling){
+      // Crouched — draw sprite lower so head dips down
+      sprRows=spr.idle[0]; yOff=6;
+    } else if(p.isAttacking){
+      sprRows=spr.attack?spr.attack[0]:spr.idle[0];
+    } else if(p.isMoving){
+      // Alternate stride ↔ neutral every half-cycle
+      const wf=Math.floor(p.walkPhase)%2;
+      sprRows=wf===0?spr.walk[0]:spr.idle[0];
     } else {
-      // Unarmored
-      bodyMain   = p.isAttacking?'#463826':'#38291a';
-      pauldronCol= '#28201a'; legCol='#241c14'; trimCol='#6a5020';
+      sprRows=spr.idle[0];
+      // Subtle vertical bob: shift up 1 px every other 0.5 s
+      yOff=Math.floor(GS.time*2)%2===0?0:-2;
     }
 
-    // Legs — dark iron greaves
-    ctx.fillStyle=p.isRolling?'#181818':legCol;
-    ctx.fillRect(sx-8,sy+2,6,10); ctx.fillRect(sx+2,sy+2,6,10);
-    // Black outline on legs
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-9,sy+2,1,10); ctx.fillRect(sx+8,sy+2,1,10);
-    ctx.fillRect(sx-8,sy+12,6,1); ctx.fillRect(sx+2,sy+12,6,1);
-    // Tarnished trim at boot top
-    ctx.fillStyle=trimCol; ctx.fillRect(sx-8,sy+2,6,1); ctx.fillRect(sx+2,sy+2,6,1);
-
-    // Torso / armor — dark iron, chunky
-    ctx.fillStyle=bodyMain; ctx.fillRect(sx-10,sy-7,20,11);
-    // Black outline on torso
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-11,sy-7,1,11); ctx.fillRect(sx+10,sy-7,1,11);
-    ctx.fillRect(sx-10,sy-8,20,1); ctx.fillRect(sx-10,sy+4,20,1);
-    // Tarnished gold chest trim
-    ctx.fillStyle=trimCol;
-    ctx.fillRect(sx-10,sy-7,20,1); // top trim
-    ctx.fillRect(sx-10,sy+3,20,1); // bottom trim
-    // Pauldrons — wider, chunky iron
-    ctx.fillStyle=pauldronCol;
-    ctx.fillRect(sx-14,sy-7,6,7); ctx.fillRect(sx+8,sy-7,6,7);
-    // Black outline on pauldrons
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-15,sy-7,1,7); ctx.fillRect(sx+14,sy-7,1,7);
-    ctx.fillRect(sx-14,sy-8,6,1); ctx.fillRect(sx+8,sy-8,6,1);
-    // Gold trim on pauldrons
-    ctx.fillStyle=trimCol;
-    ctx.fillRect(sx-14,sy-7,6,1); ctx.fillRect(sx+8,sy-7,6,1);
-
-    // Chain mail — horizontal ring detail
-    if(eqArmor==='CHAIN_MAIL'){
-      ctx.fillStyle='rgba(0,0,0,0.35)';
-      ctx.fillRect(sx-9,sy-4,18,1); ctx.fillRect(sx-9,sy-1,18,1); ctx.fillRect(sx-9,sy+2,18,1);
-    }
-    // Ashen plate — full tarnished gold trim lines
-    if(eqArmor==='ASHEN_PLATE'){
-      ctx.fillStyle='#8a7010';
-      ctx.fillRect(sx-14,sy-7,6,1); ctx.fillRect(sx+8,sy-7,6,1);
-      ctx.fillRect(sx-10,sy-7,20,1); ctx.fillRect(sx-10,sy+3,20,1);
-      // Gold rivet dots
-      ctx.fillStyle='#a08818';
-      ctx.fillRect(sx-8,sy-5,2,2); ctx.fillRect(sx+6,sy-5,2,2);
-      ctx.fillRect(sx-8,sy+1,2,2); ctx.fillRect(sx+6,sy+1,2,2);
-    }
-
-    if(hasMageHat){
-      // Mage: bare face + tall pointy hat
-      ctx.fillStyle='#c0906c'; ctx.fillRect(sx-5,sy-18,10,10); // face skin
-      ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-19,1,10); ctx.fillRect(sx+5,sy-19,1,10);
-      ctx.fillStyle='#1e0e2e'; ctx.fillRect(sx-7,sy-18,3,10); ctx.fillRect(sx+4,sy-18,3,10); // cheeks
-      // Eyes
-      ctx.fillStyle=p.isAttacking?'#d060ff':'#9040c0';
-      ctx.fillRect(sx-4,sy-14,3,2); ctx.fillRect(sx+1,sy-14,3,2);
-      // Pointy hat body (wide brim + tall cone)
-      ctx.fillStyle='#2c1840'; ctx.fillRect(sx-9,sy-22,18,5);   // brim
-      ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-23,20,1);     // brim outline top
-      ctx.fillStyle=trimCol; ctx.fillRect(sx-9,sy-23,18,1);     // brim trim
-      ctx.fillStyle='#24143a'; ctx.fillRect(sx-6,sy-34,12,14);  // hat lower
-      ctx.fillStyle='#1c0e2e'; ctx.fillRect(sx-4,sy-46,8,14);   // hat upper
-      ctx.fillStyle='#160a24'; ctx.fillRect(sx-2,sy-54,4,10);   // hat tip
-      ctx.fillStyle=trimCol; ctx.fillRect(sx-6,sy-34,12,2);     // hat band
-      ctx.fillStyle='#c080ff'; ctx.fillRect(sx-5,sy-33,10,1);   // band gem strip
-    } else if(hasHood){
-      // Assassin/Archer: hooded look — face slightly visible
-      const skinCol='#b08060';
-      ctx.fillStyle=skinCol; ctx.fillRect(sx-4,sy-18,8,10);     // face
-      ctx.fillStyle='#000'; ctx.fillRect(sx-5,sy-18,1,10); ctx.fillRect(sx+4,sy-18,1,10);
-      // Hood fabric over head
-      ctx.fillStyle=pauldronCol; ctx.fillRect(sx-8,sy-22,16,16); // hood outer
-      ctx.fillStyle=bodyMain;    ctx.fillRect(sx-6,sy-20,12,14); // hood inner/face opening
-      ctx.fillStyle=skinCol;     ctx.fillRect(sx-4,sy-18,8,9);   // face poke-through
-      // Eyes peeking from shadow
-      ctx.fillStyle=p.isAttacking?'#e08040':'#a06030';
-      ctx.fillRect(sx-3,sy-14,2,2); ctx.fillRect(sx+1,sy-14,2,2);
-      // Hood cowl shadow — top dark cover
-      ctx.fillStyle=pauldronCol; ctx.fillRect(sx-8,sy-22,16,7);  // top cover
-      ctx.fillStyle='#000'; ctx.fillRect(sx-9,sy-22,1,16); ctx.fillRect(sx+8,sy-22,1,16);
-      ctx.fillRect(sx-8,sy-23,16,1);
-      // Trim stripe
-      ctx.fillStyle=trimCol; ctx.fillRect(sx-8,sy-16,16,2);
+    // Mirror sprite when facing left
+    const facingLeft=p.facing.x<-0.3&&Math.abs(p.facing.x)>Math.abs(p.facing.y);
+    if(facingLeft){
+      pxSM(sx-14, sy-34+yOff, sprRows, spr.pal, 2);
     } else {
-      // Standard iron/plate helm
-      ctx.fillStyle=eqArmor==='ASHEN_PLATE'?'#141416':'#2a2820';
-      ctx.fillRect(sx-6,sy-18,12,12);
-      ctx.fillStyle='#000';
-      ctx.fillRect(sx-7,sy-18,1,12); ctx.fillRect(sx+6,sy-18,1,12);
-      ctx.fillRect(sx-6,sy-19,12,1); ctx.fillRect(sx-6,sy-6,12,1);
-      ctx.fillStyle=trimCol; ctx.fillRect(sx-7,sy-20,14,4);
-      ctx.fillStyle='#000';
-      ctx.fillRect(sx-8,sy-20,1,4); ctx.fillRect(sx+7,sy-20,1,4);
-      ctx.fillRect(sx-7,sy-21,14,1); ctx.fillRect(sx-7,sy-16,14,1);
-      ctx.fillStyle='rgba(255,220,80,0.18)'; ctx.fillRect(sx-6,sy-20,12,1);
-      // Visor slit
-      ctx.fillStyle='#0a0808'; ctx.fillRect(sx-5,sy-14,10,4);
-      ctx.fillStyle=p.isAttacking?'#f0a020':'#c07820';
-      ctx.fillRect(sx-4,sy-13,3,2); ctx.fillRect(sx+1,sy-13,3,2);
-      if(eqArmor==='ASHEN_PLATE'){
-        ctx.fillStyle=p.isAttacking?'#ffc030':'#d88828';
-        ctx.fillRect(sx-3,sy-13,2,1); ctx.fillRect(sx+2,sy-13,2,1);
-      }
+      pxS(sx-14, sy-34+yOff, sprRows, spr.pal, 2);
     }
+    ctx.globalAlpha=baseA;
+    // ── End sprite ─────────────────────────────────────────
 
-    // Talisman — dark cord with colored bead
+    // Talisman — cord + bead
     if(p.equipment.talisman){
-      const talCol= p.equipment.talisman==='EMBER_TALISMAN'?'#a02808':
-                    p.equipment.talisman==='WOODEN_TALISMAN'?'#4a2c0a':'#303840';
-      ctx.fillStyle='#0a0a0a'; ctx.fillRect(sx-1,sy+3,2,5);
-      ctx.fillStyle='#000'; ctx.fillRect(sx-2,sy+7,4,1); // outline
-      ctx.fillStyle=talCol; ctx.fillRect(sx-2,sy+7,4,4);
+      const talCol=p.equipment.talisman==='EMBER_TALISMAN'?'#a02808':
+                   p.equipment.talisman==='WOODEN_TALISMAN'?'#4a2c0a':
+                   p.equipment.talisman==='ARCHER_TALISMAN'?'#306040':'#303840';
+      ctx.fillStyle='#0a0a0a'; ctx.fillRect(sx-1,sy+1,2,5);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-2,sy+5,4,1);
+      ctx.fillStyle=talCol; ctx.fillRect(sx-2,sy+5,4,4);
     }
 
-    // Ring — tarnished pip on right wrist
+    // Ring pip on wrist
     if(p.equipment.ring){
-      const ringCol= p.equipment.ring==='SOVEREIGN_RING'?'#a08010':
-                     p.equipment.ring==='CRIMSON_RING'?'#801010':'#404850';
+      const ringCol=p.equipment.ring==='SOVEREIGN_RING'?'#a08010':
+                    p.equipment.ring==='CRIMSON_RING'?'#801010':'#404850';
       ctx.fillStyle='#000'; ctx.fillRect(sx+8,sy-1,4,3);
       ctx.fillStyle=ringCol; ctx.fillRect(sx+9,sy,2,2);
     }
 
-    // Facing indicator — dim amber dot
+    // Facing dot
     if(!p.isDead){
       ctx.fillStyle='#7a5810';
       const fd=11;
