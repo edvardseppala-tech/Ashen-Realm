@@ -597,6 +597,45 @@ function abilityTier(level){
 }
 
 // ============================================================
+// WEAPON HELPERS & ABILITY DEFINITIONS
+// ============================================================
+const BOW_WEAPONS  = new Set(['OLD_BOW','HUNTERS_BOW','LONGBOW','FOREST_BOW','WARDEN_BOW']);
+const WAND_WEAPONS = new Set(['OLD_WAND','OAK_STAFF','CRYSTAL_WAND','EMBER_ROD','ARCANE_TOME','VINE_STAFF']);
+
+// Per-weapon magic bolt visuals
+const WAND_PROJ = {
+  OLD_WAND:     {spd:280,sz:7, col:'#8040c0',glow:'#c060ff'},
+  OAK_STAFF:    {spd:300,sz:8, col:'#5060d8',glow:'#8090ff'},
+  CRYSTAL_WAND: {spd:250,sz:9, col:'#40a0d8',glow:'#80d0ff',isIce:true},
+  EMBER_ROD:    {spd:320,sz:7, col:'#e04010',glow:'#ff8040',isFlame:true},
+  ARCANE_TOME:  {spd:340,sz:8, col:'#c040ff',glow:'#e080ff'},
+  VINE_STAFF:   {spd:190,sz:9, col:'#408020',glow:'#80d040',isToxic:true},
+};
+
+// L-key weapon abilities (name, cost, cooldown)
+const WEAPON_ABILITIES = {
+  // Bows
+  OLD_BOW:       {name:'Power Shot',     sc:20,fp:0,  cd:2.5},
+  HUNTERS_BOW:   {name:'Multi-Shot',     sc:22,fp:0,  cd:3.0},
+  LONGBOW:       {name:'Piercing Shot',  sc:18,fp:0,  cd:3.5},
+  FOREST_BOW:    {name:'Rapid Fire',     sc:15,fp:0,  cd:2.5},
+  WARDEN_BOW:    {name:'Explosive Arrow',sc:25,fp:0,  cd:4.0},
+  // Wands
+  OLD_WAND:      {name:'Magic Burst',    sc:0, fp:20, cd:3.0},
+  OAK_STAFF:     {name:'Force Wave',     sc:0, fp:22, cd:3.5},
+  CRYSTAL_WAND:  {name:'Frost Bolt',     sc:0, fp:28, cd:3.5},
+  EMBER_ROD:     {name:'Fire Burst',     sc:0, fp:25, cd:3.0},
+  ARCANE_TOME:   {name:'Arcane Storm',   sc:0, fp:35, cd:4.5},
+  VINE_STAFF:    {name:'Toxic Cloud',    sc:0, fp:30, cd:5.0},
+  // Swords / daggers
+  RUSTY_SWORD:   {name:'Heavy Swing',    sc:22,fp:0,  cd:2.5},
+  SMALL_DAGGER:  {name:'Blade Rush',     sc:18,fp:0,  cd:2.5},
+  IRON_SWORD:    {name:'Steel Counter',  sc:20,fp:0,  cd:3.0},
+  HOLLOW_BLADE:  {name:'Soul Drain',     sc:15,fp:10, cd:4.0},
+  ASHEN_GREATSWORD:{name:'Ground Slam',  sc:30,fp:0,  cd:4.5},
+};
+
+// ============================================================
 // GAME STATE
 // ============================================================
 const GS = {
@@ -631,6 +670,8 @@ const GS = {
     statPoints:{hp:0,fp:0,stamina:0,damage:0,defense:0}, // accumulated level bonuses
     weaponUpgrades:{},        // e.g. {IRON_SWORD:2} — upgrade level per weapon
     specialCooldown:0,        // Q-ability cooldown
+    weaponAbilityCD:0,        // L-key weapon ability cooldown
+    counterActive:false, counterTimer:0, // Iron Sword counter buff
     levelupCursor:0,          // cursor in level-up menu
     walkPhase:0, isMoving:false, // animation tracking
   },
@@ -676,7 +717,7 @@ const Input = {
     window.addEventListener('keydown', e=>{
       if(!this.keys[e.code]) this.pressed[e.code]=true;
       this.keys[e.code]=true;
-      const game=['Space','KeyW','KeyS','KeyA','KeyD','KeyJ','KeyK','KeyQ','KeyE','KeyF',
+      const game=['Space','KeyW','KeyS','KeyA','KeyD','KeyJ','KeyK','KeyQ','KeyE','KeyF','KeyL',
                   'ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Escape','Tab','KeyR','KeyT',
                   'Digit1','Digit2','Digit3','Digit4','Digit5'];
       if(game.includes(e.code)) e.preventDefault();
@@ -2975,6 +3016,7 @@ const Player = {
     this._roll(dt);
     this._attack(dt);
     this._special(dt);
+    this._weaponAbility(dt);
     this._staminaRegen(dt);
     this._interact();
     this._flask();
@@ -3054,6 +3096,7 @@ const Player = {
   _attack(dt){
     const p=GS.player;
     if(p.attackCooldown>0) p.attackCooldown-=dt;
+    if(p.counterTimer>0){ p.counterTimer-=dt; if(p.counterTimer<=0) p.counterActive=false; }
     if(p.isAttacking){
       p.attackTimer-=dt;
       if(atkHitbox){ this._syncHitbox(); this._checkHits(); atkHitbox.timer-=dt; if(atkHitbox.timer<=0) atkHitbox=null; }
@@ -3061,26 +3104,61 @@ const Player = {
       return;
     }
     if(p.attackCooldown>0) return;
-    if(Input.just('KeyJ')&&p.stamina>=PLAYER_CONFIG.lightStamina){
-      p.stamina-=PLAYER_CONFIG.lightStamina; p.isAttacking=true; p.attackType='light';
-      p.attackTimer=PLAYER_CONFIG.lightDur; p.attackCooldown=PLAYER_CONFIG.attackCooldown;
-      this._makeHitbox('light');
-    } else if(Input.just('KeyK')&&p.stamina>=PLAYER_CONFIG.heavyStamina){
-      p.stamina-=PLAYER_CONFIG.heavyStamina; p.isAttacking=true; p.attackType='heavy';
-      p.attackTimer=PLAYER_CONFIG.heavyDur; p.attackCooldown=PLAYER_CONFIG.attackCooldown;
-      this._makeHitbox('heavy');
-    } else if((Input.just('KeyJ')||Input.just('KeyK'))&&p.stamina<PLAYER_CONFIG.lightStamina){
-      p.staminaEmpty=0.4;
+    const w=p.equipment.weapon;
+    const isBow=BOW_WEAPONS.has(w), isWand=WAND_WEAPONS.has(w);
+    const lightJ=Input.just('KeyJ'), heavyK=Input.just('KeyK');
+    if((lightJ||heavyK)&&p.stamina<PLAYER_CONFIG.lightStamina){ p.staminaEmpty=0.4; return; }
+    if(!lightJ&&!heavyK) return;
+    const type=lightJ?'light':'heavy';
+    p.isAttacking=true; p.attackType=type;
+    p.attackTimer=type==='light'?PLAYER_CONFIG.lightDur:PLAYER_CONFIG.heavyDur;
+    p.attackCooldown=PLAYER_CONFIG.attackCooldown;
+    if(type==='light') p.stamina-=PLAYER_CONFIG.lightStamina;
+    else               p.stamina-=PLAYER_CONFIG.heavyStamina;
+    if(isBow){
+      // Fire arrow projectile — no melee hitbox
+      const spd = type==='light' ? 310 : 250;
+      const dmg = (type==='light'?PLAYER_CONFIG.lightDmg:PLAYER_CONFIG.heavyDmg)+Stats.damage();
+      const sz  = type==='light' ? 5 : 8;
+      const angle=Math.atan2(p.facing.y,p.facing.x);
+      GS.projectiles.push({
+        x:p.x+p.facing.x*18, y:p.y+p.facing.y*18,
+        vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd,
+        dmg, sz, life:2.8,
+        color:'#9a5018', glow:'#d09040',
+        isPlayerProj:true, isArrow:true,
+        angle, // for draw rotation
+      });
+      Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,3);
+    } else if(isWand){
+      // Fire magic bolt projectile — no melee hitbox
+      const wp=WAND_PROJ[w]||WAND_PROJ.OLD_WAND;
+      const spd = type==='light' ? wp.spd : wp.spd*0.75;
+      const dmg = (type==='light'?PLAYER_CONFIG.lightDmg:PLAYER_CONFIG.heavyDmg)+Stats.damage();
+      const sz  = type==='light' ? wp.sz : wp.sz+3;
+      const angle=Math.atan2(p.facing.y,p.facing.x);
+      GS.projectiles.push({
+        x:p.x+p.facing.x*16, y:p.y+p.facing.y*16,
+        vx:Math.cos(angle)*spd, vy:Math.sin(angle)*spd,
+        dmg, sz, life:2.5,
+        color:wp.col, glow:wp.glow,
+        isPlayerProj:true, isMagicBolt:true,
+        isIce:wp.isIce, isToxic:wp.isToxic,
+      });
+      Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,4);
+    } else {
+      this._makeHitbox(type);
     }
   },
 
   _makeHitbox(type){
     const p=GS.player;
     const range=type==='light'?52:72, w=type==='light'?34:56;
+    let dmg=(type==='light'?PLAYER_CONFIG.lightDmg:PLAYER_CONFIG.heavyDmg)+Stats.damage();
+    if(p.counterActive){ dmg*=3; p.counterActive=false; p.counterTimer=0; ScreenFX.flash('#808090',0.3,0.18); }
     atkHitbox={
       x:p.x+p.facing.x*range-w/2, y:p.y+p.facing.y*range-w/2,
-      w,h:w, dmg:(type==='light'?PLAYER_CONFIG.lightDmg:PLAYER_CONFIG.heavyDmg)+Stats.damage(),
-      type, timer:type==='light'?PLAYER_CONFIG.lightDur:PLAYER_CONFIG.heavyDur,
+      w,h:w, dmg, type, timer:type==='light'?PLAYER_CONFIG.lightDur:PLAYER_CONFIG.heavyDur,
       hit:new Set()
     };
     this._checkHits();
@@ -3104,6 +3182,12 @@ const Player = {
         Enemies.damage(e, atkHitbox.dmg, p.facing.x, p.facing.y);
         atkHitbox.hit.add(e.id);
         Particles.sparks(e.x,e.y,8);
+        // Lifesteal (Hollow Blade Soul Drain)
+        if(atkHitbox.isLifesteal){
+          const heal=Math.ceil(atkHitbox.dmg*0.25);
+          p.hp=Math.min(Stats.maxHP(),p.hp+heal);
+          UI.msg(`+${heal} HP stolen`,'rune',0.8);
+        }
         // Combo tracking
         p.combo++; p.comboTimer=2.0;
         if(p.combo===3) UI.msg('COMBO x3','combo',1.0);
@@ -3279,6 +3363,256 @@ const Player = {
         Particles.sparks(p.x+dx*22,p.y+dy*22,12);
         ScreenFX.flash('#601008',0.20,0.25);
         UI.msg(upg.name+'!','combo',0.9);
+        break;
+      }
+    }
+  },
+
+  _weaponAbility(dt){
+    const p=GS.player;
+    if(p.weaponAbilityCD>0) p.weaponAbilityCD-=dt;
+    if(!Input.just('KeyL')) return;
+    const w=p.equipment.weapon;
+    const ab=WEAPON_ABILITIES[w];
+    if(!ab){ UI.msg('No ability for this weapon','rune',0.8); return; }
+    if(p.weaponAbilityCD>0){ UI.msg('Ability cooling down','rune',0.8); return; }
+    if(ab.sc>0&&p.stamina<ab.sc){ UI.msg('Not enough Stamina','rune',0.8); return; }
+    if(ab.fp>0&&p.fp<ab.fp){ UI.msg('Not enough FP','rune',0.8); return; }
+    if(ab.sc>0) p.stamina-=ab.sc;
+    if(ab.fp>0) p.fp-=ab.fp;
+    p.weaponAbilityCD=ab.cd;
+    const angle=Math.atan2(p.facing.y,p.facing.x);
+    const baseDmg=PLAYER_CONFIG.lightDmg+Stats.damage();
+
+    switch(w){
+      // ── BOWS ─────────────────────────────────────────────────────────────
+      case 'OLD_BOW':{ // Power Shot — single hard-hitting arrow
+        const dmg=baseDmg*2.2;
+        GS.projectiles.push({
+          x:p.x+p.facing.x*18, y:p.y+p.facing.y*18,
+          vx:Math.cos(angle)*480, vy:Math.sin(angle)*480,
+          dmg, sz:7, life:3.2,
+          color:'#c87030', glow:'#ffb040',
+          isPlayerProj:true, isArrow:true, angle,
+        });
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,6);
+        UI.msg('Power Shot!','combo',0.8);
+        break;
+      }
+      case 'HUNTERS_BOW':{ // Multi-Shot — 3 arrows spread
+        const spread=0.26;
+        for(let i=-1;i<=1;i++){
+          const a=angle+i*spread;
+          GS.projectiles.push({
+            x:p.x+p.facing.x*16+(-p.facing.y*i*10), y:p.y+p.facing.y*16+(p.facing.x*i*10),
+            vx:Math.cos(a)*340, vy:Math.sin(a)*340,
+            dmg:baseDmg*1.1, sz:5, life:2.5,
+            color:'#9a5018', glow:'#d09040',
+            isPlayerProj:true, isArrow:true, angle:a,
+          });
+        }
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,8);
+        UI.msg('Multi-Shot!','combo',0.8);
+        break;
+      }
+      case 'LONGBOW':{ // Piercing Shot — passes through enemies
+        GS.projectiles.push({
+          x:p.x+p.facing.x*18, y:p.y+p.facing.y*18,
+          vx:Math.cos(angle)*390, vy:Math.sin(angle)*390,
+          dmg:baseDmg*1.5, sz:6, life:3.5,
+          color:'#6a8040', glow:'#a0c060',
+          isPlayerProj:true, isArrow:true, angle, isPiercing:true, piercedIds:new Set(),
+        });
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,5);
+        UI.msg('Piercing Shot!','combo',0.8);
+        break;
+      }
+      case 'FOREST_BOW':{ // Rapid Fire — 3 quick arrows in series
+        for(let i=0;i<3;i++){
+          const jitter=(Math.random()-0.5)*0.12;
+          GS.projectiles.push({
+            x:p.x+p.facing.x*16, y:p.y+p.facing.y*16,
+            vx:Math.cos(angle+jitter)*(360+i*10), vy:Math.sin(angle+jitter)*(360+i*10),
+            dmg:baseDmg*0.9, sz:4, life:2.2,
+            color:'#7a8830', glow:'#b0c850',
+            isPlayerProj:true, isArrow:true, angle,
+            delaySpawn:i*0.07,
+          });
+        }
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,7);
+        UI.msg('Rapid Fire!','combo',0.8);
+        break;
+      }
+      case 'WARDEN_BOW':{ // Explosive Arrow
+        GS.projectiles.push({
+          x:p.x+p.facing.x*18, y:p.y+p.facing.y*18,
+          vx:Math.cos(angle)*300, vy:Math.sin(angle)*300,
+          dmg:baseDmg*1.8, sz:8, life:3.0,
+          color:'#c84820', glow:'#ff8020',
+          isPlayerProj:true, isArrow:true, angle, isExplosive:true, explosionR:64,
+        });
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,6);
+        UI.msg('Explosive Arrow!','combo',0.9);
+        break;
+      }
+      // ── WANDS ────────────────────────────────────────────────────────────
+      case 'OLD_WAND':{ // Magic Burst — 8-way burst
+        for(let i=0;i<8;i++){
+          const a=angle+(i/8)*Math.PI*2;
+          GS.projectiles.push({
+            x:p.x, y:p.y,
+            vx:Math.cos(a)*240, vy:Math.sin(a)*240,
+            dmg:baseDmg*0.7, sz:6, life:1.8,
+            color:'#8040c0', glow:'#c060ff',
+            isPlayerProj:true, isMagicBolt:true,
+          });
+        }
+        ScreenFX.flash('#3010a0',0.18,0.2);
+        UI.msg('Magic Burst!','combo',0.8);
+        break;
+      }
+      case 'OAK_STAFF':{ // Force Wave — wide push hitbox
+        const hw=80;
+        atkHitbox={
+          x:p.x+p.facing.x*60-hw/2, y:p.y+p.facing.y*60-hw/2,
+          w:hw, h:hw, dmg:baseDmg*1.4, type:'heavy', timer:0.25,
+          hit:new Set(), isPush:true, pushDx:p.facing.x*400, pushDy:p.facing.y*400,
+        };
+        this._checkHits(); atkHitbox=null;
+        for(let i=0;i<8;i++) Particles.sparks(
+          p.x+p.facing.x*(20+i*10), p.y+p.facing.y*(20+i*10), 4);
+        ScreenFX.flash('#4050d8',0.15,0.2);
+        UI.msg('Force Wave!','combo',0.8);
+        break;
+      }
+      case 'CRYSTAL_WAND':{ // Frost Bolt — large ice bolt, freezes on hit
+        GS.projectiles.push({
+          x:p.x+p.facing.x*16, y:p.y+p.facing.y*16,
+          vx:Math.cos(angle)*260, vy:Math.sin(angle)*260,
+          dmg:baseDmg*2.0, sz:12, life:3.0,
+          color:'#40a0d8', glow:'#80d0ff',
+          isPlayerProj:true, isMagicBolt:true, isIce:true, freezeHit:true,
+        });
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,8);
+        ScreenFX.flash('#104060',0.18,0.25);
+        UI.msg('Frost Bolt!','combo',0.9);
+        break;
+      }
+      case 'EMBER_ROD':{ // Fire Burst — 5 flame bolts in a cone
+        for(let i=-2;i<=2;i++){
+          const a=angle+i*0.18;
+          GS.projectiles.push({
+            x:p.x+p.facing.x*16, y:p.y+p.facing.y*16,
+            vx:Math.cos(a)*320, vy:Math.sin(a)*320,
+            dmg:baseDmg*1.0, sz:7, life:2.2,
+            color:'#e04010', glow:'#ff8040',
+            isPlayerProj:true, isMagicBolt:true, isFlame:true,
+          });
+        }
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,10);
+        ScreenFX.flash('#601008',0.18,0.2);
+        UI.msg('Fire Burst!','combo',0.9);
+        break;
+      }
+      case 'ARCANE_TOME':{ // Arcane Storm — 12-way burst + central bolt
+        GS.projectiles.push({
+          x:p.x+p.facing.x*16, y:p.y+p.facing.y*16,
+          vx:Math.cos(angle)*400, vy:Math.sin(angle)*400,
+          dmg:baseDmg*2.2, sz:10, life:2.8,
+          color:'#c040ff', glow:'#e080ff',
+          isPlayerProj:true, isMagicBolt:true,
+        });
+        for(let i=0;i<12;i++){
+          const a=(i/12)*Math.PI*2;
+          GS.projectiles.push({
+            x:p.x, y:p.y,
+            vx:Math.cos(a)*200, vy:Math.sin(a)*200,
+            dmg:baseDmg*0.6, sz:6, life:1.6,
+            color:'#9020e0', glow:'#c060ff',
+            isPlayerProj:true, isMagicBolt:true,
+          });
+        }
+        ScreenFX.flash('#200840',0.25,0.3);
+        UI.msg('Arcane Storm!','combo',1.0);
+        break;
+      }
+      case 'VINE_STAFF':{ // Toxic Cloud — slow ring of poison bolts
+        for(let i=0;i<10;i++){
+          const a=(i/10)*Math.PI*2;
+          GS.projectiles.push({
+            x:p.x, y:p.y,
+            vx:Math.cos(a)*120, vy:Math.sin(a)*120,
+            dmg:baseDmg*0.8, sz:8, life:2.6,
+            color:'#408020', glow:'#80d040',
+            isPlayerProj:true, isMagicBolt:true, isToxic:true,
+          });
+        }
+        Particles.sparks(p.x,p.y,12);
+        ScreenFX.flash('#102008',0.2,0.3);
+        UI.msg('Toxic Cloud!','combo',0.8);
+        break;
+      }
+      // ── SWORDS / MELEE ───────────────────────────────────────────────────
+      case 'RUSTY_SWORD':{ // Heavy Swing — big wide slash
+        const hw=72;
+        atkHitbox={
+          x:p.x+p.facing.x*64-hw/2, y:p.y+p.facing.y*64-hw/2,
+          w:hw, h:hw, dmg:baseDmg*2.0, type:'heavy', timer:0.35, hit:new Set(),
+        };
+        this._checkHits(); atkHitbox=null;
+        Particles.sparks(p.x+p.facing.x*56,p.y+p.facing.y*56,10);
+        ScreenFX.flash('#906030',0.18,0.2);
+        UI.msg('Heavy Swing!','combo',0.8);
+        break;
+      }
+      case 'SMALL_DAGGER':{ // Blade Rush — lunge forward + hit
+        const lx=p.facing.x, ly=p.facing.y;
+        p.x+=lx*44; p.y+=ly*44;
+        // Keep in bounds
+        p.x=Math.max(TILE_SIZE,Math.min((WORLD_W-1)*TILE_SIZE,p.x));
+        p.y=Math.max(TILE_SIZE,Math.min((WORLD_H-1)*TILE_SIZE,p.y));
+        const hw2=40;
+        atkHitbox={
+          x:p.x+lx*36-hw2/2, y:p.y+ly*36-hw2/2,
+          w:hw2, h:hw2, dmg:baseDmg*1.6, type:'light', timer:0.2, hit:new Set(),
+        };
+        this._checkHits(); atkHitbox=null;
+        Particles.sparks(p.x,p.y,8);
+        ScreenFX.flash('#602040',0.15,0.15);
+        UI.msg('Blade Rush!','combo',0.8);
+        break;
+      }
+      case 'IRON_SWORD':{ // Steel Counter — buff next hit 3x
+        p.counterActive=true; p.counterTimer=3.5;
+        ScreenFX.flash('#808090',0.2,0.3);
+        UI.msg('Counter Stance!','combo',1.2);
+        break;
+      }
+      case 'HOLLOW_BLADE':{ // Soul Drain — lifesteal heavy hit
+        const hw3=52;
+        atkHitbox={
+          x:p.x+p.facing.x*60-hw3/2, y:p.y+p.facing.y*60-hw3/2,
+          w:hw3, h:hw3, dmg:baseDmg*1.8, type:'heavy', timer:0.3, hit:new Set(),
+          isLifesteal:true,
+        };
+        this._checkHits(); atkHitbox=null;
+        Particles.sparks(p.x+p.facing.x*48,p.y+p.facing.y*48,10);
+        ScreenFX.flash('#400050',0.2,0.25);
+        UI.msg('Soul Drain!','combo',0.9);
+        break;
+      }
+      case 'ASHEN_GREATSWORD':{ // Ground Slam — AoE ring around player
+        const aoeR=96;
+        atkHitbox={
+          x:p.x-aoeR, y:p.y-aoeR,
+          w:aoeR*2, h:aoeR*2, dmg:baseDmg*2.4, type:'heavy', timer:0.4, hit:new Set(),
+        };
+        this._checkHits(); atkHitbox=null;
+        for(let i=0;i<16;i++) Particles.sparks(
+          p.x+Math.cos(i*0.393)*aoeR*0.7, p.y+Math.sin(i*0.393)*aoeR*0.7, 4);
+        ScreenFX.flash('#604020',0.28,0.35);
+        ScreenFX.shake(8,0.25);
+        UI.msg('Ground Slam!','combo',1.0);
         break;
       }
     }
@@ -4444,29 +4778,67 @@ const Enemies = {
     for(let i=GS.projectiles.length-1;i>=0;i--){
       const pr=GS.projectiles[i];
       pr.x+=pr.vx*dt; pr.y+=pr.vy*dt; pr.life-=dt;
-      if(pr.life<=0||!World.passable(World.tile(pr.x,pr.y))){
-        Particles.sparks(pr.x,pr.y,4); GS.projectiles.splice(i,1); continue;
+      const hitWall=!World.passable(World.tile(pr.x,pr.y));
+      if(pr.life<=0||hitWall){
+        // Explosive arrow detonates on wall/expiry
+        if(pr.isExplosive&&hitWall){
+          const aoeR=pr.explosionR||64;
+          const nvx=pr.vx/(Math.abs(pr.vx)||1), nvy=pr.vy/(Math.abs(pr.vy)||1);
+          for(const e of GS.enemies){
+            if(e.isDead) continue;
+            if(Math.hypot(e.x-pr.x,e.y-pr.y)<aoeR) Enemies.damage(e,pr.dmg,nvx,nvy);
+          }
+          for(let fi=0;fi<14;fi++) Particles.death(pr.x+(Math.random()-0.5)*aoeR,pr.y+(Math.random()-0.5)*aoeR,'#ff6010',4);
+          ScreenFX.flash('#ff4010',0.25,0.25); ScreenFX.shake(6,0.2);
+        } else {
+          Particles.sparks(pr.x,pr.y,4);
+        }
+        GS.projectiles.splice(i,1); continue;
       }
       if(pr.isPlayerProj){
         // Player projectile — hits enemies
         let hit=false;
         for(const e of GS.enemies){
           if(e.isDead) continue;
+          if(pr.isPiercing&&pr.piercedIds&&pr.piercedIds.has(e.id)) continue;
           if(Math.hypot(e.x-pr.x,e.y-pr.y)<e.size+pr.sz){
-            Enemies.damage(e,pr.dmg,pr.vx/Math.abs(pr.vx+0.001),pr.vy/Math.abs(pr.vy+0.001));
+            const nvx=pr.vx/(Math.abs(pr.vx)||1), nvy=pr.vy/(Math.abs(pr.vy)||1);
+            Enemies.damage(e,pr.dmg,nvx,nvy);
+            if(pr.isExplosive){
+              // Explosive arrow — AoE splash
+              const aoeR=pr.explosionR||64;
+              for(const e2 of GS.enemies){
+                if(e2.isDead||e2===e) continue;
+                if(Math.hypot(e2.x-pr.x,e2.y-pr.y)<aoeR)
+                  Enemies.damage(e2,pr.dmg*0.6,nvx,nvy);
+              }
+              for(let fi=0;fi<12;fi++) Particles.death(pr.x+(Math.random()-0.5)*aoeR,pr.y+(Math.random()-0.5)*aoeR,'#ff6010',4);
+              ScreenFX.flash('#ff4010',0.25,0.25); ScreenFX.shake(6,0.2);
+              Particles.sparks(pr.x,pr.y,18);
+              GS.projectiles.splice(i,1); hit=true; break;
+            }
             if(pr.isFireball){
               // Fireball AOE — splash all nearby enemies
               const aoeR=pr.fireballSz*2.8;
               for(const e2 of GS.enemies){
                 if(e2.isDead||e2===e) continue;
                 if(Math.hypot(e2.x-pr.x,e2.y-pr.y)<aoeR)
-                  Enemies.damage(e2,pr.dmg*0.6,pr.vx/Math.abs(pr.vx+0.001),pr.vy/Math.abs(pr.vy+0.001));
+                  Enemies.damage(e2,pr.dmg*0.6,nvx,nvy);
               }
               ScreenFX.flash('#ff4010',0.25,0.25);
               ScreenFX.shake(6,0.2);
               for(let fi=0;fi<12;fi++) Particles.death(pr.x+(Math.random()-0.5)*aoeR,pr.y+(Math.random()-0.5)*aoeR,'#ff6010',4);
             }
-            Particles.sparks(pr.x,pr.y,pr.isFireball?16:8); hit=true; break;
+            if(pr.freezeHit){
+              e.rootTimer=Math.max(e.rootTimer||0, 2.0);
+              UI.msg('Frozen!','rune',0.8);
+            }
+            if(pr.isToxic&&!pr.freezeHit){
+              e.rootTimer=Math.max(e.rootTimer||0, 0.8);
+            }
+            Particles.sparks(pr.x,pr.y,pr.isFireball?16:8);
+            if(pr.isPiercing){ pr.piercedIds.add(e.id); }
+            else { hit=true; break; }
           }
         }
         if(hit){ GS.projectiles.splice(i,1); continue; }
@@ -4546,7 +4918,29 @@ const Enemies = {
       if(sx<-20||sx>SCREEN_W+20||sy<-20||sy>SCREEN_H+20) continue;
       const s=Math.max(2,pr.sz|0);
       if(pr.isPlayerProj){
-        if(pr.isFireball){
+        if(pr.isArrow){
+          // Arrow — elongated rotated rect
+          const a=pr.angle||Math.atan2(pr.vy,pr.vx);
+          ctx.save();
+          ctx.translate(sx,sy);
+          ctx.rotate(a);
+          // Shaft
+          ctx.globalAlpha=1; ctx.fillStyle=pr.color||'#9a5018';
+          ctx.fillRect(-10,-2,20,4);
+          // Tip (darker point)
+          ctx.fillStyle='#d0d0c0';
+          ctx.fillRect(8,-2,6,4);
+          // Fletching
+          ctx.fillStyle='#f0f0e0';
+          ctx.fillRect(-12,-3,5,2); ctx.fillRect(-12,1,5,2);
+          // Glow halo for explosive arrow
+          if(pr.isExplosive){
+            ctx.globalAlpha=0.4; ctx.fillStyle=pr.glow||'#ff8020';
+            ctx.fillRect(-12,-5,28,10);
+          }
+          ctx.restore();
+          ctx.globalAlpha=1;
+        } else if(pr.isFireball){
           // Fireball — layered orange glow
           ctx.globalAlpha=0.20; ctx.fillStyle='#ff8020';
           ctx.fillRect(sx-(s+6>>1),sy-(s+6>>1),s+6,s+6);
@@ -4556,13 +4950,27 @@ const Enemies = {
           ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
           ctx.fillStyle='#ffe060'; ctx.fillRect(sx-2,sy-2,4,4); // hot core
           ctx.fillStyle='#fff'; ctx.fillRect(sx-1,sy-1,2,2);    // white center
+        } else if(pr.isMagicBolt){
+          // Magic bolt — pulsing colored square with bright core
+          ctx.globalAlpha=0.30; ctx.fillStyle=pr.glow||'#c060ff';
+          ctx.fillRect(sx-(s+4>>1),sy-(s+4>>1),s+4,s+4);
+          ctx.globalAlpha=0.65; ctx.fillStyle=pr.color||'#8040c0';
+          ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+          ctx.globalAlpha=1; ctx.fillStyle='#ffffff';
+          ctx.fillRect(sx-2,sy-2,4,4); // bright core
+          // Ice bolt tint
+          if(pr.isIce){
+            ctx.globalAlpha=0.4; ctx.fillStyle='#80e0ff';
+            ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+          }
+          ctx.globalAlpha=1;
         } else {
-          // Toxic bolt / generic player projectile
+          // Generic player projectile
           ctx.globalAlpha=0.35; ctx.fillStyle=pr.glow||'#406020';
           ctx.fillRect(sx-(s+3>>1),sy-(s+3>>1),s+3,s+3);
           ctx.globalAlpha=1; ctx.fillStyle=pr.color||'#2a6a10';
           ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
-          ctx.fillStyle='#60ff40'; ctx.fillRect(sx-1,sy-1,2,2); // bright core
+          ctx.fillStyle='#60ff40'; ctx.fillRect(sx-1,sy-1,2,2);
         }
       } else {
         // Trail
@@ -6188,6 +6596,31 @@ const UI = {
         R.text('STEALTH  '+p.sneakTimer.toFixed(1)+'s',sbx+sbw/2+2,sby-8,def.color,8,'center');
       }
     }
+    // L-key weapon ability bar
+    {
+      const wab=WEAPON_ABILITIES[p.equipment.weapon];
+      if(wab){
+        const lbx=mg-4, lbw=bw+22, lbh=18;
+        const lby=sy0-68;
+        const lReady=p.weaponAbilityCD<=0;
+        const lbgCol=lReady?'#0a0c10':'#08060a';
+        const lAccCol=lReady?'#5090c0':'#203050';
+        ctx.fillStyle='#000'; ctx.fillRect(lbx,lby,lbw,lbh);
+        ctx.fillStyle=lbgCol; ctx.fillRect(lbx+2,lby+2,lbw-4,lbh-4);
+        ctx.fillStyle=lAccCol; ctx.fillRect(lbx,lby,3,lbh);
+        R.text('[L]',lbx+8,lby+12,'#5090c0',9);
+        if(lReady){
+          R.bold(wab.name+'  READY',lbx+28,lby+12,'#5090c0',9);
+        } else {
+          const lbw2=lbw-44;
+          ctx.fillStyle='#080a0c'; ctx.fillRect(lbx+28,lby+4,lbw2,8);
+          ctx.fillStyle='#203050'; ctx.fillRect(lbx+28,lby+4,(lbw2*(1-p.weaponAbilityCD/wab.cd))|0,8);
+          ctx.fillStyle='#5090c0'; ctx.fillRect(lbx+28,lby+4,1,8);
+          R.text(p.weaponAbilityCD.toFixed(1)+'s',lbx+lbw-6,lby+12,'#304050',8,'right');
+          R.text(wab.name,lbx+28,lby+12,'#202830',8);
+        }
+      }
+    }
     // Frost aura indicator (Yeti Pelt)
     if(p.equipment.armor==='YETI_PELT'){
       ctx.globalAlpha=0.55; ctx.fillStyle='#2060c0';
@@ -6210,7 +6643,8 @@ const UI = {
 
     // Controls hint
     const clsHint=GS.playerClass?`[Q] ${CLASS_DEFS[GS.playerClass].ability.name}  `:'';
-    R.text(`WASD Move  J/K Attack  ${clsHint}Space Roll  E Interact  F Flask  Tab Equip`,
+    const wabHint=WEAPON_ABILITIES[p.equipment.weapon]?`[L] ${WEAPON_ABILITIES[p.equipment.weapon].name}  `:'';
+    R.text(`WASD Move  J/K Attack  ${clsHint}${wabHint}Space Roll  E Interact  F Flask  Tab Equip`,
            SCREEN_W-mg,13,'#1e1e1e',8,'right');
   },
 
