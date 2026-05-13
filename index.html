@@ -3781,6 +3781,175 @@ const Player = {
     ctx.globalAlpha=baseA;
     // ── End sprite ─────────────────────────────────────────
 
+    // ── Armor overlay (drawn on top of base sprite) ─────────
+    {
+      const armorId=p.equipment.armor;
+      if(armorId&&!p.isDead){
+        const yo=sy-34+yOff; // sprite top-left y (with bob offset)
+        const xo=sx-14;      // sprite top-left x
+        // R(col, row, colWidth, rowHeight, color) — draw on sprite grid (2px/cell)
+        const R=(c,r,cw,rh,col)=>{ ctx.fillStyle=col; ctx.fillRect(xo+c*2,yo+r*2,cw*2,rh*2); };
+        ctx.globalAlpha=baseA;
+        switch(armorId){
+          case 'OLD_HOOD':
+            // Soft weathered leather hood with stitched rim
+            R(1,0,12,1,'#2a1608'); // hood outer shadow
+            R(2,0,10,2,'#3e2410'); // hood band
+            R(2,0,10,1,'#5a3818'); // hood top face
+            R(2,1, 4,1,'#4a2c10'); R(8,1,4,1,'#4a2c10'); // band shading
+            R(1,2, 2,5,'#2c1808'); // left drape shadow
+            R(11,2,2,5,'#2c1808'); // right drape shadow
+            R(3,7, 8,1,'#3e2410'); // chin shadow under hood
+            break;
+          case 'POINTY_HAT':
+            // Tall wizard hat with star band and glowing tip
+            ctx.fillStyle='#1c0830'; ctx.fillRect(xo+8,yo-16,12,8);  // lower cone
+            ctx.fillStyle='#220e3c'; ctx.fillRect(xo+10,yo-24,8,8); // mid cone
+            ctx.fillStyle='#2a1048'; ctx.fillRect(xo+12,yo-30,4,6); // upper cone
+            ctx.fillStyle='#320c58'; ctx.fillRect(xo+13,yo-34,2,4); // sharp tip
+            ctx.fillStyle='#8040c0'; ctx.fillRect(xo+11,yo-16,2,2); // star left
+            ctx.fillStyle='#8040c0'; ctx.fillRect(xo+15,yo-16,2,2); // star right
+            ctx.fillStyle='#c060ff'; ctx.fillRect(xo+13,yo-18,2,2); // star top
+            // Brim
+            R(0,0,14,2,'#1c0830'); // brim body
+            R(1,0,12,1,'#3c2cc0'); // brim accent
+            R(4,1, 2,1,'#9050ff'); R(8,1,2,1,'#9050ff'); // brim gems
+            R(5,0, 4,1,'#240e40'); // brim center shadow
+            break;
+          case 'OLD_CLOAK':
+            // Dark billowing cloak with purple clasp
+            R(2,6,10,1,'#1a1024'); // collar pre-shadow
+            R(2,7,10,2,'#261a34'); // collar body
+            R(3,7, 8,1,'#342444'); // collar face highlight
+            R(5,7, 4,1,'#1e1630'); // collar center shadow
+            R(6,7, 2,2,'#5038a0'); // clasp body
+            R(6,7, 2,1,'#7858c8'); // clasp face
+            R(7,7, 1,1,'#c0a0ff'); // clasp gem sparkle
+            R(0,8, 2,8,'#18102c'); // left cloak side
+            R(12,8,2,8,'#18102c'); // right cloak side
+            R(0,7, 2,3,'#1e1630'); // left shoulder drape
+            R(12,7,2,3,'#1e1630'); // right shoulder drape
+            R(1,14,1,4,'#150e24'); // left cloak bottom taper
+            R(12,14,1,4,'#150e24'); // right cloak bottom taper
+            break;
+          case 'LEATHER_CHESTPLATE':
+            // Brown padded chest with shoulder pads and knee guards
+            R(0,7, 4,3,'#4a2808'); // left shoulder pad body
+            R(0,7, 4,1,'#6a3c14'); // left shoulder face
+            R(1,7, 2,1,'#7a4818'); // left pad highlight
+            R(10,7,4,3,'#4a2808'); // right shoulder pad body
+            R(10,7,4,1,'#6a3c14'); // right shoulder face
+            R(11,7,2,1,'#7a4818'); // right pad highlight
+            // Chest straps
+            R(2,9,10,2,'#3a2008'); // chest band shadow
+            R(2,9,10,1,'#5a3010'); // chest band face
+            R(5,9, 4,1,'#6a3c14'); // center band highlight
+            // Rivet row
+            R(3,10,1,1,'#8a5020'); R(6,10,1,1,'#8a5020'); R(9,10,1,1,'#8a5020'); R(11,10,1,1,'#8a5020');
+            // Belt
+            R(2,12,10,2,'#4a2808'); // belt body
+            R(2,12,10,1,'#5a3010'); // belt face
+            R(5,12, 4,2,'#7a4e10'); // buckle plate
+            R(6,12, 2,1,'#c09030'); // buckle shine
+            // Knee guards
+            R(2,14, 3,2,'#4a2808'); R(2,14, 3,1,'#6a3c14');
+            R(9,14, 3,2,'#4a2808'); R(9,14, 3,1,'#6a3c14');
+            break;
+          case 'LEATHER_ARMOR':
+            // Full leather — large pauldrons, knee guards, boot reinforcements, rivets
+            R(0,6, 5,4,'#4a2808'); // left pauldron body
+            R(0,6, 5,1,'#6a3c14'); // left pauldron top face
+            R(1,6, 3,1,'#7a4818'); // left pauldron highlight
+            R(9,6, 5,4,'#4a2808'); // right pauldron body
+            R(9,6, 5,1,'#6a3c14'); // right pauldron top face
+            R(10,6,3,1,'#7a4818'); // right pauldron highlight
+            // Chest
+            R(2,8,10,4,'#3a2008'); // chest body
+            R(2,8,10,1,'#5a3010'); // chest top face
+            R(4,8, 6,1,'#6a3c14'); // chest center gleam
+            // Rivets
+            R(3,9,1,1,'#8a5018'); R(5,9,1,1,'#8a5018'); R(7,9,1,1,'#8a5018'); R(9,9,1,1,'#8a5018'); R(11,9,1,1,'#8a5018');
+            R(3,11,1,1,'#6a3c14'); R(11,11,1,1,'#6a3c14'); // lower rivets
+            // Belt
+            R(2,12,10,2,'#3a2008'); R(5,12,4,2,'#6a4010'); R(6,12,2,1,'#c08030');
+            // Knee guards (wider)
+            R(2,14, 4,2,'#4a2808'); R(2,14, 4,1,'#6a3c14'); R(3,15,2,1,'#8a5018');
+            R(8,14, 4,2,'#4a2808'); R(8,14, 4,1,'#6a3c14'); R(9,15,2,1,'#8a5018');
+            // Boot caps
+            R(2,17, 4,2,'#3a2008'); R(2,18, 4,1,'#5a3010');
+            R(8,17, 4,2,'#3a2008'); R(8,18, 4,1,'#5a3010');
+            break;
+          case 'CHAIN_MAIL':
+            // Silver chainmail — coif at collar, full torso, leg coverage
+            R(0,7, 4,4,'#3c4450'); // left shoulder mantle
+            R(0,7, 4,1,'#505864'); // left mantle face
+            R(10,7,4,4,'#3c4450'); // right shoulder mantle
+            R(10,7,4,1,'#505864'); // right mantle face
+            // Collar coif
+            R(2,6,10,2,'#3e4450'); // coif body
+            R(3,6, 8,1,'#505a68'); // coif face
+            R(4,6, 1,1,'#282e38'); R(6,6,1,1,'#282e38'); R(8,6,1,1,'#282e38'); R(10,6,1,1,'#282e38'); // coif mail dots
+            // Torso chain body
+            R(2,8,10,5,'#343c48'); // mail torso
+            R(2,8,10,1,'#484e5c'); // torso top face
+            // Chain pattern (staggered dot grid)
+            ctx.fillStyle='#262c38';
+            for(let rr=0;rr<5;rr++){ const off=(rr%2)*2; for(let cc=0;cc<9;cc++) ctx.fillRect(xo+4+cc*4+off,yo+16+rr*4,2,2); }
+            // Leg mail
+            R(2,13,4,4,'#343c48'); R(2,13,4,1,'#484e5c');
+            R(8,13,4,4,'#343c48'); R(8,13,4,1,'#484e5c');
+            ctx.fillStyle='#262c38';
+            for(let rr=0;rr<3;rr++){ const off=(rr%2)*2; for(let cc=0;cc<3;cc++) ctx.fillRect(xo+4+cc*4+off,yo+26+rr*4,2,2); for(let cc=0;cc<3;cc++) ctx.fillRect(xo+16+cc*4+off,yo+26+rr*4,2,2); }
+            break;
+          case 'ASHEN_PLATE':
+            // Massive dark plate armor with ember-glow crack lines
+            // Giant pauldrons
+            R(0,5, 5,5,'#1c1c28'); R(0,5, 5,1,'#2a2a38'); R(0,6, 2,2,'#383848');
+            R(9,5, 5,5,'#1c1c28'); R(9,5, 5,1,'#2a2a38'); R(12,6,2,2,'#383848');
+            // Gorget (throat guard)
+            R(3,6, 8,2,'#1c1c28'); R(4,6, 6,1,'#2c2c3c');
+            // Chest plate body
+            R(2,7,10,5,'#1c1c28'); // chest base
+            R(2,7,10,1,'#28283a'); // chest top face
+            R(3,7, 8,1,'#363648'); // inner highlight
+            // Central ridge
+            R(6,7, 2,5,'#222234'); R(6,7, 2,1,'#343448');
+            // Ember crack lines (glowing orange)
+            R(3,9, 3,1,'#c03010'); R(3,9, 3,1,'#c03010');
+            R(8,9, 3,1,'#c03010');
+            R(5,9, 4,1,'#ff5020'); // center hot
+            R(4,10, 1,1,'#ff8040'); R(9,10,1,1,'#ff8040'); // drips
+            R(3,11, 2,1,'#601808'); R(9,11,2,1,'#601808'); // lower cracks
+            // Leg greaves
+            R(2,13, 4,5,'#1c1c28'); R(2,13, 4,1,'#282838'); R(3,15,2,1,'#c03010'); // left
+            R(8,13, 4,5,'#1c1c28'); R(8,13, 4,1,'#282838'); R(9,15,2,1,'#c03010'); // right
+            // Sabatons (armored boots)
+            R(2,18, 4,1,'#222234'); R(8,18,4,1,'#222234');
+            break;
+          case 'YETI_PELT':
+            // Massive white fur pelt — fluffy collar and body
+            R(0,6,14,4,'#cac6be'); // fur collar body
+            R(0,6,14,1,'#dedad4'); // collar top face
+            R(1,6,12,1,'#eee8e0'); // collar highlight crest
+            // Fur tufts (dark patches for depth)
+            R(0,7, 2,3,'#b4b0a8'); R(4,7,2,3,'#b4b0a8'); R(8,7,2,3,'#b4b0a8'); R(12,7,2,3,'#b4b0a8');
+            R(2,8, 2,2,'#c4c0b8'); R(6,8,2,2,'#c4c0b8'); R(10,8,2,2,'#c4c0b8');
+            // Fur body
+            R(2,9,10,3,'#d0ccc4'); R(2,9,10,1,'#e4e0d8');
+            // Belt holding pelt
+            R(3,12, 8,2,'#6a3810'); R(6,12,2,2,'#a05018'); R(6,12,2,1,'#d07a28'); // buckle
+            // Fur leg trim
+            R(2,16, 4,2,'#cac6be'); R(2,16, 4,1,'#dedad4');
+            R(8,16, 4,2,'#cac6be'); R(8,16, 4,1,'#dedad4');
+            // Fur boot cuffs
+            R(2,18, 4,1,'#d8d4cc'); R(8,18,4,1,'#d8d4cc');
+            break;
+        }
+        ctx.globalAlpha=baseA;
+      }
+    }
+    // ── End armor overlay ───────────────────────────────────
+
     // Talisman — cord + bead
     if(p.equipment.talisman){
       const talCol=p.equipment.talisman==='EMBER_TALISMAN'?'#a02808':
@@ -3820,113 +3989,306 @@ const Player = {
       ctx.rotate(facingAngle);
       ctx.globalAlpha=baseA;
 
-      // Shared weapon draw — identical pixels in both rest and swing
+      // Weapon pixel-art draw — detailed per-weapon shapes
       const drawWeaponShape=(w)=>{
         if(w==='RUSTY_SWORD'){
-          ctx.fillStyle='#1a1208'; ctx.fillRect(5,-2,6,4);    // handle
-          ctx.fillStyle='#281c0c'; ctx.fillRect(9,-3,4,6);    // crossguard (worn)
-          ctx.fillStyle='#282010'; ctx.fillRect(13,-2,20,4);  // rusty blade
-          ctx.fillStyle='#342818'; ctx.fillRect(13,-2,12,2);  // face
-          ctx.fillStyle='#4a3a24'; ctx.fillRect(14,-2,6,1);   // dim spot of old gleam
-          ctx.fillStyle='#1e1808'; ctx.fillRect(33,-1,3,3);   // tip (worn)
+          // Wrapped leather grip with worn pommel
+          ctx.fillStyle='#100c06'; ctx.fillRect(4,-3,3,6);    // pommel cap
+          ctx.fillStyle='#1c1208'; ctx.fillRect(5,-2,8,4);    // grip base
+          ctx.fillStyle='#2c1c0c'; ctx.fillRect(5,-2,2,4);    // grip wrap strip 1
+          ctx.fillStyle='#1c1208'; ctx.fillRect(7,-2,2,4);    // wrap gap
+          ctx.fillStyle='#2c1c0c'; ctx.fillRect(9,-2,2,4);    // wrap strip 2
+          // Asymmetric worn crossguard
+          ctx.fillStyle='#281c0c'; ctx.fillRect(13,-5,5,10);  // guard body
+          ctx.fillStyle='#3a2810'; ctx.fillRect(13,-5,5,2);   // guard top edge
+          ctx.fillStyle='#181008'; ctx.fillRect(13, 3,5,2);   // guard bottom shadow
+          ctx.fillStyle='#0e0a04'; ctx.fillRect(12,-5,2,10);  // guard left outline
+          // Rusty blade with fuller and corroded patches
+          ctx.fillStyle='#2a2010'; ctx.fillRect(18,-2,22,4);  // blade body (corroded)
+          ctx.fillStyle='#3a2e18'; ctx.fillRect(18,-2,18,2);  // blade face
+          ctx.fillStyle='#4a3c24'; ctx.fillRect(19,-2,8,1);   // old gleam
+          ctx.fillStyle='#201408'; ctx.fillRect(18, 0,20,1);  // fuller groove
+          ctx.fillStyle='#4a2c10'; ctx.fillRect(23,-2,5,3);   // rust patch 1
+          ctx.fillStyle='#3c2410'; ctx.fillRect(30,-1,5,2);   // rust patch 2
+          ctx.fillStyle='#1e1408'; ctx.fillRect(36,-1,5,4);   // worn tip
+          ctx.fillStyle='#2c2014'; ctx.fillRect(36,-1,3,2);   // tip face
         } else if(w==='SMALL_DAGGER'){
-          ctx.fillStyle='#181018'; ctx.fillRect(4,-2,7,4);    // dark handle
-          ctx.fillStyle='#302040'; ctx.fillRect(10,-3,3,6);   // purple guard
-          ctx.fillStyle='#1c1828'; ctx.fillRect(13,-2,18,4);  // blade
-          ctx.fillStyle='#282438'; ctx.fillRect(13,-2,12,2);  // face
-          ctx.fillStyle='#382c4c'; ctx.fillRect(13,-2,7,1);   // gleam
-          ctx.fillStyle='#141020'; ctx.fillRect(30,0,3,2);    // sharp tip
+          // Slim shadow-assassin dagger with ring guard
+          ctx.fillStyle='#100810'; ctx.fillRect(4,-1,3,3);    // pommel
+          ctx.fillStyle='#181018'; ctx.fillRect(5,-2,7,4);    // grip
+          ctx.fillStyle='#241820'; ctx.fillRect(6,-2,2,4);    // grip cord 1
+          ctx.fillStyle='#181018'; ctx.fillRect(8,-2,2,4);    // cord gap
+          ctx.fillStyle='#241820'; ctx.fillRect(10,-2,2,4);   // grip cord 2
+          ctx.fillStyle='#302040'; ctx.fillRect(12,-4,3,8);   // ring guard
+          ctx.fillStyle='#403050'; ctx.fillRect(13,-4,2,2);  // guard ring top
+          ctx.fillStyle='#504068'; ctx.fillRect(13, 2,2,2);  // guard ring bottom
+          // Double-edged blade with central ridge
+          ctx.fillStyle='#1a1628'; ctx.fillRect(15,-3,22,6);  // blade base (shadow)
+          ctx.fillStyle='#282438'; ctx.fillRect(15,-2,20,4);  // blade body
+          ctx.fillStyle='#383048'; ctx.fillRect(15,-2,18,2);  // blade face
+          ctx.fillStyle='#4c4060'; ctx.fillRect(16,-2,9,1);   // gleam
+          ctx.fillStyle='#1c1830'; ctx.fillRect(15, 0,18,1);  // central groove
+          ctx.fillStyle='#201c30'; ctx.fillRect(35,-1,4,3);   // sharp tip taper
+          ctx.fillStyle='#2c2840'; ctx.fillRect(35,-1,3,2);   // tip face
+          ctx.fillStyle='#1a1628'; ctx.fillRect(38,-1,3,3);   // needle tip
         } else if(w==='OLD_BOW'){
-          // Bow — vertical arc drawn rotated with player
-          ctx.fillStyle='#4a3010'; ctx.fillRect(4,-1,4,3);    // grip
-          ctx.fillStyle='#3a2408'; ctx.fillRect(8,-10,3,8);   // upper limb
-          ctx.fillStyle='#3a2408'; ctx.fillRect(8,2,3,8);     // lower limb
-          ctx.fillStyle='#503018'; ctx.fillRect(9,-2,2,4);    // center riser
-          ctx.fillStyle='#182820'; ctx.fillRect(8,-10,1,22);  // string shadow
-          ctx.fillStyle='#304820'; ctx.fillRect(9,-10,1,22);  // bowstring
+          // Old recurve bow with worn limbs and gut string
+          ctx.fillStyle='#3a2608'; ctx.fillRect(4,-1,5,3);    // grip
+          ctx.fillStyle='#503418'; ctx.fillRect(5,-1,3,1);    // grip highlight
+          ctx.fillStyle='#4a3010'; ctx.fillRect(8,-2,1,2);    // riser top
+          ctx.fillStyle='#4a3010'; ctx.fillRect(8, 0,1,2);    // riser bottom
+          ctx.fillStyle='#3a2408'; ctx.fillRect(8,-12,4,10);  // upper limb
+          ctx.fillStyle='#503218'; ctx.fillRect(9,-12,2,9);   // upper limb face
+          ctx.fillStyle='#3a2408'; ctx.fillRect(8,  2,4,10);  // lower limb
+          ctx.fillStyle='#503218'; ctx.fillRect(9,  2,2,9);   // lower limb face
+          // Limb tips (recurved)
+          ctx.fillStyle='#2a1c06'; ctx.fillRect(7,-13,3,2);   // upper tip
+          ctx.fillStyle='#2a1c06'; ctx.fillRect(7, 11,3,2);   // lower tip
+          // Gut string
+          ctx.fillStyle='#181e14'; ctx.fillRect(9,-12,1,26);  // string shadow
+          ctx.fillStyle='#304028'; ctx.fillRect(10,-12,1,26); // string
+          // Nocked arrow hint
+          ctx.fillStyle='#6a4818'; ctx.fillRect(9,-2,1,4);    // arrow rest
         } else if(w==='OLD_WAND'){
-          ctx.fillStyle='#2c1c08'; ctx.fillRect(4,-2,26,4);   // wand shaft
-          ctx.fillStyle='#3a2810'; ctx.fillRect(5,-1,22,2);   // face
-          ctx.fillStyle='#3a1050'; ctx.fillRect(28,-4,8,8);   // orb base
-          ctx.fillStyle='#6020a0'; ctx.fillRect(29,-3,6,6);   // magic orb
-          ctx.fillStyle='#c060ff'; ctx.fillRect(30,-2,3,3);   // orb glow
-          ctx.fillStyle='#000'; ctx.fillRect(28,-4,1,8); ctx.fillRect(36,-4,1,8); // outline
+          // Carved magical wand with crackling orb
+          ctx.fillStyle='#201408'; ctx.fillRect(4,-2,5,4);    // grip wrap
+          ctx.fillStyle='#302010'; ctx.fillRect(5,-1,3,2);    // grip highlight
+          ctx.fillStyle='#281808'; ctx.fillRect(9,-2,20,4);   // shaft body
+          ctx.fillStyle='#3a2810'; ctx.fillRect(10,-1,18,2);  // shaft face
+          ctx.fillStyle='#483618'; ctx.fillRect(11,-1,8,1);   // shaft gleam
+          // Carved band at joint
+          ctx.fillStyle='#201008'; ctx.fillRect(27,-3,3,6);   // band socket
+          ctx.fillStyle='#603820'; ctx.fillRect(28,-2,2,4);   // band highlight
+          // Orb with glow layers
+          ctx.fillStyle='#200830'; ctx.fillRect(30,-5,10,10); // orb dark shadow
+          ctx.fillStyle='#3a1060'; ctx.fillRect(31,-4,8,8);   // orb base
+          ctx.fillStyle='#6030a0'; ctx.fillRect(32,-3,6,6);   // orb glow
+          ctx.fillStyle='#a050e0'; ctx.fillRect(33,-2,4,4);   // orb core
+          ctx.fillStyle='#e090ff'; ctx.fillRect(33,-2,3,2);   // orb bright face
+          ctx.fillStyle='#ffffff'; ctx.fillRect(33,-2,1,1);   // orb sparkle
         } else if(w==='VINE_STAFF'){
-          ctx.fillStyle='#1a2c08'; ctx.fillRect(5,-2,8,4);    // handle wrap
-          ctx.fillStyle='#0e1a04'; ctx.fillRect(11,-3,4,6);   // grip knot
-          ctx.fillStyle='#142006'; ctx.fillRect(15,-2,28,4);  // staff shaft
-          ctx.fillStyle='#1c2c08'; ctx.fillRect(15,-1,26,2);  // shaft face
-          ctx.fillStyle='#2a4010'; ctx.fillRect(43,-4,8,8);   // orb socket
-          ctx.fillStyle='#1e5808'; ctx.fillRect(44,-3,6,6);   // toxic orb
-          ctx.fillStyle='#60c820'; ctx.fillRect(45,-2,3,3);   // orb glow
-          ctx.fillStyle='#182c06'; ctx.fillRect(43,-4,1,8); ctx.fillRect(51,-4,1,8); // outline
+          // Living vine-wrapped staff with toxic orb
+          ctx.fillStyle='#0e1604'; ctx.fillRect(5,-3,8,6);    // vine grip
+          ctx.fillStyle='#1a2808'; ctx.fillRect(6,-2,6,4);    // grip face
+          ctx.fillStyle='#264010'; ctx.fillRect(6,-3,2,1);    // vine curl top
+          ctx.fillStyle='#264010'; ctx.fillRect(11,-3,2,1);   // vine curl top 2
+          ctx.fillStyle='#0e1a04'; ctx.fillRect(13,-3,3,6);   // grip knot
+          ctx.fillStyle='#142006'; ctx.fillRect(16,-2,26,4);  // staff shaft
+          ctx.fillStyle='#1c2c08'; ctx.fillRect(17,-1,24,2);  // shaft face
+          ctx.fillStyle='#2a4010'; ctx.fillRect(18,-1,10,1);  // shaft gleam
+          // Vine wrapping detail
+          ctx.fillStyle='#204008'; ctx.fillRect(21,-3,2,2);   // vine wrap 1
+          ctx.fillStyle='#204008'; ctx.fillRect(28,-3,2,2);   // vine wrap 2
+          ctx.fillStyle='#204008'; ctx.fillRect(35, 1,2,2);   // vine wrap 3
+          // Toxic orb socket
+          ctx.fillStyle='#1c3008'; ctx.fillRect(42,-4,10,8);  // socket shadow
+          ctx.fillStyle='#284a10'; ctx.fillRect(43,-4,8,8);   // socket body
+          ctx.fillStyle='#0e3808'; ctx.fillRect(44,-3,6,6);   // toxic orb
+          ctx.fillStyle='#30a010'; ctx.fillRect(45,-2,4,4);   // orb glow
+          ctx.fillStyle='#70e030'; ctx.fillRect(45,-2,3,2);   // orb bright
+          ctx.fillStyle='#a0ff50'; ctx.fillRect(45,-2,1,1);   // orb sparkle
+          // Leaf at orb tip
+          ctx.fillStyle='#204010'; ctx.fillRect(50,-4,3,3);   ctx.fillRect(50,1,3,3);
         } else if(w==='HUNTERS_BOW'||w==='FOREST_BOW'){
-          const bowCol=w==='FOREST_BOW'?'#2a4010':'#3a2808';
-          ctx.fillStyle=bowCol; ctx.fillRect(4,-1,4,3);    // grip
-          ctx.fillStyle=bowCol; ctx.fillRect(8,-12,4,10);  // upper limb
-          ctx.fillStyle=bowCol; ctx.fillRect(8,2,4,10);    // lower limb
-          ctx.fillStyle='#503018'; ctx.fillRect(9,-2,2,4); // center riser
-          ctx.fillStyle='#304820'; ctx.fillRect(10,-12,1,26); // bowstring
-          if(w==='FOREST_BOW'){ctx.fillStyle='#204010'; ctx.fillRect(7,-14,3,4); ctx.fillRect(7,10,3,4);} // limb tips
+          const isForest=w==='FOREST_BOW';
+          const hCol=isForest?'#243010':'#3c2c0a';
+          const hFace=isForest?'#344418':'#503e14';
+          // Grip + riser
+          ctx.fillStyle=hCol; ctx.fillRect(4,-1,5,3);
+          ctx.fillStyle=hFace; ctx.fillRect(5,-1,3,1);
+          // Upper limb with taper
+          ctx.fillStyle=hCol; ctx.fillRect(8,-13,5,11);
+          ctx.fillStyle=hFace; ctx.fillRect(9,-13,3,10);
+          // Lower limb with taper
+          ctx.fillStyle=hCol; ctx.fillRect(8,2,5,11);
+          ctx.fillStyle=hFace; ctx.fillRect(9,2,3,10);
+          // Limb tip reinforcement
+          ctx.fillStyle=isForest?'#1a3008':'#503018'; ctx.fillRect(7,-14,4,2); ctx.fillRect(7,12,4,2);
+          if(isForest){ // Leaf tip
+            ctx.fillStyle='#2a5010'; ctx.fillRect(6,-16,4,2); ctx.fillRect(6,14,4,2);
+          }
+          // String
+          ctx.fillStyle='#283020'; ctx.fillRect(11,-14,1,30); // shadow
+          ctx.fillStyle='#486040'; ctx.fillRect(12,-14,1,30); // string
+          // Riser center
+          ctx.fillStyle='#604020'; ctx.fillRect(9,-1,2,4);
         } else if(w==='LONGBOW'||w==='WARDEN_BOW'){
-          const lbCol=w==='WARDEN_BOW'?'#2a4a18':'#4a3010';
-          ctx.fillStyle=lbCol; ctx.fillRect(4,-1,5,3);     // grip
-          ctx.fillStyle=lbCol; ctx.fillRect(8,-14,5,12);   // upper limb
-          ctx.fillStyle=lbCol; ctx.fillRect(8,2,5,12);     // lower limb
-          ctx.fillStyle='#6a4818'; ctx.fillRect(9,-2,3,4); // center riser
-          ctx.fillStyle='#304828'; ctx.fillRect(11,-14,1,30); // bowstring
-          if(w==='WARDEN_BOW'){ctx.fillStyle='#40c820'; ctx.fillRect(10,-16,3,4); ctx.fillRect(10,12,3,4);} // glowing tips
+          const isWarden=w==='WARDEN_BOW';
+          const lCol=isWarden?'#284018':'#4a3410';
+          const lFace=isWarden?'#3c5c24':'#5e4818';
+          // Grip
+          ctx.fillStyle=lCol; ctx.fillRect(4,-1,6,3);
+          ctx.fillStyle=lFace; ctx.fillRect(5,-1,4,1);
+          // Very long limbs — recurve shape
+          ctx.fillStyle=lCol; ctx.fillRect(8,-15,6,13);
+          ctx.fillStyle=lFace; ctx.fillRect(9,-15,4,12);
+          ctx.fillStyle=lCol; ctx.fillRect(8,2,6,13);
+          ctx.fillStyle=lFace; ctx.fillRect(9,2,4,12);
+          // Recurved tips
+          ctx.fillStyle=lCol; ctx.fillRect(6,-17,4,3);  ctx.fillRect(6,14,4,3);
+          if(isWarden){
+            ctx.fillStyle='#40d020'; ctx.fillRect(5,-19,4,3); ctx.fillRect(5,16,4,3); // glowing tips
+            ctx.fillStyle='#80ff40'; ctx.fillRect(6,-19,2,1); ctx.fillRect(6,18,2,1); // tip sparkle
+          }
+          // Long strong string
+          ctx.fillStyle='#203028'; ctx.fillRect(12,-17,1,34);
+          ctx.fillStyle='#406050'; ctx.fillRect(13,-17,1,34);
+          ctx.fillStyle='#705020'; ctx.fillRect(9,-1,3,4);    // riser
         } else if(w==='OAK_STAFF'||w==='EMBER_ROD'){
-          const stCol=w==='EMBER_ROD'?'#3a1808':'#2c1c08';
-          ctx.fillStyle=stCol; ctx.fillRect(4,-2,26,4);    // staff shaft
-          ctx.fillStyle=w==='EMBER_ROD'?'#5a2810':'#3a2810'; ctx.fillRect(5,-1,22,2); // face
-          const orbCol=w==='EMBER_ROD'?'#e04010':'#a060e0';
-          ctx.fillStyle=orbCol; ctx.fillRect(28,-5,10,10); // orb
-          ctx.fillStyle='#fff'; ctx.fillRect(30,-3,3,3);   // orb highlight
-          ctx.fillStyle='#000'; ctx.fillRect(28,-5,1,10); ctx.fillRect(38,-5,1,10); // outline
+          const isEmber=w==='EMBER_ROD';
+          const sCol=isEmber?'#2c1008':'#201408';
+          const sFace=isEmber?'#4a1c0c':'#302010';
+          // Grip wrap
+          ctx.fillStyle=sCol; ctx.fillRect(4,-2,6,4);
+          ctx.fillStyle=sFace; ctx.fillRect(5,-1,4,2);
+          // Staff shaft with grain
+          ctx.fillStyle=sCol; ctx.fillRect(10,-2,22,4);
+          ctx.fillStyle=sFace; ctx.fillRect(11,-1,20,2);
+          ctx.fillStyle=isEmber?'#601808':'#2c1808'; ctx.fillRect(12,-1,10,1); // shaft gleam
+          // Grain notches
+          ctx.fillStyle=isEmber?'#200c06':'#180e06'; ctx.fillRect(17,-2,2,4); ctx.fillRect(24,-2,2,4);
+          // Orb socket
+          ctx.fillStyle=isEmber?'#380e04':'#180c04'; ctx.fillRect(31,-5,3,10); // socket
+          // Orb
+          const oCol=isEmber?'#d83808':'#8040d0';
+          const oGlow=isEmber?'#ff6020':'#b060ff';
+          const oCore=isEmber?'#ffa040':'#e0b0ff';
+          ctx.fillStyle=oCol;  ctx.fillRect(34,-6,12,12);
+          ctx.fillStyle=oGlow; ctx.fillRect(35,-5,10,10);
+          ctx.fillStyle=oCore; ctx.fillRect(37,-3,6,6);
+          ctx.fillStyle='#ffffff'; ctx.fillRect(37,-3,3,2); // core highlight
+          if(isEmber){
+            ctx.fillStyle='#ffcc40'; ctx.fillRect(36,-4,2,2); ctx.fillRect(42,-4,2,2); // sparks
+          }
         } else if(w==='CRYSTAL_WAND'||w==='ARCANE_TOME'){
           if(w==='ARCANE_TOME'){
-            ctx.fillStyle='#1a0c30'; ctx.fillRect(4,-4,18,8);  // tome base
-            ctx.fillStyle='#2a1840'; ctx.fillRect(5,-3,16,6);  // tome cover
-            ctx.fillStyle='#8040c0'; ctx.fillRect(6,-3,2,6);   // spine
-            ctx.fillStyle='#c080ff'; ctx.fillRect(7,-2,8,1);   // rune line
-            ctx.fillStyle='#ff80ff'; ctx.fillRect(22,-3,6,6);  // magic gem
-            ctx.fillStyle='#fff'; ctx.fillRect(23,-2,3,3);
+            // Open mystical tome with glowing sigils
+            ctx.fillStyle='#150a28'; ctx.fillRect(4,-5,22,10); // tome shadow
+            ctx.fillStyle='#200e38'; ctx.fillRect(5,-4,20,8);  // tome cover
+            ctx.fillStyle='#2c1448'; ctx.fillRect(6,-4,18,8);  // inner cover
+            ctx.fillStyle='#7030a8'; ctx.fillRect(6,-4,2,8);   // spine
+            ctx.fillStyle='#9040c8'; ctx.fillRect(7,-4,1,8);   // spine highlight
+            // Sigil lines
+            ctx.fillStyle='#c070ff'; ctx.fillRect(9,-3,10,1);  // sigil line 1
+            ctx.fillStyle='#c070ff'; ctx.fillRect(9,-1,8,1);   // sigil line 2
+            ctx.fillStyle='#c070ff'; ctx.fillRect(9, 1,10,1);  // sigil line 3
+            ctx.fillStyle='#e090ff'; ctx.fillRect(10,-3,4,1);  // bright rune
+            // Cover gem
+            ctx.fillStyle='#ff80ff'; ctx.fillRect(23,-4,8,8);  // gem socket
+            ctx.fillStyle='#ff50ff'; ctx.fillRect(24,-3,6,6);  // gem body
+            ctx.fillStyle='#ffffff'; ctx.fillRect(24,-3,3,2);  // gem highlight
           } else {
-            ctx.fillStyle='#0a1028'; ctx.fillRect(4,-2,24,4);   // crystal shaft
-            ctx.fillStyle='#182048'; ctx.fillRect(5,-1,22,2);   // face
-            ctx.fillStyle='#2040a8'; ctx.fillRect(27,-6,10,10); // crystal orb
-            ctx.fillStyle='#80b0ff'; ctx.fillRect(29,-4,6,6);   // glow
-            ctx.fillStyle='#e0f0ff'; ctx.fillRect(30,-3,3,3);   // core
+            // Crystal wand with ice-faceted orb
+            ctx.fillStyle='#0a0c1c'; ctx.fillRect(4,-2,6,4);   // grip dark
+            ctx.fillStyle='#141830'; ctx.fillRect(5,-1,4,2);   // grip face
+            // Crystal shaft
+            ctx.fillStyle='#0e1430'; ctx.fillRect(10,-2,22,4); // shaft body
+            ctx.fillStyle='#182048'; ctx.fillRect(11,-1,20,2); // shaft face
+            ctx.fillStyle='#203060'; ctx.fillRect(12,-1,10,1); // shaft gleam
+            // Facet notches
+            ctx.fillStyle='#0a0e20'; ctx.fillRect(17,-2,2,4); ctx.fillRect(24,-2,2,4);
+            ctx.fillStyle='#2840a0'; ctx.fillRect(31,-3,3,6);  // socket
+            // Ice crystal orb (multi-facet)
+            ctx.fillStyle='#1030a0'; ctx.fillRect(34,-7,12,14); // orb shadow
+            ctx.fillStyle='#2848c8'; ctx.fillRect(35,-6,10,12); // orb base
+            ctx.fillStyle='#4070e0'; ctx.fillRect(36,-5,8,10);  // orb glow
+            ctx.fillStyle='#80b0ff'; ctx.fillRect(37,-4,6,8);   // orb core
+            ctx.fillStyle='#c0e0ff'; ctx.fillRect(37,-4,4,4);   // face
+            ctx.fillStyle='#e8f4ff'; ctx.fillRect(37,-4,2,2);   // highlight
+            // Ice facet lines
+            ctx.fillStyle='#4060c0'; ctx.fillRect(34,-2,13,1);  // horizontal facet
+            ctx.fillStyle='#4060c0'; ctx.fillRect(40,-7,1,14);  // vertical facet
           }
         } else if(w==='ASHEN_GREATSWORD'){
-          ctx.fillStyle='#3a2008'; ctx.fillRect(4,-3,10,6);   // handle
-          ctx.fillStyle='#6a4010'; ctx.fillRect(12,-6,6,12);  // crossguard
-          ctx.fillStyle='#1c1c24'; ctx.fillRect(18,-5,34,10); // blade base
-          ctx.fillStyle='#2a2a38'; ctx.fillRect(18,-3,32,6);  // blade body
-          ctx.fillStyle='#3c3c50'; ctx.fillRect(18,-2,30,2);  // face
-          ctx.fillStyle='#505060'; ctx.fillRect(18,-2,14,1);  // partial gleam
-          ctx.fillStyle='#1a1a22'; ctx.fillRect(50,-2,6,5);   // tip
+          // Massive two-hander with ember-crack blade
+          ctx.fillStyle='#1a1008'; ctx.fillRect(3,-4,4,8);    // pommel cap
+          ctx.fillStyle='#2a1c08'; ctx.fillRect(4,-3,10,6);   // grip body
+          ctx.fillStyle='#3a2810'; ctx.fillRect(5,-2,8,4);    // grip face
+          ctx.fillStyle='#2c1c0c'; ctx.fillRect(5,-2,2,4);    // wrap strip 1
+          ctx.fillStyle='#3a2810'; ctx.fillRect(7,-2,2,4);    // wrap strip 2
+          ctx.fillStyle='#2c1c0c'; ctx.fillRect(9,-2,2,4);    // wrap strip 3
+          // Crossguard — wide with ornamental ends
+          ctx.fillStyle='#5a3808'; ctx.fillRect(14,-7,7,14);  // guard body
+          ctx.fillStyle='#7a5010'; ctx.fillRect(14,-7,7,3);   // guard top face
+          ctx.fillStyle='#3a2408'; ctx.fillRect(14, 4,7,3);   // guard bottom shadow
+          ctx.fillStyle='#c08020'; ctx.fillRect(15,-8,5,2);   // guard ornament top
+          ctx.fillStyle='#c08020'; ctx.fillRect(15, 6,5,2);   // guard ornament bottom
+          // Blade — wide with fuller and ember cracks
+          ctx.fillStyle='#181820'; ctx.fillRect(21,-5,36,10); // blade shadow
+          ctx.fillStyle='#1e2030'; ctx.fillRect(21,-4,34,8);  // blade base
+          ctx.fillStyle='#282a3c'; ctx.fillRect(21,-3,32,6);  // blade body
+          ctx.fillStyle='#383a50'; ctx.fillRect(21,-2,30,2);  // blade face
+          ctx.fillStyle='#484a62'; ctx.fillRect(21,-2,14,1);  // gleam (partial)
+          // Fuller groove
+          ctx.fillStyle='#121218'; ctx.fillRect(21, 0,30,1);  // fuller shadow
+          ctx.fillStyle='#181826'; ctx.fillRect(21,-1,30,1);  // fuller upper edge
+          // Ember cracks in blade
+          ctx.fillStyle='#c04010'; ctx.fillRect(25,-2,5,1);   // ember crack 1
+          ctx.fillStyle='#ff6020'; ctx.fillRect(27,-2,3,1);   // hot center 1
+          ctx.fillStyle='#c04010'; ctx.fillRect(36,-1,6,1);   // ember crack 2
+          ctx.fillStyle='#ff6020'; ctx.fillRect(38,-1,4,1);   // hot center 2
+          // Tip
+          ctx.fillStyle='#141420'; ctx.fillRect(51,-3,7,6);   // tip taper
+          ctx.fillStyle='#1c1c2c'; ctx.fillRect(53,-2,5,4);   // tip face
+          ctx.fillStyle='#282838'; ctx.fillRect(55,-1,3,2);   // tip point
         } else if(w==='HOLLOW_BLADE'){
-          ctx.fillStyle='#2e1c08'; ctx.fillRect(6,-2,7,4);    // handle
-          ctx.fillStyle='#303858'; ctx.fillRect(11,-4,4,8);   // blue-tinted guard
-          ctx.fillStyle='#1c2030'; ctx.fillRect(15,-3,30,5);  // blade base
-          ctx.fillStyle='#283048'; ctx.fillRect(15,-2,28,3);  // blade face
-          ctx.fillStyle='#384060'; ctx.fillRect(15,-2,14,1);  // cold dim gleam
-          ctx.fillStyle='#202838'; ctx.fillRect(43,-1,4,3);   // tip
+          // Cursed hollow blade with soul energy and elongated form
+          ctx.fillStyle='#180c08'; ctx.fillRect(4,-3,4,6);    // pommel
+          ctx.fillStyle='#261608'; ctx.fillRect(6,-2,7,4);    // grip body
+          ctx.fillStyle='#342010'; ctx.fillRect(7,-1,5,2);    // grip face
+          ctx.fillStyle='#201020'; ctx.fillRect(7,-2,2,4);    // grip wrap dark
+          ctx.fillStyle='#301838'; ctx.fillRect(9,-2,2,4);    // grip wrap purple
+          // Guard — wide curved, cold blue
+          ctx.fillStyle='#20283a'; ctx.fillRect(13,-5,5,10);  // guard body
+          ctx.fillStyle='#30384e'; ctx.fillRect(13,-5,5,3);   // guard top face
+          ctx.fillStyle='#182030'; ctx.fillRect(13, 2,5,3);   // guard bottom shadow
+          ctx.fillStyle='#405070'; ctx.fillRect(14,-6,3,2);  // guard top peak
+          ctx.fillStyle='#405070'; ctx.fillRect(14, 4,3,2);  // guard bottom peak
+          // Long hollow blade with soul runes
+          ctx.fillStyle='#141828'; ctx.fillRect(18,-3,32,6);  // blade shadow
+          ctx.fillStyle='#1c2234'; ctx.fillRect(18,-2,30,4);  // blade base
+          ctx.fillStyle='#262c42'; ctx.fillRect(18,-2,28,3);  // blade face
+          ctx.fillStyle='#323854'; ctx.fillRect(18,-2,16,1);  // gleam
+          // Soul-hollow groove (glowing faintly)
+          ctx.fillStyle='#301848'; ctx.fillRect(20,-1,22,2);  // hollow groove
+          ctx.fillStyle='#582868'; ctx.fillRect(22,-1,8,1);  // rune glow 1
+          ctx.fillStyle='#582868'; ctx.fillRect(34,-1,6,1);  // rune glow 2
+          // Cold shimmer on edge
+          ctx.fillStyle='#4868a0'; ctx.fillRect(18,-2,18,1);  // cold gleam
+          // Tip
+          ctx.fillStyle='#181c2c'; ctx.fillRect(48,-1,4,3);   // tip
         } else if(w==='IRON_SWORD'){
-          ctx.fillStyle='#2e1c08'; ctx.fillRect(6,-2,7,4);    // handle
-          ctx.fillStyle='#302010'; ctx.fillRect(11,-4,5,8);   // crossguard
-          ctx.fillStyle='#1c1c28'; ctx.fillRect(16,-3,26,5);  // blade base
-          ctx.fillStyle='#282836'; ctx.fillRect(16,-2,24,3);  // blade face
-          ctx.fillStyle='#383848'; ctx.fillRect(16,-2,12,1);  // dim gleam
-          ctx.fillStyle='#1e1e28'; ctx.fillRect(40,-1,4,3);   // tip
+          // Classic iron sword with proper crossguard and fuller
+          ctx.fillStyle='#181208'; ctx.fillRect(4,-3,4,6);    // pommel
+          ctx.fillStyle='#241808'; ctx.fillRect(6,-2,7,4);    // grip body
+          ctx.fillStyle='#302010'; ctx.fillRect(7,-1,5,2);    // grip face
+          ctx.fillStyle='#201810'; ctx.fillRect(7,-2,2,4);    // wrap 1
+          ctx.fillStyle='#301c0e'; ctx.fillRect(9,-2,2,4);    // wrap 2
+          // Proper crossguard with flared ends
+          ctx.fillStyle='#282018'; ctx.fillRect(13,-5,6,10);  // guard body
+          ctx.fillStyle='#383020'; ctx.fillRect(13,-5,6,3);   // guard top face
+          ctx.fillStyle='#181210'; ctx.fillRect(13, 2,6,3);   // guard bottom shadow
+          ctx.fillStyle='#483828'; ctx.fillRect(12,-6,3,2);   // guard flare top
+          ctx.fillStyle='#483828'; ctx.fillRect(12, 4,3,2);   // guard flare bottom
+          // Fuller blade
+          ctx.fillStyle='#181820'; ctx.fillRect(19,-3,26,6);  // blade shadow base
+          ctx.fillStyle='#202030'; ctx.fillRect(19,-3,25,5);  // blade body
+          ctx.fillStyle='#2c2c3e'; ctx.fillRect(19,-2,23,3);  // blade face
+          ctx.fillStyle='#3c3c50'; ctx.fillRect(19,-2,14,1);  // gleam
+          // Fuller groove
+          ctx.fillStyle='#141418'; ctx.fillRect(19,-1,21,1);  // fuller
+          // Tip
+          ctx.fillStyle='#1a1a28'; ctx.fillRect(43,-2,5,5);   // tip taper
+          ctx.fillStyle='#24243a'; ctx.fillRect(44,-1,4,3);   // tip face
+          ctx.fillStyle='#303048'; ctx.fillRect(46, 0,2,1);   // tip point
         } else {
-          // Unarmed — short dark dagger
-          ctx.fillStyle='#1e1208'; ctx.fillRect(5,-1,5,3);    // stub handle
-          ctx.fillStyle='#281808'; ctx.fillRect(9,-2,3,5);    // guard
-          ctx.fillStyle='#242018'; ctx.fillRect(12,-2,12,4);  // short blade
-          ctx.fillStyle='#302c20'; ctx.fillRect(12,-2,8,2);   // face
+          // Unarmed — short makeshift shiv
+          ctx.fillStyle='#141008'; ctx.fillRect(4,-1,4,3);    // stub
+          ctx.fillStyle='#201808'; ctx.fillRect(8,-2,2,5);    // guard nub
+          ctx.fillStyle='#1c1808'; ctx.fillRect(10,-2,14,4);  // short blade
+          ctx.fillStyle='#282410'; ctx.fillRect(10,-2,10,2);  // blade face
+          ctx.fillStyle='#383020'; ctx.fillRect(11,-2,5,1);   // gleam
+          ctx.fillStyle='#141208'; ctx.fillRect(23,-1,3,3);   // blunt tip
         }
       };
 
