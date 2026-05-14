@@ -1614,7 +1614,7 @@ const World = {
   _carve(tx,ty,tw,th,floor){
     for(let dy=0;dy<th;dy++) for(let dx=0;dx<tw;dx++){
       const t=this.map[ty+dy][tx+dx];
-      if(t===T.WALL||t===T.RUINS_WALL||t===T.FOREST_TREE||t===T.CASTLE_WALL)
+      if(!this.passable(t))  // carve through any solid tile
         this._set(tx+dx,ty+dy,floor);
     }
   },
@@ -1671,24 +1671,25 @@ const World = {
   },
 
   _forest(){
-    const b=ZONES.FOREST.bounds; // x:70 y:5 w:100 h:90
+    const b=ZONES.FOREST.bounds; // x:70 y:5 w:140 h:90
     // Start fully packed with trees, then carve winding paths
     this._fill(b.x,b.y,b.w,b.h,T.FOREST_TREE);
     const lf=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.FOREST_FLOOR);
 
-    // Main east-west paths at local y≈20, y≈42, y≈65
-    lf(0,18,100,4); lf(0,40,100,4); lf(0,63,100,4);
+    // Main east-west paths — extend full 115 tiles to meet new village width
+    lf(0,18,115,4); lf(0,40,115,4); lf(0,63,115,4);
 
     // Main north-south arteries
-    lf(15,0,4,90);  // western column (abs x≈85)
-    lf(40,0,4,90);  // center-west   (abs x≈110)
-    lf(62,0,4,90);  // center-east   (abs x≈132) — castle connector
-    lf(84,0,4,90);  // eastern column (abs x≈154) — village connector
+    lf(15,0,4,90);   // western column  (abs x≈85)
+    lf(40,0,4,90);   // center-west     (abs x≈110)
+    lf(62,0,4,90);   // center-east     (abs x≈132) — castle connector
+    lf(84,0,4,90);   // eastern column  (abs x≈154) — village connector
+    lf(108,0,4,90);  // far-east column (abs x≈178) — new extended forest
 
     // Bonfire clearing (local 40,40 → abs 110,45) — open 14×14 area
     lf(36,36,16,12);
 
-    // Dead-end exploration pockets
+    // Dead-end exploration pockets (original forest width)
     lf(4,4,6,12);    // NW dead end
     lf(22,6,5,10);   // N pocket
     lf(50,2,7,14);   // N-center pocket
@@ -1700,9 +1701,13 @@ const World = {
     lf(48,55,5,6);   // south pocket
     lf(72,50,5,8);   // SE pocket
     lf(25,72,6,8);   // deep S pocket
+    // New exploration pockets in extended east forest
+    lf(98,6,5,10);   // far-NE pocket
+    lf(104,28,5,10); // far-E pocket
+    lf(100,52,5,8);  // far-SE pocket
 
-    // Village connector entry (local x=95-99, y=18-46 → open east border)
-    lf(95,16,5,32);
+    // Village connector entry (local x=95-114, y=16-47 → bridge to new village x=185)
+    lf(95,16,20,32);
     // Ruins entry (local x=0-7, y=50-68 → open west border)
     lf(0,50,8,20);
     // Castle connector south exit (local x=58-68, y=78-89)
@@ -2035,9 +2040,11 @@ const World = {
     // Castle-side floor
     for(let cy=112;cy<=117;cy++) for(let cx=128;cx<=140;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
 
-    // 3. Forest ↔ Village — east passage x=166-173, y=22-50
-    this._carve(166,22,10,30,T.FOREST_FLOOR);
-    for(let cy=22;cy<=50;cy++) for(let cx=170;cx<=175;cx++) this._set(cx,cy,T.VILLAGE_FLOOR);
+    // 3. Forest ↔ Village — east passage x=166-186, y=22-50
+    // Carve extends to x=186 to bridge the FOREST_TREE gap between old village
+    // connector end (x=175) and new village west edge (x=185)
+    this._carve(166,22,21,30,T.FOREST_FLOOR);
+    for(let cy=22;cy<=50;cy++) for(let cx=166;cx<=187;cx++) this._set(cx,cy,T.VILLAGE_FLOOR);
 
     // 4. Ruins south approach to bridge x=46-54, y=96-103
     this._carve(46,96,10,8,T.RUINS_FLOOR);
@@ -2094,10 +2101,14 @@ const World = {
         else if(tx<18&&ty>=38&&ty<200) rep=T.MOUNTAIN_WALL;
         // ── Forest/Ruins above river ──
         else if(ty>=95&&ty<103&&tx>=75&&tx<128) rep=T.RUINS_FLOOR;
-        else if(ty>=95&&ty<103&&tx>=140&&tx<170) rep=T.FOREST_FLOOR;
+        else if(ty>=95&&ty<103&&tx>=140&&tx<185) rep=T.FOREST_FLOOR;
+        // ── Forest east-extension gap (new w:140 zone, x=170-184 not yet carved) ──
+        else if(tx>=170&&tx<185&&ty>=5&&ty<60) rep=T.FOREST_FLOOR;
         // ── Below village, left of mountain (now mostly forest) ──
         else if(tx>=170&&tx<185&&ty>=60&&ty<112) rep=T.FOREST_FLOOR;
         else if(tx>=185&&tx<220&&ty>=60&&ty<112) rep=T.MOUNTAIN_WALL;
+        // ── Village east edge — thin strip col=240 connecting village to swamp corridor ──
+        else if(tx===240&&ty>=55&&ty<=80) rep=T.VILLAGE_FLOOR;
         // ── Between swamp/desert and castle/mountain ──
         else if(tx>=220&&tx<241&&ty>=78&&ty<132) rep=T.MOUNTAIN_WALL;
         // ── Desert region gap (swamp south / desert north seam) ──
@@ -3913,6 +3924,21 @@ const Player = {
     const nx=p.x+dx*spd*dt, ny=p.y+dy*spd*dt;
     if(World.canMove(nx,p.y,PLAYER_CONFIG.size-1)) p.x=nx;
     if(World.canMove(p.x,ny,PLAYER_CONFIG.size-1)) p.y=ny;
+    // Push-out: if somehow inside a wall (knockback/clamp rounding), nudge to nearest open cell
+    if(!World.canMove(p.x,p.y,PLAYER_CONFIG.size-1)){
+      const S=TILE_SIZE;
+      const tx=(p.x/S)|0, ty=(p.y/S)|0;
+      let best=null, bestD=Infinity;
+      for(let ddy=-2;ddy<=2;ddy++) for(let ddx=-2;ddx<=2;ddx++){
+        if(!ddx&&!ddy) continue;
+        const cx=(tx+ddx)*S+S/2, cy=(ty+ddy)*S+S/2;
+        if(World.canMove(cx,cy,PLAYER_CONFIG.size-1)){
+          const d=Math.hypot(cx-p.x,cy-p.y);
+          if(d<bestD){ best={cx,cy}; bestD=d; }
+        }
+      }
+      if(best){ p.x=best.cx; p.y=best.cy; }
+    }
     // Clamp to active boss room bounds
     BossRooms.clamp(p);
   },
