@@ -20,7 +20,7 @@ canvas { display: block; image-rendering: pixelated; }
 // ============================================================
 const TILE_SIZE = 32;
 const WORLD_W   = 280;
-const WORLD_H   = 200;
+const WORLD_H   = 280;
 const SCREEN_W  = 960;
 const SCREEN_H  = 640;
 
@@ -34,6 +34,11 @@ const T = {
   MOUNTAIN_FLOOR:16, MOUNTAIN_WALL:17,
   GRASS_FLOOR:18, GRASS_WALL:19,
   HOUSE_WALL:20,  HOUSE_FLOOR:21,
+  DESERT_FLOOR:22, DESERT_WALL:23,
+  VOLCANIC_FLOOR:24, VOLCANIC_WALL:25,
+  ABYSSAL_FLOOR:26, ABYSSAL_WALL:27,
+  CRYSTAL_FLOOR:28, CRYSTAL_WALL:29,
+  CORRUPTED_FLOOR:30, CORRUPTED_WALL:31,
 };
 
 // ============================================================
@@ -46,11 +51,11 @@ const ZONES = {
     ambientColor:'#1a1510',  fogTint:'rgba(20,15,10,0.10)'
   },
   FOREST: {
-    name:'Darkroot Forest',  bounds:{x:70,  y:5,   w:100, h:90},
+    name:'Darkroot Forest',  bounds:{x:70,  y:5,   w:140, h:90},
     ambientColor:'#0a100a',  fogTint:'rgba(5,12,5,0.15)'
   },
   VILLAGE: {
-    name:'Ember Village',    bounds:{x:170, y:5,   w:70,  h:75},
+    name:'Ember Village',    bounds:{x:185, y:5,   w:55,  h:55},
     ambientColor:'#12100a',  fogTint:'rgba(15,12,5,0.06)'
   },
   CASTLE: {
@@ -72,6 +77,26 @@ const ZONES = {
   GRASSLAND:{
     name:'Verdant Expanse',  bounds:{x:5,   y:1,   w:155, h:36},
     ambientColor:'#080e06',  fogTint:'rgba(8,18,5,0.14)'
+  },
+  DESERT:{
+    name:'Scorched Sands',   bounds:{x:241, y:78,  w:37,  h:54},
+    ambientColor:'#1a140a',  fogTint:'rgba(30,20,5,0.14)'
+  },
+  VOLCANIC:{
+    name:'Scorched Wastes',  bounds:{x:5,   y:202, w:135, h:36},
+    ambientColor:'#12080a',  fogTint:'rgba(25,8,5,0.22)'
+  },
+  ABYSSAL:{
+    name:'Abyssal Depths',   bounds:{x:140, y:202, w:135, h:36},
+    ambientColor:'#04060f',  fogTint:'rgba(5,8,25,0.25)'
+  },
+  CRYSTAL:{
+    name:'Crystal Caverns',  bounds:{x:5,   y:238, w:135, h:36},
+    ambientColor:'#0a0c18',  fogTint:'rgba(15,20,40,0.20)'
+  },
+  CORRUPTED:{
+    name:'Corrupted Citadel',bounds:{x:140, y:238, w:135, h:36},
+    ambientColor:'#0c0410',  fogTint:'rgba(20,5,30,0.25)'
   },
 };
 
@@ -242,6 +267,107 @@ const ENEMY_TYPES = {
     p2SpeedMult:1.55, p2DmgMult:1.6, p2Threshold:0.45,
     slamDmg:58, slamRange:110, slamDelay:0.88, isMiniBoss:true
   },
+  // ========================== DESERT ENEMIES ==========================
+  SCORPION:{
+    name:'Tomb Scorpion', maxHP:65, speed:145, meleeDmg:18, attackRange:36, detRange:250,
+    attackCD:0.9, attackDur:0.18, size:10, color:'#c8900a', darkColor:'#8a5c04',
+    runesDrop:130, lootChance:0.15, behavior:'grunt'
+  },
+  MUMMY:{
+    name:'Ancient Mummy', maxHP:200, speed:45, meleeDmg:28, attackRange:50, detRange:200,
+    attackCD:2.0, attackDur:0.55, size:13, color:'#c0b080', darkColor:'#706040',
+    runesDrop:200, lootChance:0.22, behavior:'grunt'
+  },
+  SAND_WARRIOR:{
+    name:'Sand Warrior', maxHP:150, speed:80, meleeDmg:32, attackRange:46, detRange:230,
+    attackCD:1.5, attackDur:0.36, size:12, color:'#d09040', darkColor:'#886020',
+    runesDrop:180, lootChance:0.25, behavior:'grunt'
+  },
+  SAND_ARCHER:{
+    name:'Desert Hawk', maxHP:90, speed:100, meleeDmg:16, attackRange:280, detRange:320,
+    attackCD:1.7, attackDur:0.40, size:10, color:'#b07028', darkColor:'#704018',
+    runesDrop:160, lootChance:0.28, behavior:'archer', projSpeed:300, backoff:200
+  },
+  SAND_SERPENT:{
+    name:'The Sand Serpent', maxHP:1100, speed:110, meleeDmg:55, attackRange:96, detRange:700,
+    attackCD:1.5, attackDur:0.48, size:30, color:'#d4a020', darkColor:'#8a6010',
+    runesDrop:9000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.65, p2DmgMult:1.7, p2Threshold:0.45,
+    slamDmg:78, slamRange:130, slamDelay:0.85, isDesertBoss:true
+  },
+  // ========================== END-GAME ENEMIES ==========================
+  // Volcanic zone
+  ASH_SPAWN:{
+    name:'Ash Spawn', maxHP:180, speed:120, meleeDmg:35, attackRange:40, detRange:260,
+    attackCD:1.0, attackDur:0.22, size:11, color:'#c84020', darkColor:'#7c2010',
+    runesDrop:400, lootChance:0.20, behavior:'grunt'
+  },
+  LAVA_BRUTE:{
+    name:'Lava Brute', maxHP:420, speed:55, meleeDmg:70, attackRange:56, detRange:210,
+    attackCD:2.2, attackDur:0.65, size:16, color:'#e06020', darkColor:'#903010',
+    runesDrop:700, lootChance:0.30, behavior:'grunt'
+  },
+  LAVA_TITAN:{
+    name:'Titan of the Forge', maxHP:2200, speed:85, meleeDmg:88, attackRange:100, detRange:800,
+    attackCD:1.8, attackDur:0.60, size:34, color:'#ff5010', darkColor:'#901808',
+    runesDrop:20000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.5, p2DmgMult:1.7, p2Threshold:0.4,
+    slamDmg:110, slamRange:150, slamDelay:0.88, isEndBoss:true
+  },
+  // Abyssal zone
+  DEPTH_WRAITH:{
+    name:'Depth Wraith', maxHP:140, speed:165, meleeDmg:30, attackRange:38, detRange:300,
+    attackCD:0.75, attackDur:0.16, size:10, color:'#2030b0', darkColor:'#101870',
+    runesDrop:380, lootChance:0.18, behavior:'grunt'
+  },
+  ABYSSAL_STALKER:{
+    name:'Abyssal Stalker', maxHP:320, speed:70, meleeDmg:58, attackRange:50, detRange:240,
+    attackCD:1.8, attackDur:0.44, size:14, color:'#0830d0', darkColor:'#041880',
+    runesDrop:620, lootChance:0.28, behavior:'grunt'
+  },
+  VOID_LEVIATHAN:{
+    name:'Void Leviathan', maxHP:2500, speed:70, meleeDmg:82, attackRange:108, detRange:850,
+    attackCD:2.0, attackDur:0.58, size:36, color:'#1020e0', darkColor:'#060c80',
+    runesDrop:22000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.45, p2DmgMult:1.65, p2Threshold:0.4,
+    slamDmg:100, slamRange:160, slamDelay:0.92, isEndBoss:true
+  },
+  // Crystal zone
+  CRYSTAL_DRONE:{
+    name:'Crystal Drone', maxHP:160, speed:95, meleeDmg:28, attackRange:200, detRange:280,
+    attackCD:1.4, attackDur:0.36, size:10, color:'#60c0e0', darkColor:'#2880a0',
+    runesDrop:360, lootChance:0.20, behavior:'archer', projSpeed:340, backoff:160
+  },
+  PRISM_GOLEM:{
+    name:'Prism Golem', maxHP:500, speed:40, meleeDmg:75, attackRange:54, detRange:200,
+    attackCD:2.5, attackDur:0.72, size:17, color:'#80d0ff', darkColor:'#4088b0',
+    runesDrop:800, lootChance:0.32, behavior:'grunt'
+  },
+  CRYSTAL_COLOSSUS:{
+    name:'Crystal Colossus', maxHP:2800, speed:55, meleeDmg:95, attackRange:110, detRange:820,
+    attackCD:2.2, attackDur:0.68, size:38, color:'#a0e8ff', darkColor:'#4090c0',
+    runesDrop:24000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.4, p2DmgMult:1.6, p2Threshold:0.4,
+    slamDmg:118, slamRange:165, slamDelay:1.0, isEndBoss:true
+  },
+  // Corrupted zone
+  CORRUPTED_HOLLOW:{
+    name:'Corrupted Hollow', maxHP:200, speed:135, meleeDmg:38, attackRange:42, detRange:280,
+    attackCD:1.1, attackDur:0.24, size:11, color:'#a020c8', darkColor:'#601080',
+    runesDrop:420, lootChance:0.22, behavior:'grunt'
+  },
+  SHADOW_KNIGHT:{
+    name:'Shadow Knight', maxHP:450, speed:75, meleeDmg:72, attackRange:56, detRange:250,
+    attackCD:1.9, attackDur:0.50, size:15, color:'#7010a0', darkColor:'#3a0860',
+    runesDrop:850, lootChance:0.35, behavior:'grunt'
+  },
+  CORRUPT_SOVEREIGN:{
+    name:'The Corrupt Sovereign', maxHP:3000, speed:90, meleeDmg:100, attackRange:112, detRange:900,
+    attackCD:1.7, attackDur:0.56, size:36, color:'#c030f0', darkColor:'#6010a0',
+    runesDrop:26000, lootChance:1.0, behavior:'boss',
+    p2SpeedMult:1.55, p2DmgMult:1.75, p2Threshold:0.35,
+    slamDmg:130, slamRange:170, slamDelay:0.88, isEndBoss:true
+  },
 };
 
 // Easy to add new consumable items
@@ -254,26 +380,11 @@ const ITEMS = {
     id:'rune_arc', name:'Rune Arc', color:'#a0c8ff', glow:'#4080ff',
     effect:'runes', value:800
   },
-  // Boss summon items — found in specific chests, consumed on summon
-  ASHEN_SIGIL:{
-    id:'ashen_sigil', name:'Ashen Sigil', color:'#c8a060', glow:'#e8c070',
-    effect:'summon', target:'main_boss',
-    desc:'Grants audience with the Ashen King.'
-  },
-  HORROR_TOTEM:{
-    id:'horror_totem', name:'Horror Totem', color:'#3a8020', glow:'#60c030',
-    effect:'summon', target:'swamp_boss',
-    desc:'Calls forth the Swamp Horror.'
-  },
-  YETI_EFFIGY:{
-    id:'yeti_effigy', name:'Yeti Effigy', color:'#60a8e0', glow:'#90d0ff',
-    effect:'summon', target:'mtn_boss',
-    desc:'Awakens the Glacial Yeti.'
-  },
-  WARDEN_SEAL:{
-    id:'warden_seal', name:"Warden's Seal", color:'#3a8020', glow:'#60c030',
-    effect:'summon', target:'grassland_boss',
-    desc:'Breaks the seal of the Verdant Warden.'
+  // Key items — gate access to new areas
+  DESERT_KEY:{
+    id:'desert_key', name:'Desert Passage Key', color:'#d4a030', glow:'#f0c040',
+    effect:'key', target:'desert_gate',
+    desc:'A sun-bleached key wrested from the Yeti. Opens the sealed desert passage.'
   },
 };
 
@@ -415,6 +526,72 @@ const EQUIPMENT_ITEMS = {
     id:'ARCHER_TALISMAN', name:'Archer Talisman', slot:'talisman', rarity:'rare',
     bonuses:{damage:6,defense:0,hp:8,stamina:12,fp:0}, desc:'+6 ATK  +12 STA  +8 HP'
   },
+  // ========================== DESERT AREA GEAR ==========================
+  BONE_BLADE:{
+    id:'BONE_BLADE', name:'Bone Blade', slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:22,defense:0,hp:0,stamina:10,fp:0}, desc:'+22 ATK  +10 STA'
+  },
+  SAND_LANCE:{
+    id:'SAND_LANCE', name:'Sand Lance', slot:'weapon', rarity:'uncommon',
+    bonuses:{damage:20,defense:2,hp:0,stamina:8,fp:0}, desc:'+20 ATK  +2 DEF  +8 STA'
+  },
+  DESERT_ROBE:{
+    id:'DESERT_ROBE', name:'Desert Robe', slot:'armor', rarity:'uncommon',
+    bonuses:{damage:0,defense:14,hp:30,stamina:8,fp:0}, desc:'+14 DEF  +30 HP  +8 STA'
+  },
+  SCARAB_RING:{
+    id:'SCARAB_RING', name:'Scarab Ring', slot:'ring', rarity:'uncommon',
+    bonuses:{damage:8,defense:0,hp:15,stamina:0,fp:0}, desc:'+8 ATK  +15 HP'
+  },
+  SERPENT_FANG:{
+    id:'SERPENT_FANG', name:"Serpent's Fang", slot:'talisman', rarity:'rare',
+    bonuses:{damage:18,defense:12,hp:20,stamina:0,fp:0}, desc:'+18 ATK  +12 DEF  +20 HP  (Boss Drop)'
+  },
+  SERPENT_SCALE_ARMOR:{
+    id:'SERPENT_SCALE_ARMOR', name:'Serpent Scale Armor', slot:'armor', rarity:'rare',
+    bonuses:{damage:4,defense:26,hp:70,stamina:0,fp:0}, desc:'+26 DEF  +70 HP  +4 ATK  (Boss Drop)'
+  },
+  // ========================== END-GAME GEAR ==========================
+  ABYSSAL_BLADE:{
+    id:'ABYSSAL_BLADE', name:'Abyssal Blade', slot:'weapon', rarity:'rare',
+    bonuses:{damage:50,defense:8,hp:0,stamina:0,fp:0}, desc:'+50 ATK  +8 DEF  (Endgame)'
+  },
+  VOID_LANCE:{
+    id:'VOID_LANCE', name:'Void Lance', slot:'weapon', rarity:'rare',
+    bonuses:{damage:44,defense:0,hp:0,stamina:22,fp:0}, desc:'+44 ATK  +22 STA  (Endgame)'
+  },
+  CRYSTAL_SCEPTER:{
+    id:'CRYSTAL_SCEPTER', name:'Crystal Scepter', slot:'weapon', rarity:'rare',
+    bonuses:{damage:40,defense:0,hp:0,stamina:0,fp:50}, desc:'+40 ATK  +50 FP  (Endgame)'
+  },
+  CORRUPTED_SWORD:{
+    id:'CORRUPTED_SWORD', name:'Corrupted Sword', slot:'weapon', rarity:'rare',
+    bonuses:{damage:52,defense:0,hp:15,stamina:8,fp:0}, desc:'+52 ATK  +15 HP  +8 STA  (Endgame)'
+  },
+  LAVA_PLATE:{
+    id:'LAVA_PLATE', name:'Lava Plate', slot:'armor', rarity:'rare',
+    bonuses:{damage:10,defense:40,hp:80,stamina:0,fp:0}, desc:'+40 DEF  +80 HP  +10 ATK  (Endgame)'
+  },
+  VOID_SHROUD:{
+    id:'VOID_SHROUD', name:'Void Shroud', slot:'armor', rarity:'rare',
+    bonuses:{damage:0,defense:30,hp:100,stamina:22,fp:0}, desc:'+30 DEF  +100 HP  +22 STA  (Endgame)'
+  },
+  CRYSTAL_ROBE:{
+    id:'CRYSTAL_ROBE', name:'Crystal Robe', slot:'armor', rarity:'rare',
+    bonuses:{damage:0,defense:25,hp:80,stamina:0,fp:40}, desc:'+25 DEF  +80 HP  +40 FP  (Endgame)'
+  },
+  CORRUPTION_MAIL:{
+    id:'CORRUPTION_MAIL', name:'Corruption Mail', slot:'armor', rarity:'rare',
+    bonuses:{damage:8,defense:45,hp:60,stamina:0,fp:0}, desc:'+45 DEF  +60 HP  +8 ATK  (Endgame)'
+  },
+  TITAN_RING:{
+    id:'TITAN_RING', name:'Titan Ring', slot:'ring', rarity:'rare',
+    bonuses:{damage:20,defense:20,hp:50,stamina:0,fp:0}, desc:'+20 ATK  +20 DEF  +50 HP  (Endgame)'
+  },
+  VOID_RING:{
+    id:'VOID_RING', name:'Void Ring', slot:'ring', rarity:'rare',
+    bonuses:{damage:18,defense:0,hp:30,stamina:40,fp:0}, desc:'+18 ATK  +30 HP  +40 STA  (Endgame)'
+  },
 };
 
 // ============================================================
@@ -467,6 +644,7 @@ const LOOT_TABLES = {
   YETI:[
     {item:'YETI_PELT',      chance:1.0},
     {item:'SOVEREIGN_RING', chance:1.0},
+    {item:'DESERT_KEY',     chance:1.0},
   ],
   // Grassland enemies
   BANDIT:[
@@ -529,6 +707,106 @@ const LOOT_TABLES = {
     {item:'FOREST_BOW',   chance:0.45},
     {item:'OAK_STAFF',    chance:0.40},
     {item:'EMBER_ROD',    chance:0.40},
+  ],
+  // Desert enemy drops
+  SCORPION:[
+    {item:'SCARAB_RING',  chance:0.08},
+    {item:'BONE_BLADE',   chance:0.05},
+  ],
+  MUMMY:[
+    {item:'DESERT_ROBE',  chance:0.08},
+    {item:'SCARAB_RING',  chance:0.06},
+  ],
+  SAND_WARRIOR:[
+    {item:'BONE_BLADE',   chance:0.09},
+    {item:'DESERT_ROBE',  chance:0.06},
+  ],
+  SAND_ARCHER:[
+    {item:'SAND_LANCE',   chance:0.10},
+    {item:'SCARAB_RING',  chance:0.07},
+  ],
+  SAND_SERPENT:[
+    {item:'SERPENT_FANG',        chance:1.0},
+    {item:'SERPENT_SCALE_ARMOR', chance:1.0},
+  ],
+  // Desert chest table
+  DESERT:[
+    {item:'BONE_BLADE',   chance:0.55},
+    {item:'SAND_LANCE',   chance:0.50},
+    {item:'DESERT_ROBE',  chance:0.50},
+    {item:'SCARAB_RING',  chance:0.45},
+  ],
+  // End-game enemy drops
+  ASH_SPAWN:[
+    {item:'LAVA_PLATE',   chance:0.05},
+    {item:'ABYSSAL_BLADE',chance:0.03},
+  ],
+  LAVA_BRUTE:[
+    {item:'LAVA_PLATE',   chance:0.10},
+    {item:'TITAN_RING',   chance:0.06},
+  ],
+  DEPTH_WRAITH:[
+    {item:'VOID_RING',    chance:0.07},
+    {item:'VOID_SHROUD',  chance:0.04},
+  ],
+  ABYSSAL_STALKER:[
+    {item:'VOID_LANCE',   chance:0.09},
+    {item:'VOID_RING',    chance:0.07},
+  ],
+  CRYSTAL_DRONE:[
+    {item:'CRYSTAL_ROBE', chance:0.06},
+    {item:'CRYSTAL_SCEPTER',chance:0.04},
+  ],
+  PRISM_GOLEM:[
+    {item:'CRYSTAL_ROBE', chance:0.12},
+    {item:'VOID_RING',    chance:0.07},
+  ],
+  CORRUPTED_HOLLOW:[
+    {item:'CORRUPTION_MAIL',chance:0.06},
+    {item:'CORRUPTED_SWORD',chance:0.04},
+  ],
+  SHADOW_KNIGHT:[
+    {item:'CORRUPTION_MAIL',chance:0.12},
+    {item:'TITAN_RING',     chance:0.08},
+  ],
+  // End-game boss drops
+  LAVA_TITAN:[
+    {item:'LAVA_PLATE',   chance:1.0},
+    {item:'ABYSSAL_BLADE',chance:1.0},
+  ],
+  VOID_LEVIATHAN:[
+    {item:'VOID_SHROUD',  chance:1.0},
+    {item:'VOID_LANCE',   chance:1.0},
+  ],
+  CRYSTAL_COLOSSUS:[
+    {item:'CRYSTAL_ROBE', chance:1.0},
+    {item:'CRYSTAL_SCEPTER',chance:1.0},
+  ],
+  CORRUPT_SOVEREIGN:[
+    {item:'CORRUPTION_MAIL',chance:1.0},
+    {item:'CORRUPTED_SWORD',chance:1.0},
+    {item:'TITAN_RING',     chance:0.5},
+  ],
+  // End-game chest tables
+  VOLCANIC:[
+    {item:'LAVA_PLATE',   chance:0.45},
+    {item:'ABYSSAL_BLADE',chance:0.40},
+    {item:'TITAN_RING',   chance:0.35},
+  ],
+  ABYSSAL:[
+    {item:'VOID_SHROUD',  chance:0.45},
+    {item:'VOID_LANCE',   chance:0.40},
+    {item:'VOID_RING',    chance:0.35},
+  ],
+  CRYSTAL:[
+    {item:'CRYSTAL_ROBE', chance:0.45},
+    {item:'CRYSTAL_SCEPTER',chance:0.40},
+    {item:'VOID_RING',    chance:0.35},
+  ],
+  CORRUPTED:[
+    {item:'CORRUPTION_MAIL',chance:0.45},
+    {item:'CORRUPTED_SWORD',chance:0.40},
+    {item:'TITAN_RING',     chance:0.35},
   ],
 };
 
@@ -715,6 +993,19 @@ const GS = {
     grassland:{active:false, defeated:false, ref:null, summoned:false},
   },
 
+  // Desert boss
+  desertGateOpen: false,
+  desertBoss:{ active:false, defeated:false, ref:null },
+
+  // End-game 4-zone bosses
+  endgameUnlocked: false,
+  endgameBoss:{
+    volcanic: {active:false, defeated:false, ref:null},
+    abyssal:  {active:false, defeated:false, ref:null},
+    crystal:  {active:false, defeated:false, ref:null},
+    corrupted:{active:false, defeated:false, ref:null},
+  },
+
   currentZone:'RUINS', discoveredZones:new Set(['RUINS']),
 
   messages:[],  // {text, type, timer, max}
@@ -722,7 +1013,6 @@ const GS = {
   flags:{ fogGateEntered:false, bossArenaOpen:false },
 
   // Boss room seal state — null when no room is active
-  // { id:'main'|'swamp'|'mountain', px0,py0,px1,py1 }
   activeBossRoom: null,
   insideHouse: null,   // HOUSE_DEF entry when player is inside a house, else null
 
@@ -1288,6 +1578,8 @@ const World = {
     this._bossArena();
     this._swamp();
     this._mountain();
+    this._desert();
+    this._endgameZones();
     this._connectors();
     this._waterAndBridge();
     // Fog gate at end of castle central corridor (main boss)
@@ -1298,6 +1590,18 @@ const World = {
     for(let fx=253;fx<=266;fx++) this._set(fx,24,T.FOG_GATE);
     // Mountain boss room entry — west edge of boss clearing (tx=234, ty=140..158)
     for(let fy=140;fy<=158;fy++) this._set(234,fy,T.FOG_GATE);
+    // Desert gate — south wall of swamp (requires Desert Key), row y=76-77
+    for(let fx=253;fx<=266;fx++){ this._set(fx,76,T.FOG_GATE); this._set(fx,77,T.FOG_GATE); }
+    // Desert boss arena entry — south end of desert (row y=129-130)
+    for(let fx=253;fx<=266;fx++){ this._set(fx,129,T.FOG_GATE); this._set(fx,130,T.FOG_GATE); }
+    // Endgame gate — south of Boss Arena
+    for(let fx=127;fx<=131;fx++)
+      for(let fy=197;fy<=202;fy++) this._set(fx,fy,T.FOG_GATE);
+    // Endgame zone boss room entries
+    for(let fx=5; fx<=139;fx++) this._set(fx,201,T.FOG_GATE);  // volcanic
+    for(let fx=140;fx<=274;fx++) this._set(fx,201,T.FOG_GATE); // abyssal
+    for(let fx=5; fx<=139;fx++) this._set(fx,237,T.FOG_GATE);  // crystal
+    for(let fx=140;fx<=274;fx++) this._set(fx,237,T.FOG_GATE); // corrupted
     this._border();
     this._fillVoids();
     GS.tileMap=this.map;
@@ -1408,7 +1712,7 @@ const World = {
   },
 
   _village(){
-    const b=ZONES.VILLAGE.bounds; // x:170 y:5 w:70 h:75
+    const b=ZONES.VILLAGE.bounds; // x:185 y:5 w:55 h:55  (tiles 185-240, rows 5-60)
     this._fill(b.x,b.y,b.w,b.h,T.VILLAGE_FLOOR);
 
     // Irregular natural eastern border
@@ -1422,39 +1726,39 @@ const World = {
       for(let i=0;i<d;i++) this._set(tx,b.y+b.h-1-i,T.WALL);
     }
 
-    // Building 1 — Inn:  tx=173-183, ty=8-15 (11×8)
+    // Building 1 — Inn:  tx=190-200, ty=8-15 (11x8)
     for(let dx=0;dx<11;dx++) for(let dy=0;dy<8;dy++){
-      const tx=173+dx, ty=8+dy;
+      const tx=190+dx, ty=8+dy;
       const door=(dx>=4&&dx<=6&&dy===7);
       if((dx===0||dx===10||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
     }
-    // Building 2 — House: tx=186-194, ty=7-13 (9×7)
+    // Building 2 — House: tx=207-215, ty=7-13 (9x7)
     for(let dx=0;dx<9;dx++) for(let dy=0;dy<7;dy++){
-      const tx=186+dx, ty=7+dy;
+      const tx=207+dx, ty=7+dy;
       const door=(dx>=3&&dx<=5&&dy===6);
       if((dx===0||dx===8||dy===0||dy===6)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
     }
-    // Building 3 — Forge: tx=200-209, ty=9-16 (10×8)
+    // Building 3 — Forge: tx=220-229, ty=9-16 (10x8)
     for(let dx=0;dx<10;dx++) for(let dy=0;dy<8;dy++){
-      const tx=200+dx, ty=9+dy;
+      const tx=220+dx, ty=9+dy;
       const door=(dx>=3&&dx<=5&&dy===7);
       if((dx===0||dx===9||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
     }
-    // Building 4 — Church: tx=179-192, ty=38-49 (14×12)
+    // Building 4 — Church: tx=188-201, ty=38-49 (14x12)
     for(let dx=0;dx<14;dx++) for(let dy=0;dy<12;dy++){
-      const tx=179+dx, ty=38+dy;
+      const tx=188+dx, ty=38+dy;
       const door=(dx>=5&&dx<=8&&dy===11);
       if((dx===0||dx===13||dy===0||dy===11)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
     }
 
-    // Village well — 2×2 block near center square
-    this._fill(200,44,2,2,T.VILLAGE_WALL);
+    // Village well — 2x2 block near center square
+    this._fill(210,44,2,2,T.VILLAGE_WALL);
 
     // Low decorative fences along the main path (single-tile thick)
-    for(let tx=175;tx<=186;tx++) this._set(tx,22,T.VILLAGE_WALL); // north fence
-    for(let tx=175;tx<=186;tx++) this._set(tx,35,T.VILLAGE_WALL); // south fence
+    for(let tx=191;tx<=204;tx++) this._set(tx,22,T.VILLAGE_WALL); // north fence
+    for(let tx=191;tx<=204;tx++) this._set(tx,35,T.VILLAGE_WALL); // south fence
     // Open gate gap in fences
-    for(let tx=179;tx<=182;tx++){ this._set(tx,22,T.VILLAGE_FLOOR); this._set(tx,35,T.VILLAGE_FLOOR); }
+    for(let tx=196;tx<=199;tx++){ this._set(tx,22,T.VILLAGE_FLOOR); this._set(tx,35,T.VILLAGE_FLOOR); }
   },
 
   _castle(){
@@ -1609,6 +1913,117 @@ const World = {
     for(let y=b.y+10;y<=b.y+26;y++) this._set(b.x,y,T.MOUNTAIN_FLOOR);
   },
 
+  _desert(){
+    const b=ZONES.DESERT.bounds; // x:241, y:78, w:37, h:54
+    this._fill(b.x,b.y,b.w,b.h,T.DESERT_FLOOR);
+    const ld=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.DESERT_FLOOR);
+    const lw=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.DESERT_WALL);
+
+    // Sandy border walls
+    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.DESERT_WALL); this._set(x,b.y+b.h-1,T.DESERT_WALL); }
+    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.DESERT_WALL); this._set(b.x+b.w-1,y,T.DESERT_WALL); }
+
+    // Desert rock formations (sandstone pillars)
+    lw(4,3,5,7);  lw(14,2,4,8);  lw(24,4,5,6);
+    lw(5,14,4,6); lw(16,13,5,7); lw(27,12,4,7);
+    lw(3,26,5,7); lw(13,25,4,8); lw(23,27,5,6); lw(30,24,4,8);
+    lw(6,40,4,6); lw(17,39,5,7); lw(28,41,4,6);
+
+    // Dry oasis pools (small water features)
+    this._fill(b.x+8, b.y+10, 4,3,T.WATER);
+    this._fill(b.x+22,b.y+32, 4,3,T.WATER);
+
+    // Main paths through desert
+    ld(6,5,3,50);   // western trail
+    ld(16,5,5,50);  // center trail
+    ld(26,5,4,50);  // eastern trail
+    ld(5,18,28,4);  // horizontal pass 1
+    ld(5,36,28,4);  // horizontal pass 2
+
+    // Boss arena clearing — wide open central space
+    ld(9,22,20,18);
+
+    // Entry passage at north (from swamp) — already opened by fog gate row
+    for(let x=b.x+8;x<=b.x+24;x++) this._set(x,b.y,T.DESERT_FLOOR);
+  },
+
+  _endgameZones(){
+    // ── VOLCANIC ZONE: x:5 y:202 w:135 h:36 ──
+    {const b=ZONES.VOLCANIC.bounds;
+    this._fill(b.x,b.y,b.w,b.h,T.VOLCANIC_FLOOR);
+    // Craggy lava walls
+    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.VOLCANIC_WALL); this._set(x,b.y+b.h-1,T.VOLCANIC_WALL); }
+    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.VOLCANIC_WALL); this._set(b.x+b.w-1,y,T.VOLCANIC_WALL); }
+    // Lava pools
+    for(const[vx,vy,vw,vh] of [[12,4,10,6],[50,10,12,5],[88,4,10,7],[110,12,12,5]]){
+      this._fill(b.x+vx,b.y+vy,vw,vh,T.WATER); // use WATER tile (impassable lava pools)
+    }
+    // Rock formations
+    for(const[wx,wy,ww,wh] of [[4,2,6,8],[25,3,5,9],[42,5,7,8],[65,2,6,10],[80,4,8,7],[100,3,6,9],[120,2,5,8]]){
+      this._fill(b.x+wx,b.y+wy,ww,wh,T.VOLCANIC_WALL);
+    }
+    // Paths through
+    for(let x=b.x+1;x<b.x+b.w-1;x++) for(let cy=b.y+12;cy<=b.y+16;cy++) this._set(x,cy,T.VOLCANIC_FLOOR);
+    for(let y=b.y+1;y<b.y+b.h-1;y++) for(const cx of [b.x+20,b.x+60,b.x+100]) this._set(cx,y,T.VOLCANIC_FLOOR);
+    // Boss arena at center
+    this._fill(b.x+50,b.y+2,35,30,T.VOLCANIC_FLOOR);}
+
+    // ── ABYSSAL ZONE: x:140 y:202 w:135 h:36 ──
+    {const b=ZONES.ABYSSAL.bounds;
+    this._fill(b.x,b.y,b.w,b.h,T.ABYSSAL_FLOOR);
+    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.ABYSSAL_WALL); this._set(x,b.y+b.h-1,T.ABYSSAL_WALL); }
+    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.ABYSSAL_WALL); this._set(b.x+b.w-1,y,T.ABYSSAL_WALL); }
+    // Void pools
+    for(const[vx,vy,vw,vh] of [[8,3,8,5],[46,8,10,6],[82,3,9,7],[110,9,11,6]]){
+      this._fill(b.x+vx,b.y+vy,vw,vh,T.WATER);
+    }
+    for(const[wx,wy,ww,wh] of [[3,2,5,9],[22,4,6,8],[40,2,5,10],[62,3,7,8],[78,5,6,9],[98,2,5,10],[118,3,6,8]]){
+      this._fill(b.x+wx,b.y+wy,ww,wh,T.ABYSSAL_WALL);
+    }
+    for(let x=b.x+1;x<b.x+b.w-1;x++) for(let cy=b.y+14;cy<=b.y+18;cy++) this._set(x,cy,T.ABYSSAL_FLOOR);
+    for(let y=b.y+1;y<b.y+b.h-1;y++) for(const cx of [b.x+18,b.x+58,b.x+98]) this._set(cx,y,T.ABYSSAL_FLOOR);
+    this._fill(b.x+48,b.y+2,37,30,T.ABYSSAL_FLOOR);}
+
+    // ── CRYSTAL ZONE: x:5 y:238 w:135 h:36 ──
+    {const b=ZONES.CRYSTAL.bounds;
+    this._fill(b.x,b.y,b.w,b.h,T.CRYSTAL_FLOOR);
+    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.CRYSTAL_WALL); this._set(x,b.y+b.h-1,T.CRYSTAL_WALL); }
+    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.CRYSTAL_WALL); this._set(b.x+b.w-1,y,T.CRYSTAL_WALL); }
+    for(const[wx,wy,ww,wh] of [[5,2,4,9],[20,4,6,8],[36,2,5,10],[55,3,7,8],[72,5,5,9],[90,2,6,10],[112,3,5,8]]){
+      this._fill(b.x+wx,b.y+wy,ww,wh,T.CRYSTAL_WALL);
+    }
+    for(let x=b.x+1;x<b.x+b.w-1;x++) for(let cy=b.y+13;cy<=b.y+17;cy++) this._set(x,cy,T.CRYSTAL_FLOOR);
+    for(let y=b.y+1;y<b.y+b.h-1;y++) for(const cx of [b.x+16,b.x+56,b.x+96]) this._set(cx,y,T.CRYSTAL_FLOOR);
+    this._fill(b.x+46,b.y+2,38,30,T.CRYSTAL_FLOOR);}
+
+    // ── CORRUPTED ZONE: x:140 y:238 w:135 h:36 ──
+    {const b=ZONES.CORRUPTED.bounds;
+    this._fill(b.x,b.y,b.w,b.h,T.CORRUPTED_FLOOR);
+    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.CORRUPTED_WALL); this._set(x,b.y+b.h-1,T.CORRUPTED_WALL); }
+    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.CORRUPTED_WALL); this._set(b.x+b.w-1,y,T.CORRUPTED_WALL); }
+    // Corruption pools
+    for(const[vx,vy,vw,vh] of [[10,4,7,5],[44,9,9,5],[80,3,8,6],[112,8,10,6]]){
+      this._fill(b.x+vx,b.y+vy,vw,vh,T.WATER);
+    }
+    for(const[wx,wy,ww,wh] of [[4,2,5,9],[24,3,6,8],[42,2,5,10],[62,4,7,8],[80,2,6,10],[100,3,5,9],[120,2,6,8]]){
+      this._fill(b.x+wx,b.y+wy,ww,wh,T.CORRUPTED_WALL);
+    }
+    for(let x=b.x+1;x<b.x+b.w-1;x++) for(let cy=b.y+14;cy<=b.y+18;cy++) this._set(x,cy,T.CORRUPTED_FLOOR);
+    for(let y=b.y+1;y<b.y+b.h-1;y++) for(const cx of [b.x+20,b.x+62,b.x+102]) this._set(cx,y,T.CORRUPTED_FLOOR);
+    this._fill(b.x+50,b.y+2,35,30,T.CORRUPTED_FLOOR);}
+
+    // Endgame entry corridor from Boss Arena (y:197-204, x:127-131)
+    for(let x=126;x<=132;x++) for(let y=197;y<=204;y++) this._set(x,y,T.BOSS_FLOOR);
+    // Cross-connector between volcanic and abyssal (y=218-220)
+    for(let x=5;x<=275;x++) for(let y=218;y<=220;y++) this._set(x,y,T.VOLCANIC_FLOOR);
+    // Cross-connector between crystal and corrupted (y=254-256)
+    for(let x=5;x<=275;x++) for(let y=254;y<=256;y++) this._set(x,y,T.CRYSTAL_FLOOR);
+    // Vertical connectors left and right
+    for(let y=202;y<=274;y++){
+      for(let cx of [72,73,207,208]) this._set(cx,y,T.VOLCANIC_FLOOR);
+    }
+  },
+
   _connectors(){
     // 1. Ruins ↔ Forest — eastern corridor x=67-77, y=55-102
     this._carve(67,55,10,47,T.RUINS_FLOOR);
@@ -1663,44 +2078,45 @@ const World = {
   },
 
   _fillVoids(){
-    // Post-generation pass: replace all remaining T.WALL void tiles with contextual terrain.
-    // Zone layout reference:
-    //   GRASSLAND   x:5-160,   y:1-36
-    //   RUINS       x:5-75,    y:38-101
-    //   FOREST      x:70-170,  y:5-94
-    //   VILLAGE     x:170-240, y:5-79
-    //   CASTLE      x:18-220,  y:112-169
-    //   BOSS_ARENA  x:108-152, y:168-196
-    //   SWAMP       x:241-277, y:0-77
-    //   MOUNTAIN    x:220-277, y:132-196
     for(let ty=0;ty<WORLD_H;ty++){
       for(let tx=0;tx<WORLD_W;tx++){
         if(this.map[ty][tx]!==T.WALL) continue;
-        let rep=T.MOUNTAIN_WALL; // default: stone cliff
-        // ── Ocean border band ────────────────────────────────────
+        let rep=T.MOUNTAIN_WALL;
+        // ── Ocean border band ─────────────────────────────
         if(tx<=3||ty<=3||tx>=WORLD_W-4||ty>=WORLD_H-4) rep=T.WATER;
-        // North coast (above all zones)
         else if(ty<5) rep=T.WATER;
-        // West ocean (left of ruins/grassland)
         else if(tx<5) rep=T.WATER;
-        // East ocean (right of swamp/mountain)
         else if(tx>=WORLD_W-5) rep=T.WATER;
-        // South ocean (below everything)
         else if(ty>=WORLD_H-5) rep=T.WATER;
-        // ── Single-tile gap between GRASSLAND south and RUINS north (y=37) ──
+        // ── Gap between grassland and ruins ──
         else if(ty===37&&tx>=5&&tx<75) rep=T.GRASS_FLOOR;
-        // ── West cliff: left of RUINS/CASTLE ────────────────────
-        else if(tx<18&&ty>=38) rep=T.MOUNTAIN_WALL;
-        // ── South edge of FOREST/RUINS above water strip ────────
+        // ── West cliff ──
+        else if(tx<18&&ty>=38&&ty<200) rep=T.MOUNTAIN_WALL;
+        // ── Forest/Ruins above river ──
         else if(ty>=95&&ty<103&&tx>=75&&tx<128) rep=T.RUINS_FLOOR;
         else if(ty>=95&&ty<103&&tx>=140&&tx<170) rep=T.FOREST_FLOOR;
-        // ── Village-to-Mountain gap (below VILLAGE, left of MOUNTAIN) ───
-        else if(tx>=170&&tx<220&&ty>=78&&ty<132) rep=T.MOUNTAIN_WALL;
-        // ── Between SWAMP south and MOUNTAIN north ───────────────
+        // ── Below village, left of mountain (now mostly forest) ──
+        else if(tx>=170&&tx<185&&ty>=60&&ty<112) rep=T.FOREST_FLOOR;
+        else if(tx>=185&&tx<220&&ty>=60&&ty<112) rep=T.MOUNTAIN_WALL;
+        // ── Between swamp/desert and castle/mountain ──
         else if(tx>=220&&tx<241&&ty>=78&&ty<132) rep=T.MOUNTAIN_WALL;
-        // ── South void below CASTLE (deep dungeon stone) ─────────
-        else if(ty>=170&&tx>=18&&tx<220) rep=T.CASTLE_WALL;
-        // remaining fallback → MOUNTAIN_WALL
+        // ── Desert region gap (swamp south / desert north seam) ──
+        else if(tx>=241&&tx<278&&ty>=74&&ty<78) rep=T.SWAMP_FLOOR;
+        // ── Desert / mountain seam ──
+        else if(tx>=241&&tx<278&&ty>=131&&ty<136) rep=T.DESERT_FLOOR;
+        // ── South void below CASTLE ──
+        else if(ty>=170&&ty<200&&tx>=18&&tx<220) rep=T.CASTLE_WALL;
+        // ── Endgame corridor seam ──
+        else if(ty>=197&&ty<202&&tx>=118&&tx<140) rep=T.BOSS_FLOOR;
+        // ── Endgame zones — fill inter-zone gaps ──
+        else if(ty>=200&&ty<202&&tx>=5&&tx<275) rep=T.VOLCANIC_FLOOR;
+        else if(ty>=202&&ty<238&&tx>=5&&tx<275){
+          // volcanic left, abyssal right (already filled by _endgameZones)
+          rep=(tx<140)?T.VOLCANIC_WALL:T.ABYSSAL_WALL;
+        }
+        else if(ty>=238&&ty<275&&tx>=5&&tx<275){
+          rep=(tx<140)?T.CRYSTAL_WALL:T.CORRUPTED_WALL;
+        }
         this.map[ty][tx]=rep;
       }
     }
@@ -1766,7 +2182,9 @@ const World = {
     return t!==T.WALL&&t!==T.RUINS_WALL&&t!==T.FOREST_TREE&&
            t!==T.CASTLE_WALL&&t!==T.WATER&&t!==T.VILLAGE_WALL&&
            t!==T.SWAMP_WALL&&t!==T.MOUNTAIN_WALL&&t!==T.GRASS_WALL&&
-           t!==T.HOUSE_WALL;
+           t!==T.HOUSE_WALL&&t!==T.DESERT_WALL&&
+           t!==T.VOLCANIC_WALL&&t!==T.ABYSSAL_WALL&&
+           t!==T.CRYSTAL_WALL&&t!==T.CORRUPTED_WALL;
   },
 
   canMove(wx,wy,r){
@@ -1777,8 +2195,9 @@ const World = {
 
   zoneAt(wx,wy){
     const tx=wx/TILE_SIZE, ty=wy/TILE_SIZE;
-    const order=['BOSS_ARENA','SWAMP','MOUNTAIN','VILLAGE','FOREST','GRASSLAND','RUINS','CASTLE'];
+    const order=['BOSS_ARENA','SWAMP','DESERT','MOUNTAIN','CORRUPTED','CRYSTAL','ABYSSAL','VOLCANIC','VILLAGE','FOREST','GRASSLAND','RUINS','CASTLE'];
     for(const id of order){
+      if(!ZONES[id]) continue;
       const b=ZONES[id].bounds;
       if(tx>=b.x&&tx<b.x+b.w&&ty>=b.y&&ty<b.y+b.h) return id;
     }
@@ -2308,6 +2727,98 @@ const World = {
         ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.fillRect(sx,sy,1,S); ctx.fillRect(sx,sy,S,1);
         break;}
 
+      case T.DESERT_FLOOR:{
+        const shade=((tx+ty)%3===0)?'#c8900a':((tx*3+ty)%5===0)?'#d4a020':'#bc8808';
+        ctx.fillStyle=shade; ctx.fillRect(sx,sy,S,S);
+        // Sand ripple lines
+        ctx.fillStyle='#b07808';
+        ctx.fillRect(sx,sy+(tx%4)*8,S,1); ctx.fillRect(sx,sy+(tx%4)*8+12,S,1);
+        // Pebble flecks
+        ctx.fillStyle='#c09010'; ctx.fillRect(sx+(ty%5)*6+1,sy+(tx%5)*6+1,2,2);
+        break;}
+      case T.DESERT_WALL:{
+        ctx.fillStyle='#8a5c08'; ctx.fillRect(sx,sy,S,S);
+        // Sandstone layering
+        const lay=((ty)%3);
+        ctx.fillStyle=lay===0?'#9a6c12':lay===1?'#7c500a':'#a07014';
+        ctx.fillRect(sx,sy+2,S,10); ctx.fillRect(sx,sy+18,S,10);
+        ctx.fillStyle='#604008'; ctx.fillRect(sx,sy+12,S,2);
+        // Erosion cracks
+        ctx.fillStyle='#5c3c06'; ctx.fillRect(sx+(tx%3)*10+3,sy+1,1,S-2);
+        ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fillRect(sx,sy,S,3); ctx.fillRect(sx,sy,3,S);
+        break;}
+      case T.VOLCANIC_FLOOR:{
+        const heat=(((tx*7+ty*5)%4)===0);
+        ctx.fillStyle=heat?'#3a0c04':'#2a0802'; ctx.fillRect(sx,sy,S,S);
+        // Lava cracks glowing
+        if(((tx+ty*3)%5===0)){ ctx.fillStyle='#c04010'; ctx.fillRect(sx+(tx%3)*9+1,sy,2,S); }
+        if(((tx*2+ty)%7===0)){ ctx.fillStyle='#e06020'; ctx.fillRect(sx,sy+(ty%3)*9+1,S,2); }
+        // Ash flecks
+        ctx.fillStyle='#181008'; ctx.fillRect(sx+(ty%7)*4+1,sy+(tx%5)*6+2,3,3);
+        break;}
+      case T.VOLCANIC_WALL:{
+        ctx.fillStyle='#1a0804'; ctx.fillRect(sx,sy,S,S);
+        // Magma seam
+        ctx.fillStyle='#801808'; ctx.fillRect(sx+2,sy+12,S-4,4);
+        ctx.fillStyle='#c04010'; ctx.fillRect(sx+4,sy+13,S-8,2);
+        // Rough rocky texture
+        ctx.fillStyle='#120604'; ctx.fillRect(sx+(tx%5)*6,sy+2,4,10); ctx.fillRect(sx+(tx%5)*6+2,sy+18,4,10);
+        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(sx,sy,4,S); ctx.fillRect(sx+S-4,sy,4,S);
+        break;}
+      case T.ABYSSAL_FLOOR:{
+        ctx.fillStyle='#04080e'; ctx.fillRect(sx,sy,S,S);
+        // Void ripple
+        if(((tx+ty)%4===0)){ ctx.fillStyle='#0c1828'; ctx.fillRect(sx+(ty%4)*8,sy,1,S); }
+        // Glowing runes on floor
+        if(((tx*3+ty*5)%11===0)){ ctx.fillStyle='#0820a0'; ctx.fillRect(sx+(tx%3)*10+2,sy+(ty%4)*8+2,4,4); }
+        ctx.fillStyle='#080c14'; ctx.fillRect(sx+(tx%8)*4,sy+(ty%6)*5+1,2,2);
+        break;}
+      case T.ABYSSAL_WALL:{
+        ctx.fillStyle='#020408'; ctx.fillRect(sx,sy,S,S);
+        ctx.fillStyle='#080c18'; ctx.fillRect(sx+2,sy+4,S-4,8); ctx.fillRect(sx+2,sy+20,S-4,8);
+        ctx.fillStyle='#0c1428'; ctx.fillRect(sx+4,sy+6,S-8,4); ctx.fillRect(sx+4,sy+22,S-8,4);
+        // Void crack
+        ctx.fillStyle='#1030c0'; ctx.fillRect(sx+(tx%4)*8+1,sy+1,1,S-2);
+        ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillRect(sx,sy,4,S); ctx.fillRect(sx+S-4,sy,4,S);
+        break;}
+      case T.CRYSTAL_FLOOR:{
+        const csh=(((tx+ty)%3)===0)?'#0c1420':((tx%2===ty%2)?'#0a1018':'#101828');
+        ctx.fillStyle=csh; ctx.fillRect(sx,sy,S,S);
+        // Crystal facets
+        ctx.fillStyle='#1848a0'; ctx.fillRect(sx+(ty%6)*5+1,sy,2,S);
+        ctx.fillStyle='#204898'; ctx.fillRect(sx,sy+(tx%6)*5+1,S,2);
+        // Shine specks
+        if(((tx*5+ty*3)%7===0)){ ctx.fillStyle='#60c0ff'; ctx.fillRect(sx+(tx%4)*8+2,sy+(ty%4)*8+2,2,2); }
+        break;}
+      case T.CRYSTAL_WALL:{
+        ctx.fillStyle='#0a1428'; ctx.fillRect(sx,sy,S,S);
+        // Crystal prism faces
+        ctx.fillStyle='#1840a0'; ctx.fillRect(sx+2,sy,6,S);
+        ctx.fillStyle='#1060c8'; ctx.fillRect(sx+10,sy,4,S);
+        ctx.fillStyle='#2888e8'; ctx.fillRect(sx+16,sy,6,S);
+        ctx.fillStyle='#1848b0'; ctx.fillRect(sx+24,sy,6,S);
+        // Inner glow
+        ctx.fillStyle='#60c0ff'; ctx.fillRect(sx+14,sy+12,4,8);
+        ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillRect(sx,sy,3,S); ctx.fillRect(sx+S-3,sy,3,S);
+        break;}
+      case T.CORRUPTED_FLOOR:{
+        const cv=((tx+ty*2)%4===0)?'#180c20':'#100818';
+        ctx.fillStyle=cv; ctx.fillRect(sx,sy,S,S);
+        // Corruption veins
+        if(((tx*3+ty)%6===0)){ ctx.fillStyle='#601080'; ctx.fillRect(sx+(ty%3)*10+1,sy,2,S); }
+        // Blight spots
+        ctx.fillStyle='#0c0610'; ctx.fillRect(sx+(ty%5)*6+2,sy+(tx%5)*6+2,3,3);
+        if(((tx+ty*3)%9===0)){ ctx.fillStyle='#8020c0'; ctx.fillRect(sx+(tx%4)*8,sy+(ty%4)*8,3,3); }
+        break;}
+      case T.CORRUPTED_WALL:{
+        ctx.fillStyle='#0c0614'; ctx.fillRect(sx,sy,S,S);
+        // Purple corruption cracks
+        ctx.fillStyle='#401060'; ctx.fillRect(sx+3,sy+6,S-6,6); ctx.fillRect(sx+3,sy+20,S-6,6);
+        ctx.fillStyle='#6020a0'; ctx.fillRect(sx+5,sy+8,S-10,2); ctx.fillRect(sx+5,sy+22,S-10,2);
+        // Void veins
+        ctx.fillStyle='#9030c0'; ctx.fillRect(sx+(tx%4)*8+1,sy+1,1,S-2);
+        ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(sx,sy,4,S); ctx.fillRect(sx+S-4,sy,4,S);
+        break;}
       default:
         ctx.fillStyle='#040404'; ctx.fillRect(sx,sy,S,S);
     }
@@ -2581,14 +3092,24 @@ const Bonfires = {
       {id:4, x:152*TILE_SIZE+16,y:148*TILE_SIZE+16,lit:false, name:'Castle Bonfire'},
       {id:5, x:249*TILE_SIZE+16,y:10*TILE_SIZE+16, lit:false, name:'Swamp Bonfire'},
       {id:6, x:228*TILE_SIZE+16,y:143*TILE_SIZE+16,lit:false, name:'Peak Bonfire'},
-      {id:7, x:48*TILE_SIZE+16, y:20*TILE_SIZE+16, lit:false, name:'Verdant Bonfire'}
+      {id:7, x:48*TILE_SIZE+16, y:20*TILE_SIZE+16, lit:false, name:'Verdant Bonfire'},
+      // Desert bonfire — near oasis in desert zone entrance
+      {id:8, x:248*TILE_SIZE+16,y:85*TILE_SIZE+16, lit:false, name:'Desert Oasis Bonfire'},
+      // End-game bonfires — one per zone at the zone entry
+      {id:9,  x:12*TILE_SIZE+16, y:210*TILE_SIZE+16,lit:false, name:'Volcanic Gateway Bonfire'},
+      {id:10, x:148*TILE_SIZE+16,y:210*TILE_SIZE+16,lit:false, name:'Abyssal Gateway Bonfire'},
+      {id:11, x:12*TILE_SIZE+16, y:246*TILE_SIZE+16,lit:false, name:'Crystal Gateway Bonfire'},
+      {id:12, x:148*TILE_SIZE+16,y:246*TILE_SIZE+16,lit:false, name:'Corrupted Gateway Bonfire'}
     );
     const p=GS.player;
     p.bonfireX=this.list[0].x; p.bonfireY=this.list[0].y;
   },
 
   interact(px,py){
-    const anyBoss=GS.bossActive||GS.miniBosses.swamp.active||GS.miniBosses.mountain.active||GS.miniBosses.grassland.active;
+    const anyBoss=GS.bossActive||GS.miniBosses.swamp.active||GS.miniBosses.mountain.active||GS.miniBosses.grassland.active
+      ||GS.desertBoss.active
+      ||GS.endgameBoss.volcanic.active||GS.endgameBoss.abyssal.active
+      ||GS.endgameBoss.crystal.active||GS.endgameBoss.corrupted.active;
     if(anyBoss){ UI.msg('Cannot rest during a boss fight!','rune',2); return false; }
     for(const bf of this.list)
       if(Math.hypot(px-bf.x,py-bf.y)<50){ this.rest(bf); return true; }
@@ -2686,40 +3207,48 @@ const Chests = {
   list: GS.chests,
 
   init(){
-    // fixedItem: guaranteed item key (equipment or consumable summon)
-    // fixedConsumable: true if the fixedItem is from ITEMS (not EQUIPMENT_ITEMS)
-    // zone: used for random loot fallback when no fixedItem
     const pos=[
-      // ---- SPECIFIC CHESTS (guaranteed items) ----
-      // Summon items — needed to fight bosses
-      {tx:127,ty:161,zone:'CASTLE',  fixedItem:'ASHEN_SIGIL',   fixedConsumable:true},  // near fog gate
-      {tx:262,ty:40, zone:'SWAMP',   fixedItem:'HORROR_TOTEM',  fixedConsumable:true},  // deep swamp altar
-      {tx:251,ty:168,zone:'MOUNTAIN',fixedItem:'YETI_EFFIGY',   fixedConsumable:true},  // mountain peak
-      {tx:110, ty:20,zone:'GRASSLAND',fixedItem:'WARDEN_SEAL', fixedConsumable:true},  // grassland vault
-      // Guaranteed progression gear
-      {tx:45, ty:55, zone:'RUINS',   fixedItem:'HOLLOW_BLADE'},                         // ruins secret
-      {tx:155,ty:18, zone:'FOREST',  fixedItem:'CHAIN_MAIL'},                           // forest depths
-      {tx:190,ty:38, zone:'VILLAGE', fixedItem:'CRIMSON_RING'},                         // village gift
-      // ---- RANDOM CHESTS (zone loot table) ----
-      {tx:23, ty:50, zone:'RUINS'},
-      {tx:52, ty:62, zone:'RUINS'},
-      {tx:8,  ty:92, zone:'RUINS'},
-      {tx:88, ty:22, zone:'FOREST'},
-      {tx:113,ty:65, zone:'FOREST'},
-      {tx:55, ty:130,zone:'CASTLE'},
-      {tx:195,ty:148,zone:'CASTLE'},
-      {tx:252,ty:22, zone:'SWAMP'},
-      {tx:263,ty:58, zone:'SWAMP'},
-      {tx:232,ty:152,zone:'MOUNTAIN'},
-      {tx:258,ty:165,zone:'MOUNTAIN'},
+      // ---- GUARANTEED PROGRESSION GEAR ----
+      {tx:45,  ty:55,  zone:'RUINS',    fixedItem:'HOLLOW_BLADE'},
+      {tx:113, ty:65,  zone:'FOREST',   fixedItem:'CHAIN_MAIL'},
+      {tx:204, ty:32,  zone:'VILLAGE',  fixedItem:'CRIMSON_RING'},
+      // ---- RANDOM CHESTS ----
+      {tx:23,  ty:50,  zone:'RUINS'},
+      {tx:52,  ty:62,  zone:'RUINS'},
+      {tx:8,   ty:88,  zone:'RUINS'},
+      {tx:88,  ty:22,  zone:'FOREST'},
+      {tx:140, ty:55,  zone:'FOREST'},
+      {tx:55,  ty:130, zone:'CASTLE'},
+      {tx:195, ty:148, zone:'CASTLE'},
+      {tx:252, ty:22,  zone:'SWAMP'},
+      {tx:263, ty:58,  zone:'SWAMP'},
+      {tx:232, ty:152, zone:'MOUNTAIN'},
+      {tx:258, ty:155, zone:'MOUNTAIN'},
+      // ---- DESERT CHESTS ----
+      {tx:248, ty:90,  zone:'DESERT',   fixedItem:'BONE_BLADE'},
+      {tx:262, ty:108, zone:'DESERT'},
+      {tx:252, ty:120, zone:'DESERT'},
+      // ---- END-GAME CHESTS ----
+      {tx:30,  ty:210, zone:'VOLCANIC'},
+      {tx:90,  ty:218, zone:'VOLCANIC'},
+      {tx:160, ty:210, zone:'ABYSSAL'},
+      {tx:240, ty:218, zone:'ABYSSAL'},
+      {tx:30,  ty:248, zone:'CRYSTAL'},
+      {tx:90,  ty:256, zone:'CRYSTAL'},
+      {tx:160, ty:248, zone:'CORRUPTED'},
+      {tx:240, ty:256, zone:'CORRUPTED'},
     ];
-    for(const p of pos)
+    for(const p of pos){
+      // Validate position is on a passable tile
+      const ct=World.tile(p.tx*TILE_SIZE+16, p.ty*TILE_SIZE+16);
+      if(!World.passable(ct)) continue;
       this.list.push({
         x:p.tx*TILE_SIZE+16, y:p.ty*TILE_SIZE+16,
         zone:p.zone, opened:false,
         fixedItem:p.fixedItem||null,
-        fixedConsumable:p.fixedConsumable||false,
+        fixedConsumable:false,
       });
+    }
   },
 
   interact(px,py){
@@ -3061,28 +3590,12 @@ const Shops = {
 // ============================================================
 // ALTAR SYSTEM — summon boss fights at dedicated shrines
 // ============================================================
+// Altars are now lore/hint shrines only — no summon items needed
 const ALTAR_DEFS = [
-  // Main boss — near the fog gate corridor
-  {id:'main_boss', label:'Ashen Altar', tx:129, ty:163,
-   item:'ASHEN_SIGIL', zone:'CASTLE',
-   unlockMsg:'THE ASHEN KING AWAKENS',
-   flashCol:'#6020a0',
-   spawn(){ Enemies.spawnBoss(); GS.flags.fogGateEntered=true; }
-  },
-  // Swamp mini-boss — deep in the swamp
-  {id:'swamp_boss', label:'Cursed Totem', tx:261, ty:38,
-   item:'HORROR_TOTEM', zone:'SWAMP',
-   unlockMsg:'THE SWAMP HORROR STIRS',
-   flashCol:'#204010',
-   spawn(){ Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp'); GS.miniBosses.swamp.summoned=true; }
-  },
-  // Mountain mini-boss — mountain peak shrine
-  {id:'mtn_boss', label:'Frost Shrine', tx:250, ty:167,
-   item:'YETI_EFFIGY', zone:'MOUNTAIN',
-   unlockMsg:'THE GLACIAL YETI AWAKENS',
-   flashCol:'#202840',
-   spawn(){ Enemies.spawnMiniBoss('YETI','mountain'); GS.miniBosses.mountain.summoned=true; }
-  },
+  {id:'main_boss', label:'Ashen Altar', tx:129, ty:163, zone:'CASTLE', flashCol:'#6020a0'},
+  {id:'swamp_boss', label:'Swamp Totem', tx:261, ty:38, zone:'SWAMP', flashCol:'#204010'},
+  {id:'mtn_boss', label:'Frost Shrine', tx:250, ty:167, zone:'MOUNTAIN', flashCol:'#202840'},
+  {id:'desert_shrine', label:'Desert Obelisk', tx:256, ty:95, zone:'DESERT', flashCol:'#d08010'},
 ];
 
 const Altars = {
@@ -3105,29 +3618,31 @@ const Altars = {
   },
 
   _tryActivate(alt){
-    const p=GS.player;
-    // Altars are now lore/hint objects — bosses are entered via sealed fog gate doors
+    // Altars are lore/hint shrines — bosses are entered via sealed fog gate doors
     if(alt.id==='main_boss'){
-      if(GS.bossDefeated){ UI.msg('The Ashen King has been slain.','rune',2); return; }
-      const def=ITEMS[alt.item];
-      if(!p.consumables.includes(alt.item))
-        UI.msg(`Find the ${def?.name||'key item'} to pass through the sealed gate to the south.`,'rune',3.5);
-      else
-        UI.msg(`You hold the ${def?.name||'key'}. The sealed gate to the south awaits.`,'rune',3);
+      if(GS.bossDefeated){
+        UI.msg('The Ashen King has been slain. His throne lies empty.','rune',3); return;
+      }
+      UI.msg("Ashen Altar: 'The Ashen King dwells beyond the sealed southern gate. Grow strong before you enter.'", 'rune', 4);
     } else if(alt.id==='swamp_boss'){
-      if(GS.miniBosses.swamp.defeated){ UI.msg('The Swamp Horror is dead.','rune',2); return; }
-      const def=ITEMS[alt.item];
-      if(!p.consumables.includes(alt.item))
-        UI.msg(`Find the ${def?.name||'key item'} to pass through the sealed gate to the north.`,'rune',3.5);
-      else
-        UI.msg(`You hold the ${def?.name||'key'}. The sealed gate to the north awaits.`,'rune',3);
+      if(GS.miniBosses.swamp.defeated){
+        UI.msg('The Swamp Horror is slain. The bog grows quiet.','rune',3); return;
+      }
+      UI.msg("Swamp Totem: 'Something ancient festers in the northern marsh. Approach the sealed gate to face it.'", 'rune', 4);
     } else if(alt.id==='mtn_boss'){
-      if(GS.miniBosses.mountain.defeated){ UI.msg('The Glacial Yeti is slain.','rune',2); return; }
-      const def=ITEMS[alt.item];
-      if(!p.consumables.includes(alt.item))
-        UI.msg(`Find the ${def?.name||'key item'} to pass through the sealed gate to the west.`,'rune',3.5);
-      else
-        UI.msg(`You hold the ${def?.name||'key'}. The sealed gate to the west awaits.`,'rune',3);
+      if(GS.miniBosses.mountain.defeated){
+        UI.msg('The Glacial Yeti has fallen. The mountain passes are clear.','rune',3); return;
+      }
+      UI.msg("Frost Shrine: 'A great beast prowls the peak. The sealed western gate leads to its domain.'", 'rune', 4);
+    } else if(alt.id==='desert_shrine'){
+      if(GS.desertBoss.defeated){
+        UI.msg('The Sand Serpent is slain. The sands are still.','rune',3); return;
+      }
+      if(!GS.desertGateOpen){
+        UI.msg("Desert Obelisk: 'The passage to the serpent\\'s lair is sealed. Seek the Desert Key.'", 'rune', 4);
+      } else {
+        UI.msg("Desert Obelisk: 'The passage is open. The Sand Serpent awaits in the deep arena.'", 'rune', 3);
+      }
     }
   },
 
@@ -3175,7 +3690,6 @@ const Altars = {
 // ============================================================
 const BOSS_ROOM_DEFS = {
   main: {
-    // BOSS_ARENA tile bounds x:108..152, y:168..197
     px0:108*32, py0:168*32, px1:152*32, py1:197*32,
     unlockMsg:'THE ASHEN KING AWAKENS', flashCol:'#6020a0',
     spawn(){ Enemies.spawnBoss(); GS.flags.fogGateEntered=true; },
@@ -3183,7 +3697,6 @@ const BOSS_ROOM_DEFS = {
     isActive(){   return GS.bossActive; },
   },
   swamp: {
-    // Swamp boss clearing tile bounds x:248..271, y:1..25
     px0:248*32, py0:32, px1:271*32, py1:25*32,
     unlockMsg:'THE SWAMP HORROR STIRS', flashCol:'#204010',
     spawn(){ Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp'); GS.miniBosses.swamp.summoned=true; },
@@ -3191,7 +3704,6 @@ const BOSS_ROOM_DEFS = {
     isActive(){   return GS.miniBosses.swamp.active; },
   },
   mountain: {
-    // Mountain boss clearing tile bounds x:233..265, y:136..162
     px0:233*32, py0:136*32, px1:265*32, py1:162*32,
     unlockMsg:'THE GLACIAL YETI AWAKENS', flashCol:'#202840',
     spawn(){ Enemies.spawnMiniBoss('YETI','mountain'); GS.miniBosses.mountain.summoned=true; },
@@ -3199,18 +3711,52 @@ const BOSS_ROOM_DEFS = {
     isActive(){   return GS.miniBosses.mountain.active; },
   },
   grassland: {
-    // Grassland boss arena tile bounds x:125..153, y:7..31
     px0:125*32, py0:7*32, px1:153*32, py1:31*32,
     unlockMsg:'THE VERDANT WARDEN AWAKENS', flashCol:'#204010',
     spawn(){ Enemies.spawnMiniBoss('VERDANT_WARDEN','grassland'); GS.miniBosses.grassland.summoned=true; },
     isDefeated(){ return GS.miniBosses.grassland.defeated; },
     isActive(){   return GS.miniBosses.grassland.active; },
   },
+  desert: {
+    px0:241*32, py0:78*32, px1:278*32, py1:132*32,
+    unlockMsg:'THE SAND SERPENT AWAKENS', flashCol:'#d08010',
+    spawn(){ Enemies.spawnDesertBoss(); },
+    isDefeated(){ return GS.desertBoss.defeated; },
+    isActive(){   return GS.desertBoss.active; },
+  },
+  eg_volcanic: {
+    px0:5*32, py0:202*32, px1:140*32, py1:238*32,
+    unlockMsg:'TITAN OF THE FORGE RISES', flashCol:'#ff4010',
+    spawn(){ Enemies.spawnEndgameBoss('volcanic'); },
+    isDefeated(){ return GS.endgameBoss.volcanic.defeated; },
+    isActive(){   return GS.endgameBoss.volcanic.active; },
+  },
+  eg_abyssal: {
+    px0:140*32, py0:202*32, px1:275*32, py1:238*32,
+    unlockMsg:'VOID LEVIATHAN STIRS', flashCol:'#0820c0',
+    spawn(){ Enemies.spawnEndgameBoss('abyssal'); },
+    isDefeated(){ return GS.endgameBoss.abyssal.defeated; },
+    isActive(){   return GS.endgameBoss.abyssal.active; },
+  },
+  eg_crystal: {
+    px0:5*32, py0:238*32, px1:140*32, py1:274*32,
+    unlockMsg:'CRYSTAL COLOSSUS AWAKENS', flashCol:'#40b0f0',
+    spawn(){ Enemies.spawnEndgameBoss('crystal'); },
+    isDefeated(){ return GS.endgameBoss.crystal.defeated; },
+    isActive(){   return GS.endgameBoss.crystal.active; },
+  },
+  eg_corrupted: {
+    px0:140*32, py0:238*32, px1:275*32, py1:274*32,
+    unlockMsg:'THE CORRUPT SOVEREIGN AWAKENS', flashCol:'#9010c0',
+    spawn(){ Enemies.spawnEndgameBoss('corrupted'); },
+    isDefeated(){ return GS.endgameBoss.corrupted.defeated; },
+    isActive(){   return GS.endgameBoss.corrupted.active; },
+  },
 };
 
 const BossRooms = {
-  // Called when player walks through a boss fog gate with required item
   enter(id){
+    if(GS.activeBossRoom) return; // already in a boss room
     const def=BOSS_ROOM_DEFS[id]; if(!def) return;
     GS.activeBossRoom={ id, px0:def.px0, py0:def.py0, px1:def.px1, py1:def.py1 };
     def.spawn();
@@ -3242,49 +3788,75 @@ const BossRooms = {
     const id=GS.activeBossRoom.id;
     const now=Date.now();
     const pulse=(now/300|0)%2;
-    // Determine entry fog gate screen positions
+    // Helper: horizontal barrier across tx range at fixed ty row
+    const hbar=(txA,txB,ty,col,lx,ly,lcol)=>{
+      for(let tx=txA;tx<=txB;tx++){
+        const sx=tx*32-cx|0, sy=ty*32-cy|0;
+        if(sx<-40||sx>SCREEN_W+40) continue;
+        ctx.globalAlpha=0.55+pulse*0.15; ctx.fillStyle=col;
+        ctx.fillRect(sx,sy,32,32); ctx.globalAlpha=1;
+      }
+      const lsx=lx*32-cx|0, lsy=ly*32-cy|0;
+      R.text('SEALED',lsx,lsy-6,lcol,10,'center');
+    };
+    // Helper: vertical barrier down ty range at fixed tx col
+    const vbar=(tx,tyA,tyB,col,lx,ly,lcol)=>{
+      for(let ty=tyA;ty<=tyB;ty++){
+        const sx=tx*32-cx|0, sy=ty*32-cy|0;
+        if(sy<-40||sy>SCREEN_H+40) continue;
+        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle=col;
+        ctx.fillRect(sx,sy,32,32); ctx.globalAlpha=1;
+      }
+      const lsx=lx*32-cx|0, lsy=ly*32-cy|0;
+      R.text('SEALED',lsx-4,lsy,lcol,10,'right');
+    };
+
     if(id==='main'){
-      for(let tx=127;tx<=131;tx++){
-        for(let ty=164;ty<=166;ty++){
-          const sx=tx*32-cx|0, sy=ty*32-cy|0;
-          if(sx<-40||sx>SCREEN_W+40) continue;
-          ctx.globalAlpha=0.55+pulse*0.15; ctx.fillStyle='#500010';
-          ctx.fillRect(sx,sy,32,32);
-          ctx.globalAlpha=1;
-        }
+      // Horizontal barrier south of castle — rows 164-166, cols 127-131
+      for(let tx=127;tx<=131;tx++) for(let ty=164;ty<=166;ty++){
+        const sx=tx*32-cx|0, sy=ty*32-cy|0;
+        if(sx<-40||sx>SCREEN_W+40) continue;
+        ctx.globalAlpha=0.55+pulse*0.15; ctx.fillStyle='#500010';
+        ctx.fillRect(sx,sy,32,32); ctx.globalAlpha=1;
       }
       const sx=(129*32+16)-cx|0, sy=(165*32)-cy|0;
       R.text('SEALED',sx,sy-6,'#cc2030',10,'center');
+
     } else if(id==='swamp'){
-      for(let tx=253;tx<=266;tx++){
-        const sx=tx*32-cx|0, sy=24*32-cy|0;
-        if(sx<-40||sx>SCREEN_W+40) continue;
-        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle='#102808';
-        ctx.fillRect(sx,sy,32,32);
-        ctx.globalAlpha=1;
-      }
-      const sx=(260*32)-cx|0, sy=(24*32)-cy|0;
-      R.text('SEALED',sx,sy-6,'#40a020',10,'center');
+      hbar(253,266,24,'#102808',260,24,'#40a020');
+
     } else if(id==='mountain'){
-      for(let ty=140;ty<=158;ty++){
-        const sx=234*32-cx|0, sy=ty*32-cy|0;
-        if(sy<-40||sy>SCREEN_H+40) continue;
-        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle='#0c1830';
-        ctx.fillRect(sx,sy,32,32);
-        ctx.globalAlpha=1;
-      }
-      const sx=234*32-cx|0, sy=(149*32)-cy|0;
-      R.text('SEALED',sx-4,sy,'#3060a8',10,'right');
+      vbar(234,140,158,'#0c1830',234,149,'#3060a8');
+
     } else if(id==='grassland'){
-      for(let ty=15;ty<=23;ty++){
-        const sx=125*32-cx|0, sy=ty*32-cy|0;
-        if(sy<-40||sy>SCREEN_H+40) continue;
-        ctx.globalAlpha=0.50+pulse*0.15; ctx.fillStyle='#102808';
-        ctx.fillRect(sx,sy,32,32);
-        ctx.globalAlpha=1;
+      vbar(125,15,23,'#102808',125,19,'#40a020');
+
+    } else if(id==='desert'){
+      // Horizontal barrier at ty≈128-132 inside desert zone (cols 241-277)
+      for(let tx=241;tx<=277;tx++){
+        const sx=tx*32-cx|0, sy=130*32-cy|0;
+        if(sx<-40||sx>SCREEN_W+40) continue;
+        ctx.globalAlpha=0.55+pulse*0.15; ctx.fillStyle='#5a3000';
+        ctx.fillRect(sx,sy,32,32); ctx.globalAlpha=1;
       }
-      const sx=125*32-cx|0, sy=(19*32)-cy|0;
-      R.text('SEALED',sx-4,sy,'#40a020',10,'right');
+      const sx=(259*32)-cx|0, sy=(130*32)-cy|0;
+      R.text('SEALED',sx,sy-6,'#d4a030',10,'center');
+
+    } else if(id==='eg_volcanic'){
+      // Top barrier of volcanic zone — row 202, cols 5-139
+      hbar(5,139,202,'#3a0a00',72,202,'#ff6010');
+
+    } else if(id==='eg_abyssal'){
+      // Top barrier of abyssal zone — row 202, cols 140-274
+      hbar(140,274,202,'#030618',207,202,'#2040c0');
+
+    } else if(id==='eg_crystal'){
+      // Top barrier of crystal zone — row 238, cols 5-139
+      hbar(5,139,238,'#0a1a24',72,238,'#60d0f0');
+
+    } else if(id==='eg_corrupted'){
+      // Top barrier of corrupted zone — row 238, cols 140-274
+      hbar(140,274,238,'#1a0028',207,238,'#c040f0');
     }
   },
 };
@@ -3560,7 +4132,70 @@ const Player = {
     if(World.tile(p.x,p.y)!==T.FOG_GATE) return;
     const tx=p.x/TILE_SIZE|0, ty=p.y/TILE_SIZE|0;
 
-    // Determine which fog gate based on tile position
+    // === DESERT KEY GATE — south wall of swamp ===
+    if(tx>=253&&tx<=266&&(ty===76||ty===77)){
+      if(GS.desertGateOpen) return; // already unlocked, passable
+      if(p.consumables.includes('DESERT_KEY')){
+        p.consumables=p.consumables.filter(k=>k!=='DESERT_KEY');
+        GS.desertGateOpen=true;
+        // Clear fog gate tiles to passable desert floor
+        for(let gx=251;gx<=268;gx++){
+          if(World.map[76]&&World.map[76][gx]===T.FOG_GATE) World.map[76][gx]=T.SWAMP_FLOOR;
+          if(World.map[77]&&World.map[77][gx]===T.FOG_GATE) World.map[77][gx]=T.DESERT_FLOOR;
+        }
+        UI.msg('Desert Passage Unsealed!','boss',3.5);
+        ScreenFX.flash('#d4a030',0.5,0.8);
+      } else {
+        UI.msg('Sealed Gate — Desert Passage Key required','rune',2);
+        p.y-=56;
+      }
+      return;
+    }
+
+    // === END-GAME GATE — south of Boss Arena ===
+    if(tx>=127&&tx<=131&&(ty>=197&&ty<=202)){
+      if(GS.endgameUnlocked) return;
+      const all4=GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
+        GS.miniBosses.mountain.defeated&&GS.miniBosses.grassland.defeated;
+      if(all4){
+        GS.endgameUnlocked=true;
+        for(let gx=125;gx<=133;gx++)
+          for(let gy=197;gy<=204;gy++)
+            if(World.map[gy]&&World.map[gy][gx]===T.FOG_GATE) World.map[gy][gx]=T.VOLCANIC_FLOOR;
+        UI.msg('THE GATE OF RECKONING OPENS','boss',5);
+        ScreenFX.flash('#8040ff',0.7,1.2);
+      } else {
+        UI.msg('Four rulers must fall to break this seal','rune',2.5);
+        p.y-=56;
+      }
+      return;
+    }
+
+    // === END-GAME BOSS ROOM GATES ===
+    let endZone=null;
+    if(tx>=5&&tx<=139&&ty>=200&&ty<=204) endZone='volcanic';
+    else if(tx>=140&&tx<=274&&ty>=200&&ty<=204) endZone='abyssal';
+    else if(tx>=5&&tx<=139&&ty>=236&&ty<=240) endZone='crystal';
+    else if(tx>=140&&tx<=274&&ty>=236&&ty<=240) endZone='corrupted';
+    if(endZone){
+      if(!GS.endgameUnlocked){ UI.msg('Requires end-game access','rune',2); p.y-=40; return; }
+      const eb=GS.endgameBoss[endZone];
+      if(eb.defeated) return;
+      if(eb.active) return;
+      BossRooms.enter('eg_'+endZone);
+      return;
+    }
+
+    // === DESERT BOSS ROOM GATE ===
+    if(tx>=241&&tx<=277&&ty>=128&&ty<=132){
+      if(GS.desertBoss.defeated) return;
+      if(GS.desertBoss.active) return;
+      if(!GS.desertGateOpen){ UI.msg('Desert passage is sealed','rune',2); p.y-=40; return; }
+      BossRooms.enter('desert');
+      return;
+    }
+
+    // === STANDARD BOSS ROOM FOG GATES ===
     let roomId=null;
     if(tx>=127&&tx<=131&&ty>=164&&ty<=166) roomId='main';
     else if(tx>=253&&tx<=266&&ty===24)      roomId='swamp';
@@ -3569,11 +4204,8 @@ const Player = {
     if(!roomId) return;
 
     const def=BOSS_ROOM_DEFS[roomId];
-    // Already defeated — allow free passage
     if(def.isDefeated()) return;
-    // Boss room already active — player inside, clamping handles rest
     if(def.isActive()) return;
-    // Auto-enter — no item required (like Elden Ring fog walls)
     BossRooms.enter(roomId);
   },
 
@@ -3588,9 +4220,9 @@ const Player = {
           UI.msg(`${RARITY_LABEL[EQUIPMENT_ITEMS[item.equipId]?.rarity||'common']}: ${item.name}`,'item',2);
         } else if(item.effect==='flask'){ p.flaskCharges=Math.min(9,p.flaskCharges+item.value); UI.msg(`+1 ${item.name}`,'item',2); }
         else if(item.effect==='runes'){ p.runes+=item.value; p.totalRunes+=item.value; UI.msg(`+${item.value} Runes`,'rune',2); }
-        else if(item.effect==='summon'){
+        else if(item.effect==='key'||item.effect==='summon'){
           if(!p.consumables.includes(item.ikey)) p.consumables.push(item.ikey);
-          UI.msg(`Obtained: ${item.name}`,'item',3);
+          UI.msg(`Found: ${item.name}`,'item',3.5);
         }
         Particles.rune(p.x,p.y);
       }
@@ -4003,12 +4635,19 @@ const Player = {
     atkHitbox=null;
     // Unlock boss room — full reset of boss state, but defeated flags persist (one-time kill)
     GS.activeBossRoom=null;
-    // Reset boss so it can be re-summoned at full HP when player re-enters
+    // Reset boss so it can be re-entered at full HP when player re-enters
     GS.bossActive=false; GS.bossRef=null; GS.flags.fogGateEntered=false;
     const mb=GS.miniBosses;
     if(!mb.swamp.defeated){    mb.swamp.active=false;    mb.swamp.ref=null;    mb.swamp.summoned=false; }
     if(!mb.mountain.defeated){ mb.mountain.active=false; mb.mountain.ref=null; mb.mountain.summoned=false; }
     if(!mb.grassland.defeated){ mb.grassland.active=false; mb.grassland.ref=null; mb.grassland.summoned=false; }
+    // Desert boss reset
+    if(!GS.desertBoss.defeated){ GS.desertBoss.active=false; GS.desertBoss.ref=null; }
+    // End-game boss resets
+    for(const z of ['volcanic','abyssal','crystal','corrupted']){
+      const eb=GS.endgameBoss[z];
+      if(eb&&!eb.defeated){ eb.active=false; eb.ref=null; }
+    }
     Enemies.respawnAll();
     GS.messages=GS.messages.filter(m=>m.type!=='death');
   },
@@ -4775,6 +5414,45 @@ const Enemies = {
       // Forest Knights near boss approach (abs x:100-125, y:4-36)
       {t:'FOREST_KNIGHT',x:102,y:6},{t:'FOREST_KNIGHT',x:112,y:10},{t:'FOREST_KNIGHT',x:118,y:18},
       {t:'FOREST_KNIGHT',x:108,y:26},{t:'FOREST_KNIGHT',x:120,y:28},
+
+      // ====== Scorched Sands (Desert) ======
+      {t:'SCORPION',x:246,y:82},{t:'SCORPION',x:252,y:88},{t:'SCORPION',x:260,y:84},
+      {t:'SCORPION',x:248,y:96},{t:'SCORPION',x:256,y:102},{t:'SCORPION',x:265,y:94},
+      {t:'SCORPION',x:244,y:110},{t:'SCORPION',x:258,y:116},{t:'SCORPION',x:268,y:108},
+      {t:'MUMMY',x:250,y:90},{t:'MUMMY',x:263,y:100},{t:'MUMMY',x:254,y:112},
+      {t:'MUMMY',x:268,y:118},{t:'MUMMY',x:246,y:120},
+      {t:'SAND_WARRIOR',x:253,y:86},{t:'SAND_WARRIOR',x:261,y:92},{t:'SAND_WARRIOR',x:249,y:104},
+      {t:'SAND_WARRIOR',x:264,y:110},{t:'SAND_WARRIOR',x:257,y:122},
+      {t:'SAND_ARCHER',x:247,y:84},{t:'SAND_ARCHER',x:266,y:96},{t:'SAND_ARCHER',x:252,y:118},
+      {t:'SAND_ARCHER',x:268,y:124},
+
+      // ====== Scorched Wastes (Volcanic) ======
+      {t:'ASH_SPAWN',x:15,y:210},{t:'ASH_SPAWN',x:30,y:215},{t:'ASH_SPAWN',x:50,y:208},
+      {t:'ASH_SPAWN',x:70,y:212},{t:'ASH_SPAWN',x:90,y:215},{t:'ASH_SPAWN',x:110,y:210},
+      {t:'ASH_SPAWN',x:20,y:225},{t:'ASH_SPAWN',x:45,y:222},{t:'ASH_SPAWN',x:80,y:228},
+      {t:'LAVA_BRUTE',x:35,y:210},{t:'LAVA_BRUTE',x:65,y:218},{t:'LAVA_BRUTE',x:100,y:225},
+      {t:'LAVA_BRUTE',x:120,y:215},{t:'LAVA_BRUTE',x:25,y:228},
+
+      // ====== Abyssal Depths ======
+      {t:'DEPTH_WRAITH',x:150,y:210},{t:'DEPTH_WRAITH',x:165,y:215},{t:'DEPTH_WRAITH',x:185,y:208},
+      {t:'DEPTH_WRAITH',x:205,y:212},{t:'DEPTH_WRAITH',x:225,y:215},{t:'DEPTH_WRAITH',x:245,y:210},
+      {t:'DEPTH_WRAITH',x:155,y:225},{t:'DEPTH_WRAITH',x:195,y:222},{t:'DEPTH_WRAITH',x:240,y:228},
+      {t:'ABYSSAL_STALKER',x:170,y:210},{t:'ABYSSAL_STALKER',x:200,y:218},{t:'ABYSSAL_STALKER',x:230,y:225},
+      {t:'ABYSSAL_STALKER',x:260,y:215},{t:'ABYSSAL_STALKER',x:145,y:228},
+
+      // ====== Crystal Caverns ======
+      {t:'CRYSTAL_DRONE',x:15,y:248},{t:'CRYSTAL_DRONE',x:30,y:252},{t:'CRYSTAL_DRONE',x:50,y:246},
+      {t:'CRYSTAL_DRONE',x:70,y:250},{t:'CRYSTAL_DRONE',x:90,y:254},{t:'CRYSTAL_DRONE',x:110,y:248},
+      {t:'CRYSTAL_DRONE',x:20,y:262},{t:'CRYSTAL_DRONE',x:60,y:260},{t:'CRYSTAL_DRONE',x:100,y:265},
+      {t:'PRISM_GOLEM',x:35,y:248},{t:'PRISM_GOLEM',x:65,y:256},{t:'PRISM_GOLEM',x:95,y:262},
+      {t:'PRISM_GOLEM',x:120,y:250},{t:'PRISM_GOLEM',x:25,y:268},
+
+      // ====== Corrupted Citadel ======
+      {t:'CORRUPTED_HOLLOW',x:150,y:248},{t:'CORRUPTED_HOLLOW',x:165,y:252},{t:'CORRUPTED_HOLLOW',x:185,y:246},
+      {t:'CORRUPTED_HOLLOW',x:205,y:250},{t:'CORRUPTED_HOLLOW',x:225,y:254},{t:'CORRUPTED_HOLLOW',x:245,y:248},
+      {t:'CORRUPTED_HOLLOW',x:155,y:262},{t:'CORRUPTED_HOLLOW',x:200,y:260},{t:'CORRUPTED_HOLLOW',x:250,y:265},
+      {t:'SHADOW_KNIGHT',x:170,y:248},{t:'SHADOW_KNIGHT',x:200,y:256},{t:'SHADOW_KNIGHT',x:235,y:262},
+      {t:'SHADOW_KNIGHT',x:260,y:250},{t:'SHADOW_KNIGHT',x:145,y:268},
     ];
     this.respawnAll();
   },
@@ -4822,13 +5500,35 @@ const Enemies = {
   },
 
   spawnBoss(){
-    if(GS.bossDefeated) return;
+    if(GS.bossDefeated||GS.bossActive) return;
     const b=ZONES.BOSS_ARENA.bounds;
     const boss=this.spawn('BOSS', b.x+b.w/2|0, b.y+b.h/2|0, true);
     if(boss){
       boss.x=(b.x+b.w/2)*TILE_SIZE;
       boss.y=(b.y+b.h/2)*TILE_SIZE;
       GS.bossRef=boss; GS.bossActive=true;
+    }
+  },
+
+  spawnDesertBoss(){
+    const db=GS.desertBoss;
+    if(db.defeated||db.active) return;
+    const b=ZONES.DESERT.bounds;
+    const boss=this.spawn('SAND_SERPENT', b.x+b.w/2|0, b.y+b.h/2|0, true);
+    if(boss){
+      boss.x=(b.x+b.w/2)*TILE_SIZE; boss.y=(b.y+b.h/2)*TILE_SIZE;
+      boss.isDesertBoss=true; db.ref=boss; db.active=true;
+    }
+  },
+
+  spawnEndgameBoss(zone){
+    const typeMap={volcanic:'LAVA_TITAN',abyssal:'VOID_LEVIATHAN',crystal:'CRYSTAL_COLOSSUS',corrupted:'CORRUPT_SOVEREIGN'};
+    const eb=GS.endgameBoss[zone]; if(!eb||eb.defeated||eb.active) return;
+    const b=ZONES[zone.toUpperCase()].bounds;
+    const boss=this.spawn(typeMap[zone], b.x+b.w/2|0, b.y+b.h/2|0, true);
+    if(boss){
+      boss.x=(b.x+b.w/2)*TILE_SIZE; boss.y=(b.y+b.h/2)*TILE_SIZE;
+      boss.isEndBoss=true; boss.endZone=zone; eb.ref=boss; eb.active=true;
     }
   },
 
@@ -4850,7 +5550,8 @@ const Enemies = {
   },
 
   respawnAll(){
-    GS.enemies=GS.enemies.filter(e=>e.isBoss&&!e.isDead);
+    // Remove all enemies (including live bosses); dead ones removed by update loop
+    GS.enemies=[];
     GS.slamIndicators=[];
     for(const s of this.spawnCfg) this.spawn(s.t,s.x,s.y);
   },
@@ -4895,6 +5596,23 @@ const Enemies = {
       for(let i=0;i<6;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*80,e.y+(Math.random()-0.5)*60),i*200);
       setTimeout(()=>BossRooms.unlock(true),1000);
     }
+    // Desert boss
+    if(e.isDesertBoss){
+      GS.desertBoss.defeated=true; GS.desertBoss.active=false;
+      UI.msg('THE SAND SERPENT IS SLAIN','boss_won',6);
+      ScreenFX.flash('#d4a030',0.6,1.2); ScreenFX.shake(12,0.6);
+      for(let i=0;i<8;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*90,e.y+(Math.random()-0.5)*70),i*200);
+      setTimeout(()=>BossRooms.unlock(true),1200);
+    }
+    // End-game bosses
+    if(e.isEndBoss){
+      const z=e.endZone; const eb=GS.endgameBoss[z];
+      if(eb){ eb.defeated=true; eb.active=false; }
+      UI.msg('GREAT ENEMY FELLED','boss_won',6);
+      ScreenFX.flash('#FFD060',0.7,1.4); ScreenFX.shake(14,0.8);
+      for(let i=0;i<10;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*110,e.y+(Math.random()-0.5)*90),i*180);
+      setTimeout(()=>BossRooms.unlock(true),1400);
+    }
     Particles.death(e.x,e.y,e.cfg.color,14);
   },
 
@@ -4902,9 +5620,17 @@ const Enemies = {
     const table=LOOT_TABLES[e.type]; if(!table) return;
     for(const entry of table){
       if(Math.random()<entry.chance){
-        const drop=_makeDropItem(entry.item, e.x+(Math.random()-0.5)*30, e.y+(Math.random()-0.5)*30);
-        if(drop) GS.items.push(drop);
-        break; // one drop per kill
+        const ix=e.x+(Math.random()-0.5)*30, iy=e.y+(Math.random()-0.5)*30;
+        // Check if it's a key item first (from ITEMS), then equipment
+        const keyDef=ITEMS[entry.item];
+        if(keyDef){
+          GS.items.push({...keyDef, ikey:entry.item, x:ix, y:iy, pt:0, collected:false, isConsumable:true});
+        } else {
+          const drop=_makeDropItem(entry.item, ix, iy);
+          if(drop) GS.items.push(drop);
+        }
+        // Allow all drops for bosses (not just break after first)
+        if(!e.isBoss&&!e.isMiniBoss&&!e.isDesertBoss&&!e.isEndBoss) break;
       }
     }
   },
@@ -4914,9 +5640,9 @@ const Enemies = {
     for(let i=GS.enemies.length-1;i>=0;i--){
       const e=GS.enemies[i];
       if(e.isDead){ e.deathTimer-=dt; if(e.deathTimer<=0&&!e.isBoss) GS.enemies.splice(i,1); continue; }
-      // Phase 2 check (main boss + mini-bosses)
+      // Phase 2 check (all boss types)
       const p2thresh=e.cfg.p2Threshold||0.5;
-      if((e.isBoss||e.isMiniBoss)&&e.phase===1&&e.hp/e.maxHP<=p2thresh){
+      if((e.isBoss||e.isMiniBoss||e.isDesertBoss||e.isEndBoss)&&e.phase===1&&e.hp/e.maxHP<=p2thresh){
         e.phase=2;
         UI.msg('PHASE II','boss',2.5);
         ScreenFX.flash('#FF3010',0.55,0.8); ScreenFX.shake(12,0.5);
@@ -5036,8 +5762,8 @@ const Enemies = {
       case 'attack':
         if(dist>cfg.attackRange*1.5){ e.state='chase'; break; }
         if(e.attackCD<=0&&!e.isAttacking) this._attack(e,p,spdM);
-        // Boss/miniboss: slam in phase 2
-        if((e.isBoss||e.isMiniBoss)&&e.phase===2&&e.slamCD<=0&&!e.slamPending&&dist<cfg.attackRange*2){
+        // Boss/miniboss/desert/endgame: slam in phase 2
+        if((e.isBoss||e.isMiniBoss||e.isDesertBoss||e.isEndBoss)&&e.phase===2&&e.slamCD<=0&&!e.slamPending&&dist<cfg.attackRange*2){
           this._initSlam(e,p);
         }
         break;
@@ -5162,7 +5888,7 @@ const Enemies = {
         if(dist<cfg.attackRange+16){
           const mul=(move==='jab')?0.65:(move==='slam_melee')?1.15:1.0;
           Player.takeDamage(cfg.meleeDmg*dmgM*mul);
-          if(e.isBoss||e.isMiniBoss) Particles.sparks(e.x,e.y,20);
+          if(e.isBoss||e.isMiniBoss||e.isDesertBoss||e.isEndBoss) Particles.sparks(e.x,e.y,20);
         }
         break;
 
@@ -5434,7 +6160,7 @@ const Enemies = {
         break;}
     }
 
-    if(e.isBoss||e.isMiniBoss) Particles.sparks(e.x,e.y,12);
+    if(e.isBoss||e.isMiniBoss||e.isDesertBoss||e.isEndBoss) Particles.sparks(e.x,e.y,12);
   },
 
   // Boss phase-2 telegraphed ground slam
@@ -5675,6 +6401,30 @@ const Enemies = {
     }
   },
 
+  drawFiltered(cx,cy,pred){
+    // Draw slam indicators and items always, then only enemies matching pred
+    for(const s of GS.slamIndicators){
+      const sx=(s.x-cx)|0, sy=(s.y-cy)|0;
+      const prog=1-(s.timer/s.max); const R2=s.maxR*prog|0;
+      if(s.isBlaze){ ctx.globalAlpha=0.45*(1-prog); ctx.fillStyle='#c03010'; ctx.fillRect(sx-s.maxR/2|0,sy-s.maxR/2|0,s.maxR,s.maxR); ctx.globalAlpha=1; continue; }
+      const a=0.15+prog*0.45; ctx.globalAlpha=a; ctx.fillStyle='#FF2000';
+      ctx.fillRect(sx-R2,sy-R2,R2*2,2); ctx.fillRect(sx-R2,sy+R2-2,R2*2,2);
+      ctx.fillRect(sx-R2,sy-R2,2,R2*2); ctx.fillRect(sx+R2-2,sy-R2,2,R2*2);
+      ctx.globalAlpha=1;
+    }
+    for(const e of GS.enemies){ if(pred(e)) this._drawEnemy(e,cx,cy); }
+    // Projectiles
+    for(const pr of GS.projectiles){
+      const sx=(pr.x-cx)|0, sy=(pr.y-cy)|0;
+      if(sx<-20||sx>SCREEN_W+20||sy<-20||sy>SCREEN_H+20) continue;
+      const s=Math.max(2,pr.sz|0);
+      ctx.globalAlpha=0.4; ctx.fillStyle='#FFD060';
+      ctx.fillRect((sx-pr.vx*0.022)|0-(s>>1),(sy-pr.vy*0.022)|0-(s>>1),s,s);
+      ctx.globalAlpha=1; ctx.fillStyle=pr.color||'#c0c060';
+      ctx.fillRect(sx-(s>>1),sy-(s>>1),s,s);
+    }
+  },
+
   _drawEnemy(e,cx,cy){
     const sx=(e.x-cx)|0, sy=(e.y-cy)|0;
     if(sx<-80||sx>SCREEN_W+80||sy<-80||sy>SCREEN_H+80) return;
@@ -5695,6 +6445,21 @@ const Enemies = {
     else if(e.type==='SNOW_GRUNT') this._drawSnowGrunt(e,sx,sy);
     else if(e.type==='BANDIT'||e.type==='FOREST_KNIGHT') this._drawBandit(e,sx,sy);
     else if(e.type==='VINE_LURKER') this._drawVineLurker(e,sx,sy);
+    // Desert enemies
+    else if(e.type==='SCORPION') this._drawScorpion(e,sx,sy);
+    else if(e.type==='MUMMY') this._drawMummy(e,sx,sy);
+    else if(e.type==='SAND_WARRIOR') this._drawSandWarrior(e,sx,sy);
+    else if(e.type==='SAND_ARCHER') this._drawSandArcher(e,sx,sy);
+    else if(e.type==='SAND_SERPENT') this._drawSandSerpent(e,sx,sy);
+    // Endgame enemies
+    else if(e.type==='ASH_SPAWN'||e.type==='LAVA_BRUTE') this._drawVolcanicEnemy(e,sx,sy);
+    else if(e.type==='DEPTH_WRAITH'||e.type==='ABYSSAL_STALKER') this._drawAbyssalEnemy(e,sx,sy);
+    else if(e.type==='CRYSTAL_DRONE'||e.type==='PRISM_GOLEM') this._drawCrystalEnemy(e,sx,sy);
+    else if(e.type==='CORRUPTED_HOLLOW'||e.type==='SHADOW_KNIGHT') this._drawCorruptedEnemy(e,sx,sy);
+    else if(e.type==='LAVA_TITAN') this._drawLavaTitan(e,sx,sy);
+    else if(e.type==='VOID_LEVIATHAN') this._drawVoidLeviathan(e,sx,sy);
+    else if(e.type==='CRYSTAL_COLOSSUS') this._drawCrystalColossus(e,sx,sy);
+    else if(e.type==='CORRUPT_SOVEREIGN') this._drawCorruptSovereign(e,sx,sy);
     else if(e.cfg.behavior==='archer') this._drawArcher(e,sx,sy);
     else this._drawGrunt(e,sx,sy);
 
@@ -6451,6 +7216,492 @@ const Enemies = {
       ctx.globalAlpha=ba;
     }
   },
+
+  // ========================== DESERT ENEMY SPRITES ==========================
+  _drawScorpion(e,sx,sy){
+    const atk=e.isAttacking;
+    // Carapace body — segmented chitin
+    ctx.fillStyle='#8a5c04'; ctx.fillRect(sx-9,sy-6,18,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-6,1,10); ctx.fillRect(sx+9,sy-6,1,10);
+    ctx.fillRect(sx-9,sy-7,18,1); ctx.fillRect(sx-9,sy+4,18,1);
+    // Body segments
+    ctx.fillStyle='#6e4804'; ctx.fillRect(sx-7,sy-4,14,8);
+    ctx.fillStyle='#a07010'; ctx.fillRect(sx-5,sy-2,10,4); // highlight ridge
+    // Pincers
+    ctx.fillStyle=atk?'#c07810':'#7a4a08';
+    ctx.fillRect(sx-14,sy-8,6,5); ctx.fillRect(sx+8,sy-8,6,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-15,sy-8,1,5); ctx.fillRect(sx+14,sy-8,1,5);
+    // Claw tips
+    ctx.fillStyle=atk?'#e08820':'#c06810';
+    ctx.fillRect(sx-15,sy-10,5,4); ctx.fillRect(sx+10,sy-10,5,4);
+    // Legs (3 pairs)
+    ctx.fillStyle='#604008';
+    for(let i=0;i<3;i++){
+      ctx.fillRect(sx-12+i*4,sy+2,2,8);  // left legs
+      ctx.fillRect(sx+6-i*4,sy+2,2,8);   // right legs
+    }
+    // Head with beady eyes
+    ctx.fillStyle='#7a4808'; ctx.fillRect(sx-5,sy-13,10,8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-13,1,8); ctx.fillRect(sx+5,sy-13,1,8);
+    ctx.fillStyle='#ff8800'; ctx.fillRect(sx-4,sy-11,3,3); ctx.fillRect(sx+1,sy-11,3,3);
+    // Tail/stinger (curves up)
+    ctx.fillStyle='#7a4808';
+    ctx.fillRect(sx+8,sy-4,3,14); ctx.fillRect(sx+8,sy-14,8,3); ctx.fillRect(sx+13,sy-16,3,6);
+    ctx.fillStyle='#c06010'; ctx.fillRect(sx+13,sy-20,3,6); // stinger tip
+  },
+
+  _drawMummy(e,sx,sy){
+    const atk=e.isAttacking;
+    // Wrapped legs
+    ctx.fillStyle='#b0a070'; ctx.fillRect(sx-7,sy+4,6,12); ctx.fillRect(sx+1,sy+4,6,12);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy+4,1,12); ctx.fillRect(sx+7,sy+4,1,12);
+    // Wrapping bands
+    ctx.fillStyle='#8a7a50'; ctx.fillRect(sx-7,sy+6,14,2); ctx.fillRect(sx-7,sy+10,14,2);
+    // Body — wrapped torso
+    ctx.fillStyle=atk?'#c0b08a':'#a09060'; ctx.fillRect(sx-9,sy-8,18,14);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-8,1,14); ctx.fillRect(sx+9,sy-8,1,14);
+    ctx.fillRect(sx-9,sy-9,18,1); ctx.fillRect(sx-9,sy+6,18,1);
+    // Linen wrappings
+    ctx.fillStyle='#7a6a40';
+    for(let i=0;i<4;i++) ctx.fillRect(sx-9,sy-6+i*3,18,1);
+    ctx.fillRect(sx-3,sy-8,2,14); // vertical wrap
+    // Arms outstretched
+    ctx.fillStyle='#9a8a60';
+    ctx.fillRect(sx-18,sy-4,10,4); ctx.fillRect(sx+8,sy-4,10,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-18,sy-5,10,1); ctx.fillRect(sx+8,sy-5,10,1);
+    // Hand bandages
+    ctx.fillStyle='#c0b080'; ctx.fillRect(sx-19,sy-4,4,5); ctx.fillRect(sx+15,sy-4,4,5);
+    // Head — wrapped with hollow eyes
+    ctx.fillStyle='#b0a070'; ctx.fillRect(sx-7,sy-24,14,17);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-24,1,17); ctx.fillRect(sx+7,sy-24,1,17);
+    ctx.fillRect(sx-7,sy-25,14,1);
+    // Eye sockets — glowing void
+    ctx.fillStyle='#040008'; ctx.fillRect(sx-6,sy-20,5,6); ctx.fillRect(sx+1,sy-20,5,6);
+    ctx.fillStyle=atk?'#40a0ff':'#204080'; ctx.fillRect(sx-5,sy-19,3,4); ctx.fillRect(sx+2,sy-19,3,4);
+    // Linen wraps on head
+    ctx.fillStyle='#8a7a50'; ctx.fillRect(sx-7,sy-24,14,2); ctx.fillRect(sx-7,sy-18,14,2);
+    ctx.fillRect(sx-5,sy-24,2,17); ctx.fillRect(sx+3,sy-24,2,17);
+  },
+
+  _drawSandWarrior(e,sx,sy){
+    const atk=e.isAttacking;
+    // Leg greaves (desert bronze)
+    ctx.fillStyle='#8a6020'; ctx.fillRect(sx-7,sy+4,6,10); ctx.fillRect(sx+1,sy+4,6,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy+4,1,10); ctx.fillRect(sx+7,sy+4,1,10);
+    ctx.fillRect(sx-7,sy+14,6,1); ctx.fillRect(sx+1,sy+14,6,1);
+    // Sand-caked sandals
+    ctx.fillStyle='#6a4c10'; ctx.fillRect(sx-8,sy+12,8,3); ctx.fillRect(sx+0,sy+12,8,3);
+    // Bronze-plate body
+    ctx.fillStyle=atk?'#a07830':'#8a6020'; ctx.fillRect(sx-9,sy-8,18,14);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-8,1,14); ctx.fillRect(sx+9,sy-8,1,14);
+    ctx.fillRect(sx-9,sy-9,18,1); ctx.fillRect(sx-9,sy+6,18,1);
+    // Bronze trim
+    ctx.fillStyle='#c09040'; ctx.fillRect(sx-9,sy-8,18,2); ctx.fillRect(sx-9,sy+5,18,2);
+    // Desert robe hem
+    ctx.fillStyle='#c0b08a'; ctx.fillRect(sx-8,sy+4,16,3);
+    // Shoulder plates
+    ctx.fillStyle='#9a7028'; ctx.fillRect(sx-14,sy-8,7,6); ctx.fillRect(sx+7,sy-8,7,6);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-9,7,1); ctx.fillRect(sx+7,sy-9,7,1);
+    // Scimitar in hand
+    ctx.fillStyle='#000'; ctx.fillRect(sx+10,sy-16,4,26);
+    ctx.fillStyle='#c0b850'; ctx.fillRect(sx+11,sy-15,2,22); // blade
+    ctx.fillStyle='#a09040'; ctx.fillRect(sx+9,sy-2,6,4); // guard
+    ctx.fillStyle='#6a4010'; ctx.fillRect(sx+11,sy+8,2,4); // grip
+    // Helm with nose-guard
+    ctx.fillStyle='#8a6020'; ctx.fillRect(sx-7,sy-24,14,17);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-24,1,17); ctx.fillRect(sx+7,sy-24,1,17);
+    ctx.fillRect(sx-7,sy-25,14,1);
+    ctx.fillStyle='#c09040'; ctx.fillRect(sx-7,sy-24,14,2); // brow
+    // Face visor slot
+    ctx.fillStyle='#000'; ctx.fillRect(sx-5,sy-19,10,4);
+    ctx.fillStyle='#3a2808'; ctx.fillRect(sx-4,sy-18,8,2);
+    // Nose guard extension
+    ctx.fillStyle='#8a6020'; ctx.fillRect(sx-1,sy-18,3,8);
+    ctx.fillStyle='#c09040'; ctx.fillRect(sx-1,sy-18,3,2);
+  },
+
+  _drawSandArcher(e,sx,sy){
+    const atk=e.isAttacking;
+    // Light desert legs
+    ctx.fillStyle='#8a6820'; ctx.fillRect(sx-6,sy+4,5,10); ctx.fillRect(sx+1,sy+4,5,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-7,sy+4,1,10); ctx.fillRect(sx+6,sy+4,1,10);
+    // Wrapped sandals
+    ctx.fillStyle='#6a5018'; ctx.fillRect(sx-7,sy+12,7,3); ctx.fillRect(sx+0,sy+12,7,3);
+    // Desert cloth body
+    ctx.fillStyle=atk?'#b09050':'#9a7840'; ctx.fillRect(sx-8,sy-7,16,13);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-9,sy-7,1,13); ctx.fillRect(sx+8,sy-7,1,13);
+    ctx.fillRect(sx-8,sy-8,16,1); ctx.fillRect(sx-8,sy+6,16,1);
+    // Desert cloak wrap
+    ctx.fillStyle='#c0a860'; ctx.fillRect(sx-8,sy-7,16,3);
+    // Bow
+    ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-18,2,28);
+    ctx.fillStyle='#7a5820'; ctx.fillRect(sx-13,sy-16,1,24);
+    ctx.fillStyle='#a08040'; ctx.fillRect(sx-14,sy-18,2,3); ctx.fillRect(sx-14,sy+8,2,3);
+    // Bowstring (single pixel)
+    ctx.fillStyle='#e0d0a0'; ctx.fillRect(sx-12,sy-16,1,25);
+    // Drawn arrow when attacking
+    if(atk){
+      ctx.fillStyle='#c08030'; ctx.fillRect(sx-12,sy-5,18,2);
+      ctx.fillStyle='#808080'; ctx.fillRect(sx+4,sy-5,4,2);
+    }
+    // Keffiyeh head wrap
+    ctx.fillStyle='#9a7840'; ctx.fillRect(sx-7,sy-22,14,16);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-22,1,16); ctx.fillRect(sx+7,sy-22,1,16);
+    // Keffiyeh cloth drape
+    ctx.fillStyle='#b09050'; ctx.fillRect(sx-7,sy-22,14,3);
+    ctx.fillRect(sx-7,sy-16,4,10); ctx.fillRect(sx+3,sy-16,4,10);
+    // Narrow eye-slit visible
+    ctx.fillStyle='#000'; ctx.fillRect(sx-5,sy-16,10,4);
+    ctx.fillStyle='#3a2c10'; ctx.fillRect(sx-4,sy-15,8,2);
+    // Eyes
+    ctx.fillStyle='#804010'; ctx.fillRect(sx-3,sy-15,2,2); ctx.fillRect(sx+1,sy-15,2,2);
+  },
+
+  _drawSandSerpent(e,sx,sy){
+    const r=e.size; const p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    // Golden sand aura
+    ctx.globalAlpha=ba*0.16; ctx.fillStyle=p2?'#e08020':'#c06010';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4);
+    ctx.globalAlpha=ba;
+    // Serpent coil body — sinuous rear
+    const t=(Date.now()/400)%(Math.PI*2);
+    const coilOff=Math.sin(t)*8|0;
+    ctx.fillStyle=p2?'#c08018':'#a06010'; ctx.fillRect(sx-r+coilOff,sy+r-4,r*2-coilOff,24);
+    ctx.fillStyle=p2?'#e0a030':'#c07820'; ctx.fillRect(sx-r+coilOff+3,sy+r,r*2-coilOff-6,18);
+    // Belly scales ridge
+    ctx.fillStyle=p2?'#f0c050':'#d09030';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-4+coilOff/2+i*2,sy+r+4,2,12);
+    // Rattle tail
+    ctx.fillStyle='#8a5c08'; ctx.fillRect(sx-6+coilOff,sy+r+22,12,8);
+    ctx.fillStyle='#c09020'; ctx.fillRect(sx-4+coilOff,sy+r+24,8,4);
+    // Main body
+    ctx.fillStyle=p2?'#c08020':'#a06818'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2); ctx.fillRect(sx+r,sy-r+8,1,r*2);
+    // Scale pattern
+    ctx.fillStyle=p2?'#d09028':'#b07818';
+    for(let i=0;i<4;i++) for(let j=0;j<4;j++) ctx.fillRect(sx-r+i*14+j%2*7,sy-r+10+j*10,10,7);
+    // Neck frill
+    ctx.fillStyle=p2?'#e0a030':'#c06010';
+    ctx.fillRect(sx-r-10,sy-r-4,12,r+12); ctx.fillRect(sx+r-2,sy-r-4,12,r+12);
+    ctx.fillStyle=p2?'#f0c050':'#d09030';
+    ctx.fillRect(sx-r-8,sy-r-2,8,r+8); ctx.fillRect(sx+r,sy-r-2,8,r+8);
+    // Head — elongated serpent skull
+    ctx.fillStyle=p2?'#d09020':'#a87018'; ctx.fillRect(sx-r+4,sy-r-16,r*2-8,r+24);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+3,sy-r-16,1,r+24); ctx.fillRect(sx+r-4,sy-r-16,1,r+24);
+    ctx.fillRect(sx-r+4,sy-r-17,r*2-8,1);
+    // Scale ridges on head
+    ctx.fillStyle=p2?'#e0b030':'#b88020';
+    ctx.fillRect(sx-r+6,sy-r-16,r*2-12,4);
+    // Fangs
+    ctx.fillStyle='#f0f0e0'; ctx.fillRect(sx-r+10,sy-r+8,5,6); ctx.fillRect(sx+r-14,sy-r+8,5,6);
+    ctx.fillStyle='#c0c0a0'; ctx.fillRect(sx-r+11,sy-r+12,3,4); ctx.fillRect(sx+r-13,sy-r+12,3,4);
+    // Eyes — slitted, predatory
+    ctx.fillStyle='#040008'; ctx.fillRect(sx-r+8,sy-r-4,10,8); ctx.fillRect(sx+r-18,sy-r-4,10,8);
+    ctx.fillStyle=p2?'#ff8010':'#c06008'; ctx.fillRect(sx-r+9,sy-r-3,8,6); ctx.fillRect(sx+r-17,sy-r-3,8,6);
+    ctx.fillStyle='#040008'; ctx.fillRect(sx-r+12,sy-r-3,2,6); ctx.fillRect(sx+r-14,sy-r-3,2,6); // slit pupil
+    ctx.fillStyle=p2?'#ffa030':'#ff7010';
+    ctx.globalAlpha=ba*0.5; ctx.fillRect(sx-r+8,sy-r-8,12,14); ctx.fillRect(sx+r-20,sy-r-8,12,14);
+    ctx.globalAlpha=ba;
+    // Phase 2 — sand aura spikes
+    if(p2){
+      ctx.fillStyle='#e0a020';
+      for(let i=0;i<8;i++){
+        const ang=i*Math.PI/4+t*0.5; const dr=r+14;
+        const bx=sx+Math.cos(ang)*dr|0, by=sy+Math.sin(ang)*dr|0;
+        ctx.fillRect(bx-2,by-2,4,4);
+      }
+    }
+  },
+
+  // ========================== END-GAME ENEMY SPRITES ==========================
+  _drawVolcanicEnemy(e,sx,sy){
+    const big=e.type==='LAVA_BRUTE';
+    const S=big?16:11; const atk=e.isAttacking;
+    // Lava-stone legs
+    ctx.fillStyle='#3a1208'; ctx.fillRect(sx-S+3,sy+S/2|0,S-4,S+2); ctx.fillRect(sx+3,sy+S/2|0,S-4,S+2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S+2,sy+S/2|0,1,S+2); ctx.fillRect(sx+S-2,sy+S/2|0,1,S+2);
+    // Molten seams on legs
+    ctx.fillStyle='#c04010'; ctx.fillRect(sx-S+4,sy+S/2+4|0,S-6,2); ctx.fillRect(sx+4,sy+S/2+4|0,S-6,2);
+    // Body — obsidian plate
+    ctx.fillStyle=atk?'#5a2010':'#3a1408'; ctx.fillRect(sx-S,sy-S+4,S*2,S+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S-1,sy-S+4,1,S+4); ctx.fillRect(sx+S,sy-S+4,1,S+4);
+    // Lava crack veins
+    ctx.fillStyle='#e05010'; ctx.fillRect(sx-S+2,sy-S+6,S*2-4,2);
+    ctx.fillRect(sx-2,sy-S+4,4,S+4);
+    // Ember emitter effect
+    if(big){ ctx.fillStyle='#ff6010'; ctx.fillRect(sx-S+4,sy-S+8,S*2-8,3); }
+    // Head — brutish stone visage
+    ctx.fillStyle='#2a1006'; ctx.fillRect(sx-S+2,sy-S-8,S*2-4,S+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S+1,sy-S-8,1,S+4); ctx.fillRect(sx+S-1,sy-S-8,1,S+4);
+    // Glowing eyes
+    ctx.fillStyle='#ff4000'; ctx.fillRect(sx-S+4,sy-S-4,S-4,4); ctx.fillRect(sx+2,sy-S-4,S-4,4);
+    ctx.fillStyle='#ff8020'; ctx.fillRect(sx-S+5,sy-S-3,S-6,2); ctx.fillRect(sx+3,sy-S-3,S-6,2);
+    // Weapon (big axe for brute)
+    if(big){ ctx.fillStyle='#000'; ctx.fillRect(sx+S,sy-S-4,4,S*2+12); ctx.fillStyle='#803010'; ctx.fillRect(sx+S+1,sy-S-4,2,S*2+10); ctx.fillStyle='#e06020'; ctx.fillRect(sx+S-2,sy-S-4,8,8); }
+    else { ctx.fillStyle='#c03010'; ctx.fillRect(sx+S,sy-4,6,10); } // small ember
+  },
+
+  _drawAbyssalEnemy(e,sx,sy){
+    const big=e.type==='ABYSSAL_STALKER';
+    const S=big?14:10; const atk=e.isAttacking;
+    // Incorporeal ripple base
+    ctx.globalAlpha=0.7+Math.sin(Date.now()/300)*0.2;
+    // Void-shadow legs
+    ctx.fillStyle='#04081a'; ctx.fillRect(sx-S+2,sy+S/2|0,S-3,S+4); ctx.fillRect(sx+2,sy+S/2|0,S-3,S+4);
+    // Body — dark void mass
+    ctx.fillStyle=atk?'#0c1840':'#060e28'; ctx.fillRect(sx-S,sy-S+2,S*2,S+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S-1,sy-S+2,1,S+4); ctx.fillRect(sx+S,sy-S+2,1,S+4);
+    // Blue void-energy veins
+    ctx.fillStyle='#1030a0'; ctx.fillRect(sx-S+3,sy-S+4,S*2-6,2); ctx.fillRect(sx-2,sy-S+2,4,S+4);
+    if(big){ ctx.fillStyle='#2050d0'; ctx.fillRect(sx-S+5,sy-S+8,S*2-10,2); }
+    // Head — abstract terror shape
+    ctx.fillStyle='#04080e'; ctx.fillRect(sx-S+3,sy-S-8,S*2-6,S+4);
+    ctx.fillStyle='#1828a8'; ctx.fillRect(sx-S+5,sy-S-4,S*2-10,3);
+    // Piercing void eyes
+    ctx.fillStyle='#2040ff'; ctx.fillRect(sx-S+6,sy-S-6,S-5,4); ctx.fillRect(sx+3,sy-S-6,S-5,4);
+    ctx.fillStyle='#80a0ff'; ctx.fillRect(sx-S+7,sy-S-5,S-7,2); ctx.fillRect(sx+4,sy-S-5,S-7,2);
+    ctx.globalAlpha=1;
+    if(big){ ctx.fillStyle='#1030c0'; ctx.fillRect(sx-S-6,sy-8,8,14); } // void tendril
+  },
+
+  _drawCrystalEnemy(e,sx,sy){
+    const big=e.type==='PRISM_GOLEM';
+    const S=big?17:10; const atk=e.isAttacking;
+    // Crystal legs
+    ctx.fillStyle='#1840a0'; ctx.fillRect(sx-S+3,sy+S/2|0,S-4,S+2); ctx.fillRect(sx+2,sy+S/2|0,S-4,S+2);
+    ctx.fillStyle='#2060c0'; ctx.fillRect(sx-S+5,sy+S/2+2|0,S-8,S-2); ctx.fillRect(sx+4,sy+S/2+2|0,S-8,S-2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S+2,sy+S/2|0,1,S+2); ctx.fillRect(sx+S-2,sy+S/2|0,1,S+2);
+    // Body — prismatic torso
+    ctx.fillStyle=atk?'#2868d0':'#1850b0'; ctx.fillRect(sx-S,sy-S+2,S*2,S+4);
+    ctx.fillStyle='#3080e0'; ctx.fillRect(sx-S+3,sy-S+4,S*2-6,3);
+    ctx.fillStyle='#60c0ff'; ctx.fillRect(sx-S+5,sy-S+5,S*2-10,1); // specular
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S-1,sy-S+2,1,S+4); ctx.fillRect(sx+S,sy-S+2,1,S+4);
+    if(big){
+      // Crystal spikes on shoulders
+      ctx.fillStyle='#4090e0'; ctx.fillRect(sx-S-6,sy-S,8,S); ctx.fillRect(sx+S-2,sy-S,8,S);
+      ctx.fillStyle='#70b0ff'; ctx.fillRect(sx-S-5,sy-S,6,S-4); ctx.fillRect(sx+S-1,sy-S,6,S-4);
+    }
+    // Head — faceted crystal
+    ctx.fillStyle='#1448b0'; ctx.fillRect(sx-S+4,sy-S-8,S*2-8,S+3);
+    ctx.fillStyle='#4088e0'; ctx.fillRect(sx-S+6,sy-S-6,S*2-12,3);
+    // Eyes — refracted light
+    ctx.fillStyle='#80e0ff'; ctx.fillRect(sx-S+7,sy-S-5,S-5,4); ctx.fillRect(sx+3,sy-S-5,S-5,4);
+    ctx.fillStyle='#ffffff'; ctx.fillRect(sx-S+8,sy-S-4,3,2); ctx.fillRect(sx+4,sy-S-4,3,2);
+    // Crystal top protrusion
+    ctx.fillStyle='#2060d0'; ctx.fillRect(sx-4,sy-S-14,8,8);
+    ctx.fillStyle='#60c0ff'; ctx.fillRect(sx-2,sy-S-14,4,4);
+  },
+
+  _drawCorruptedEnemy(e,sx,sy){
+    const big=e.type==='SHADOW_KNIGHT';
+    const S=big?15:11; const atk=e.isAttacking;
+    // Corrupted dark legs
+    ctx.fillStyle='#1a0820'; ctx.fillRect(sx-S+2,sy+S/2|0,S-3,S+2); ctx.fillRect(sx+2,sy+S/2|0,S-3,S+2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S+1,sy+S/2|0,1,S+2); ctx.fillRect(sx+S-1,sy+S/2|0,1,S+2);
+    // Purple corruption veins
+    ctx.fillStyle='#5010a0'; ctx.fillRect(sx-S+3,sy+S/2+3|0,S-5,2); ctx.fillRect(sx+3,sy+S/2+3|0,S-5,2);
+    // Body — corrupted plate
+    ctx.fillStyle=atk?'#380a50':'#1e0828'; ctx.fillRect(sx-S,sy-S+2,S*2,S+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S-1,sy-S+2,1,S+4); ctx.fillRect(sx+S,sy-S+2,1,S+4);
+    ctx.fillStyle='#6010b0'; ctx.fillRect(sx-S+2,sy-S+4,S*2-4,2);
+    ctx.fillRect(sx-2,sy-S+2,4,S+4);
+    if(big){
+      // Dark blade
+      ctx.fillStyle='#000'; ctx.fillRect(sx+S,sy-S-8,4,S*2+14);
+      ctx.fillStyle='#3c0860'; ctx.fillRect(sx+S+1,sy-S-6,2,S*2+10);
+      ctx.fillStyle='#8020c0'; ctx.fillRect(sx+S-2,sy-6,8,4);
+    }
+    // Head — skull-like visage with horns
+    ctx.fillStyle='#150618'; ctx.fillRect(sx-S+2,sy-S-10,S*2-4,S+5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-S+1,sy-S-10,1,S+5); ctx.fillRect(sx+S-1,sy-S-10,1,S+5);
+    // Small horns
+    ctx.fillStyle='#3c0860'; ctx.fillRect(sx-S+4,sy-S-16,5,8); ctx.fillRect(sx+S-8,sy-S-16,5,8);
+    // Hollow void eyes
+    ctx.fillStyle='#040006'; ctx.fillRect(sx-S+5,sy-S-6,S-4,5); ctx.fillRect(sx+2,sy-S-6,S-4,5);
+    ctx.fillStyle=atk?'#c030ff':'#8010c0'; ctx.fillRect(sx-S+6,sy-S-5,S-6,3); ctx.fillRect(sx+3,sy-S-5,S-6,3);
+    ctx.fillStyle='#f060ff'; ctx.fillRect(sx-S+7,sy-S-4,3,2); ctx.fillRect(sx+4,sy-S-4,3,2);
+  },
+
+  // ========================== END-GAME BOSS SPRITES ==========================
+  _drawLavaTitan(e,sx,sy){
+    const r=e.size; const p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    ctx.globalAlpha=ba*0.18; ctx.fillStyle=p2?'#ff5010':'#c03008';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
+    // Legs — massive magma pillars
+    ctx.fillStyle=p2?'#4a1608':'#2e1004'; ctx.fillRect(sx-r+2,sy+r-4,r-4,r+10); ctx.fillRect(sx+4,sy+r-4,r-4,r+10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+1,sy+r-4,1,r+10); ctx.fillRect(sx+r-1,sy+r-4,1,r+10);
+    ctx.fillStyle=p2?'#e06020':'#801808'; ctx.fillRect(sx-r+4,sy+r,r-6,4); ctx.fillRect(sx+6,sy+r,r-6,4);
+    // Body — titanic forge-plate
+    ctx.fillStyle=p2?'#5a1a0c':'#3a1008'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2+4); ctx.fillRect(sx+r,sy-r+8,1,r*2+4);
+    ctx.fillRect(sx-r,sy-r+7,r*2,1); ctx.fillRect(sx-r,sy+r+12,r*2,1);
+    // Magma crack network
+    ctx.fillStyle=p2?'#ff7010':'#c04010';
+    ctx.fillRect(sx-r+4,sy-r+10,r*2-8,3); ctx.fillRect(sx-2,sy-r+8,4,r*2+4);
+    ctx.fillRect(sx-r+8,sy-r+20,r*2-16,3); ctx.fillRect(sx-r+4,sy-r+28,r*2-8,3);
+    // Bright molten core
+    ctx.fillStyle=p2?'#ffb020':'#ff8010'; ctx.fillRect(sx-4,sy-4,8,8);
+    ctx.fillStyle=p2?'#ffe060':'#ffd030'; ctx.fillRect(sx-2,sy-2,4,4);
+    // Shoulder pauldrons
+    ctx.fillStyle=p2?'#4a1a0a':'#301008'; ctx.fillRect(sx-r-14,sy-r+8,16,r+8); ctx.fillRect(sx+r-2,sy-r+8,16,r+8);
+    ctx.fillStyle=p2?'#c04010':'#801808'; ctx.fillRect(sx-r-12,sy-r+10,12,r+4); ctx.fillRect(sx+r,sy-r+10,12,r+4);
+    // Massive forged arms
+    ctx.fillStyle=p2?'#3a1006':'#241004'; ctx.fillRect(sx-r-12,sy-r+16,14,r+4); ctx.fillRect(sx+r-2,sy-r+16,14,r+4);
+    // Weapon — colossal fire axe
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+12,sy-r-14,6,r*2+28);
+    ctx.fillStyle='#4a1008'; ctx.fillRect(sx+r+13,sy-r-12,4,r*2+24);
+    ctx.fillStyle=p2?'#ff5010':'#c03010'; ctx.fillRect(sx+r+8,sy-r-14,14,16);
+    ctx.fillStyle=p2?'#ff8020':'#e05020'; ctx.fillRect(sx+r+10,sy-r-12,10,12);
+    // Head — molten forge-mask
+    ctx.fillStyle=p2?'#4a1a0c':'#301008'; ctx.fillRect(sx-r+6,sy-r-r+2,r*2-12,r+r-6);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+5,sy-r-r+2,1,r+r-6); ctx.fillRect(sx+r-6,sy-r-r+2,1,r+r-6);
+    ctx.fillRect(sx-r+6,sy-r-r+1,r*2-12,1);
+    // Crown of magma spikes
+    ctx.fillStyle=p2?'#c04010':'#902010';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-r+8+i*10,sy-r-r-8,6,12);
+    // Eyes — blazing forge fire
+    ctx.fillStyle='#040004'; ctx.fillRect(sx-r+10,sy-r-r+6,r-4,r-6); ctx.fillRect(sx+4,sy-r-r+6,r-4,r-6);
+    ctx.fillStyle=p2?'#ff8010':'#e06010'; ctx.fillRect(sx-r+11,sy-r-r+7,r-6,r-8); ctx.fillRect(sx+5,sy-r-r+7,r-6,r-8);
+    ctx.fillStyle=p2?'#ffe040':'#ffc020'; ctx.fillRect(sx-r+12,sy-r-r+8,r-8,r-10); ctx.fillRect(sx+6,sy-r-r+8,r-8,r-10);
+    ctx.globalAlpha=ba*0.4; ctx.fillStyle=p2?'#ff9020':'#ff5010';
+    ctx.fillRect(sx-r+8,sy-r-r+4,r*2-16+2,r+r-8); ctx.globalAlpha=ba;
+  },
+
+  _drawVoidLeviathan(e,sx,sy){
+    const r=e.size; const p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    const t=(Date.now()/500)%(Math.PI*2);
+    ctx.globalAlpha=ba*0.20; ctx.fillStyle=p2?'#4060ff':'#0820c0';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
+    // Tentacle appendages (5 around body)
+    for(let i=0;i<5;i++){
+      const ang=i*(Math.PI*2/5)+t; const tr=r+18;
+      const tx2=sx+Math.cos(ang)*tr|0, ty2=sy+Math.sin(ang)*tr|0;
+      ctx.fillStyle=p2?'#0c1848':'#060c30'; ctx.fillRect(tx2-4,ty2-4,8,8);
+      ctx.fillStyle=p2?'#1838a0':'#0c1870'; ctx.fillRect(tx2-3,ty2-3,6,6);
+    }
+    // Main body — massive void sphere
+    ctx.fillStyle=p2?'#0c1840':'#060c28'; ctx.fillRect(sx-r,sy-r,r*2,r*2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r,1,r*2); ctx.fillRect(sx+r,sy-r,1,r*2);
+    ctx.fillRect(sx-r,sy-r-1,r*2,1); ctx.fillRect(sx-r,sy+r,r*2,1);
+    // Void-energy lattice
+    ctx.fillStyle=p2?'#2050d0':'#1030a0';
+    ctx.fillRect(sx-r+4,sy-r+4,r*2-8,2); ctx.fillRect(sx-r+4,sy+r-6,r*2-8,2);
+    ctx.fillRect(sx-r+4,sy-r+4,2,r*2-8); ctx.fillRect(sx+r-6,sy-r+4,2,r*2-8);
+    // Inner glowing core
+    ctx.fillStyle=p2?'#4080ff':'#2050c0'; ctx.fillRect(sx-r+10,sy-r+10,r*2-20,r*2-20);
+    ctx.fillStyle=p2?'#80b0ff':'#4070d0'; ctx.fillRect(sx-r+14,sy-r+14,r*2-28,r*2-28);
+    ctx.fillStyle=p2?'#c0d8ff':'#80a8e0'; ctx.fillRect(sx-8,sy-8,16,16);
+    ctx.fillStyle=p2?'#ffffff':'#e0f0ff'; ctx.fillRect(sx-4,sy-4,8,8);
+    // Eyes — massive void stare
+    ctx.fillStyle='#000000'; ctx.fillRect(sx-r+8,sy-r+8,r-4,r-4); ctx.fillRect(sx+4,sy-r+8,r-4,r-4);
+    ctx.fillStyle=p2?'#6090ff':'#2050d0'; ctx.fillRect(sx-r+10,sy-r+10,r-8,r-8); ctx.fillRect(sx+6,sy-r+10,r-8,r-8);
+    ctx.fillStyle=p2?'#c0d8ff':'#80a8e0'; ctx.fillRect(sx-r+13,sy-r+13,r-14,r-14); ctx.fillRect(sx+9,sy-r+13,r-14,r-14);
+    // Void pupil
+    ctx.fillStyle='#000000'; ctx.fillRect(sx-r+16,sy-r+16,4,4); ctx.fillRect(sx+12,sy-r+16,4,4);
+  },
+
+  _drawCrystalColossus(e,sx,sy){
+    const r=e.size; const p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    ctx.globalAlpha=ba*0.18; ctx.fillStyle=p2?'#80d0ff':'#40a0e0';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
+    // Crystalline legs
+    ctx.fillStyle=p2?'#2070c0':'#1450a0'; ctx.fillRect(sx-r+4,sy+r-2,r-6,r+12); ctx.fillRect(sx+6,sy+r-2,r-6,r+12);
+    ctx.fillStyle=p2?'#3090e0':'#1870c0'; ctx.fillRect(sx-r+6,sy+r+2,r-10,r+8); ctx.fillRect(sx+8,sy+r+2,r-10,r+8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+3,sy+r-2,1,r+12); ctx.fillRect(sx+r-3,sy+r-2,1,r+12);
+    // Crystal feet
+    ctx.fillStyle=p2?'#60c0ff':'#40a0e0'; ctx.fillRect(sx-r+2,sy+r+12,r-3,6); ctx.fillRect(sx+4,sy+r+12,r-3,6);
+    // Body — grand crystal prism
+    ctx.fillStyle=p2?'#1860c0':'#1050a8'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2+4); ctx.fillRect(sx+r,sy-r+8,1,r*2+4);
+    ctx.fillStyle=p2?'#3090e0':'#1870c8'; ctx.fillRect(sx-r+4,sy-r+10,r*2-8,3);
+    ctx.fillStyle=p2?'#60c0ff':'#4090d0'; ctx.fillRect(sx-r+8,sy-r+12,r*2-16,2);
+    ctx.fillStyle=p2?'#a0e0ff':'#70c0ff'; ctx.fillRect(sx-r+12,sy-r+13,r*2-24,1); // specular
+    // Giant crystal spires on shoulders
+    ctx.fillStyle=p2?'#2878d0':'#1460b8'; ctx.fillRect(sx-r-18,sy-r+8,20,r+8); ctx.fillRect(sx+r-2,sy-r+8,20,r+8);
+    ctx.fillStyle=p2?'#5098e0':'#2870c0'; ctx.fillRect(sx-r-16,sy-r+10,16,r+4); ctx.fillRect(sx+r,sy-r+10,16,r+4);
+    // Spire peaks
+    ctx.fillStyle=p2?'#70c0ff':'#4090d0'; ctx.fillRect(sx-r-14,sy-r,14,12); ctx.fillRect(sx+r,sy-r,14,12);
+    ctx.fillStyle=p2?'#b0e8ff':'#80c0ff'; ctx.fillRect(sx-r-12,sy-r-2,10,6); ctx.fillRect(sx+r+2,sy-r-2,10,6);
+    // Head — crystalline helm
+    ctx.fillStyle=p2?'#1460b8':'#0e50a8'; ctx.fillRect(sx-r+6,sy-r-r+4,r*2-12,r+r-8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+5,sy-r-r+4,1,r+r-8); ctx.fillRect(sx+r-6,sy-r-r+4,1,r+r-8);
+    ctx.fillRect(sx-r+6,sy-r-r+3,r*2-12,1);
+    // Crown spire array
+    ctx.fillStyle=p2?'#3080d0':'#1460b8';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-r+8+i*10,sy-r-r-6,7,12);
+    ctx.fillStyle=p2?'#80d0ff':'#50a8e0';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-r+9+i*10,sy-r-r-6,5,6);
+    // Eyes — refracted prismatic light
+    ctx.fillStyle='#040408'; ctx.fillRect(sx-r+10,sy-r-r+8,r-5,r-8); ctx.fillRect(sx+5,sy-r-r+8,r-5,r-8);
+    ctx.fillStyle=p2?'#60c0ff':'#3090d0'; ctx.fillRect(sx-r+11,sy-r-r+9,r-7,r-10); ctx.fillRect(sx+6,sy-r-r+9,r-7,r-10);
+    ctx.fillStyle=p2?'#e0f8ff':'#a0d8ff'; ctx.fillRect(sx-r+13,sy-r-r+11,r-11,r-14); ctx.fillRect(sx+8,sy-r-r+11,r-11,r-14);
+  },
+
+  _drawCorruptSovereign(e,sx,sy){
+    const r=e.size; const p2=e.phase===2;
+    const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    const t=(Date.now()/400)%(Math.PI*2);
+    ctx.globalAlpha=ba*0.22; ctx.fillStyle=p2?'#c040ff':'#6010b0';
+    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
+    // Dark robe legs
+    ctx.fillStyle=p2?'#280840':'#1a0428'; ctx.fillRect(sx-r+4,sy+r-2,r-6,r+12); ctx.fillRect(sx+6,sy+r-2,r-6,r+12);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+3,sy+r-2,1,r+12); ctx.fillRect(sx+r-3,sy+r-2,1,r+12);
+    // Corruption tendrils at feet
+    ctx.fillStyle=p2?'#6010a0':'#3a0860';
+    for(let i=0;i<3;i++){
+      ctx.fillRect(sx-r+2+i*8,sy+r+12,4,6); ctx.fillRect(sx+6+i*8,sy+r+12,4,6);
+    }
+    // Body — void-corrupted plate and robe
+    ctx.fillStyle=p2?'#360c4a':'#200630'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2+4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2+4); ctx.fillRect(sx+r,sy-r+8,1,r*2+4);
+    ctx.fillStyle=p2?'#7818c0':'#4010a0';
+    ctx.fillRect(sx-r+3,sy-r+10,r*2-6,2); ctx.fillRect(sx-r+3,sy+r+2,r*2-6,2);
+    ctx.fillRect(sx-2,sy-r+8,4,r*2+4);
+    // Flowing shadow-cloak sides
+    ctx.fillStyle=p2?'#280640':'#180420'; ctx.fillRect(sx-r-10,sy-r+8,12,r*2+4); ctx.fillRect(sx+r-2,sy-r+8,12,r*2+4);
+    // Massive pauldrons
+    ctx.fillStyle=p2?'#3a0c50':'#220830'; ctx.fillRect(sx-r-16,sy-r+8,18,r+10); ctx.fillRect(sx+r-2,sy-r+8,18,r+10);
+    ctx.fillStyle=p2?'#6010a0':'#3a0860'; ctx.fillRect(sx-r-14,sy-r+10,14,r+6); ctx.fillRect(sx+r,sy-r+10,14,r+6);
+    // Corruption orbs on pauldrons
+    ctx.fillStyle=p2?'#c040ff':'#8020d0'; ctx.fillRect(sx-r-10,sy-r+10,8,8); ctx.fillRect(sx+r+2,sy-r+10,8,8);
+    ctx.fillStyle=p2?'#f080ff':'#b040ff'; ctx.fillRect(sx-r-9,sy-r+11,6,6); ctx.fillRect(sx+r+3,sy-r+11,6,6);
+    // Corruption sword (massive)
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+16,sy-r-20,6,r*2+40);
+    ctx.fillStyle=p2?'#3a0858':'#1e0430'; ctx.fillRect(sx+r+17,sy-r-18,4,r*2+36);
+    ctx.fillStyle=p2?'#8020c0':'#5010a0'; ctx.fillRect(sx+r+13,sy-r-20,14,12);
+    ctx.fillStyle=p2?'#c040ff':'#8020d0'; ctx.fillRect(sx+r+15,sy-r-18,10,8);
+    // Orbiting corruption shards
+    if(p2){
+      for(let i=0;i<4;i++){
+        const ang=i*(Math.PI/2)+t;
+        const tx2=sx+Math.cos(ang)*(r+20)|0, ty2=sy+Math.sin(ang)*(r+20)|0;
+        ctx.fillStyle='#8020c0'; ctx.fillRect(tx2-4,ty2-4,8,8);
+        ctx.fillStyle='#c060ff'; ctx.fillRect(tx2-2,ty2-2,4,4);
+      }
+    }
+    // Head — crowned void sovereign
+    ctx.fillStyle=p2?'#280640':'#160420'; ctx.fillRect(sx-r+6,sy-r-r+4,r*2-12,r+r-8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r+5,sy-r-r+4,1,r+r-8); ctx.fillRect(sx+r-6,sy-r-r+4,1,r+r-8);
+    ctx.fillRect(sx-r+6,sy-r-r+3,r*2-12,1);
+    // Corruption crown — massive spikes
+    ctx.fillStyle=p2?'#6010a0':'#3a0868';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-r+6+i*10,sy-r-r-10,8,14);
+    ctx.fillStyle=p2?'#c040ff':'#8020c0';
+    for(let i=0;i<5;i++) ctx.fillRect(sx-r+7+i*10,sy-r-r-10,6,6);
+    // Crown orb (central)
+    ctx.fillStyle=p2?'#ff80ff':'#c040ff'; ctx.fillRect(sx-4,sy-r-r-6,8,8);
+    ctx.fillStyle=p2?'#ffffff':'#f0c0ff'; ctx.fillRect(sx-2,sy-r-r-4,4,4);
+    // Eyes — eldritch void gaze
+    ctx.fillStyle='#040006'; ctx.fillRect(sx-r+8,sy-r-r+8,r-4,r-8); ctx.fillRect(sx+4,sy-r-r+8,r-4,r-8);
+    ctx.fillStyle=p2?'#c040ff':'#8020c0'; ctx.fillRect(sx-r+9,sy-r-r+9,r-6,r-10); ctx.fillRect(sx+5,sy-r-r+9,r-6,r-10);
+    ctx.fillStyle=p2?'#ff80ff':'#d060ff'; ctx.fillRect(sx-r+11,sy-r-r+11,r-10,r-14); ctx.fillRect(sx+7,sy-r-r+11,r-10,r-14);
+    ctx.globalAlpha=ba*(0.3+Math.sin(t)*0.1); ctx.fillStyle=p2?'#a020e0':'#6010b0';
+    ctx.fillRect(sx-r+6,sy-r-r+6,r*2-12,r+r-12); ctx.globalAlpha=ba;
+  },
 };
 
 // ============================================================
@@ -6476,10 +7727,10 @@ const Village = {
 
   // NPC appearance configs
   _defs:[
-    {tx:183,ty:30,color:'#8a6840',hair:'#2a1808',name:'Villager'},
+    {tx:193,ty:30,color:'#8a6840',hair:'#2a1808',name:'Villager'},
     {tx:199,ty:32,color:'#7a6070',hair:'#1a0a0a',name:'Elder'},
     {tx:212,ty:28,color:'#607050',hair:'#302010',name:'Herbalist'},
-    {tx:196,ty:56,color:'#9a7050',hair:'#1a1008',name:'Blacksmith'},
+    {tx:196,ty:50,color:'#9a7050',hair:'#1a1008',name:'Blacksmith'},
     {tx:222,ty:42,color:'#7080a0',hair:'#0a0c18',name:'Wanderer'},
     {tx:57, ty:22, color:'#5a7040',hair:'#1a2010',name:'Grassland Elder', type:'grassland_elder'},
   ],
@@ -6606,11 +7857,11 @@ const Quest = {
     const gq=GS.grasslandQuest;
     if(gq.phase===0){
       gq.phase=1;
-      UI.msg("Elder: 'A monstrous warden has corrupted these lands. Seek the Warden\\'s Seal east of here, then face it.'",'rune',6);
+      UI.msg("Elder: 'A monstrous warden has corrupted these lands. Head east into the verdant expanse and face the beast.'",'rune',6);
       UI.msg("Grassland Quest started",'item',3);
       ScreenFX.flash('#204010',0.25,0.8);
     } else if(gq.phase===1){
-      UI.msg("Elder: 'Find the Warden\\'s Seal in the treasure vault to the east, then face the Warden.'",'rune',4);
+      UI.msg("Elder: 'The Verdant Warden prowls the eastern expanse. Grow strong, then challenge the beast at the sealed gate.'",'rune',4);
     } else if(gq.phase===2){
       gq.phase=3;
       GS.player.inventory.push('ARCHER_TALISMAN');
@@ -7326,8 +8577,10 @@ const UI = {
     // Boss room sealed indicator
     if(GS.activeBossRoom){
       const id=GS.activeBossRoom.id;
-      const col=id==='swamp'?'#40a020':id==='mountain'?'#6088cc':'#cc3030';
-      const bg=id==='swamp'?'#0a1805':id==='mountain'?'#080c18':'#180808';
+      const col=id==='swamp'?'#40a020':id==='mountain'?'#6088cc':id==='grassland'?'#50b030'
+               :id==='desert'?'#d4a030':id.startsWith('eg_')?'#ff8030':'#cc3030';
+      const bg=id==='swamp'?'#0a1805':id==='mountain'?'#080c18':id==='grassland'?'#081605'
+              :id==='desert'?'#201000':id.startsWith('eg_')?'#180800':'#180808';
       ctx.fillStyle='#000'; ctx.fillRect(SCREEN_W/2-132,3,264,18);
       ctx.fillStyle=bg; ctx.fillRect(SCREEN_W/2-130,4,260,16);
       R.text('BOSS ROOM SEALED — Defeat the enemy to escape',SCREEN_W/2,16,col,9,'center');
@@ -7341,58 +8594,64 @@ const UI = {
   },
 
   _bossBar(){
-    // Mini-boss bars
-    for(const [key,mb] of Object.entries(GS.miniBosses)){
-      if(!mb.active||!mb.ref||mb.ref.isDead) continue;
-      const zoneMatch=(key==='swamp'&&GS.currentZone==='SWAMP')||(key==='mountain'&&GS.currentZone==='MOUNTAIN');
-      if(!zoneMatch) continue;
-      const bw=SCREEN_W-100, bh=12, bx=50, by=20;
+    const bw=SCREEN_W-100, bh=12, bx=50, by=20;
+    // Helper: draw a single boss/miniboss bar
+    const drawBar=(ref, barCol1, barCol2, trimCol, nameCol)=>{
+      if(!ref||ref.isDead) return;
       ctx.fillStyle='#000'; ctx.fillRect(bx-6,by-6,bw+12,bh+24);
       ctx.fillStyle='#0a0c0e'; ctx.fillRect(bx-3,by-3,bw+6,bh+18);
-      ctx.fillStyle=key==='swamp'?'#1a3008':'#0c1828';
-      ctx.fillRect(bx-3,by-3,bw+6,3);
+      ctx.fillStyle=trimCol; ctx.fillRect(bx-3,by-3,bw+6,3);
       ctx.fillStyle='#0c0000'; ctx.fillRect(bx,by,bw,bh);
-      const fw=(mb.ref.hp/mb.ref.maxHP*bw)|0;
-      ctx.fillStyle=mb.ref.phase===2?(key==='swamp'?'#406010':'#2050a0'):(key==='swamp'?'#284010':'#182848');
+      const fw=(ref.hp/ref.maxHP*bw)|0;
+      ctx.fillStyle=ref.phase===2?barCol2:barCol1;
       ctx.fillRect(bx,by,fw,bh);
       ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillRect(bx,by,fw,2);
-      if(mb.ref.phase===1){
+      if(ref.phase===2){
+        ctx.fillStyle='rgba(200,80,80,0.14)'; ctx.fillRect(bx,by,fw,bh);
+      }
+      if(ref.phase===1){
         ctx.fillStyle='#100800'; ctx.fillRect(bx+(bw/2)|0,by,2,bh);
       }
       ctx.fillStyle='#000'; ctx.fillRect(bx,by+bh+2,bw,14);
       ctx.fillStyle='#0a0806'; ctx.fillRect(bx+1,by+bh+3,bw-2,12);
-      const bname=mb.ref.cfg.name+(mb.ref.phase===2?'  [ PHASE II ]':'');
-      R.bold(bname,SCREEN_W/2,by+bh+13,key==='swamp'?'#406010':'#304878',10,'center');
+      R.bold(ref.cfg.name+(ref.phase===2?'  [ PHASE II ]':''),SCREEN_W/2,by+bh+13,nameCol,10,'center');
+    };
+
+    // Standard mini-boss bars (swamp, mountain, grassland)
+    for(const [key,mb] of Object.entries(GS.miniBosses)){
+      if(!mb.active||!mb.ref||mb.ref.isDead) continue;
+      const zoneMatch=(key==='swamp'&&GS.currentZone==='SWAMP')
+                    ||(key==='mountain'&&GS.currentZone==='MOUNTAIN')
+                    ||(key==='grassland'&&GS.currentZone==='GRASSLAND');
+      if(!zoneMatch) continue;
+      if(key==='swamp')    drawBar(mb.ref,'#284010','#406010','#1a3008','#406010');
+      else if(key==='mountain') drawBar(mb.ref,'#182848','#2050a0','#0c1828','#304878');
+      else if(key==='grassland') drawBar(mb.ref,'#183808','#3a6018','#102408','#4a8020');
+      return;
     }
+
+    // Desert boss bar
+    if(GS.desertBoss.active&&GS.desertBoss.ref&&!GS.desertBoss.ref.isDead){
+      drawBar(GS.desertBoss.ref,'#5a3000','#9a5000','#2a1800','#d4a030'); return;
+    }
+
+    // End-game boss bars
+    const EGB_STYLES={
+      volcanic:  {c1:'#500800',c2:'#901500',trim:'#280400',name:'#ff6010'},
+      abyssal:   {c1:'#060820',c2:'#1020a0',trim:'#020410',name:'#4060e0'},
+      crystal:   {c1:'#082028',c2:'#1080b0',trim:'#041018',name:'#60d0f0'},
+      corrupted: {c1:'#1a0030',c2:'#5010a0',trim:'#0c0018',name:'#c040f0'},
+    };
+    for(const [zone,eb] of Object.entries(GS.endgameBoss)){
+      if(eb.active&&eb.ref&&!eb.ref.isDead){
+        const s=EGB_STYLES[zone];
+        drawBar(eb.ref,s.c1,s.c2,s.trim,s.name); return;
+      }
+    }
+
+    // Main boss (Ashen King)
     if(!GS.bossActive||!GS.bossRef||GS.bossRef.isDead) return;
-    const boss=GS.bossRef;
-    const bw=SCREEN_W-100, bh=12, bx=50, by=20;
-    // Thick dark iron border (3px)
-    ctx.fillStyle='#000'; ctx.fillRect(bx-6,by-6,bw+12,bh+24);
-    ctx.fillStyle='#0e0c0a'; ctx.fillRect(bx-3,by-3,bw+6,bh+18);
-    // Tarnished gold trim top
-    ctx.fillStyle='#2a2006'; ctx.fillRect(bx-3,by-3,bw+6,3);
-    // Bar bg — near-black dried blood
-    ctx.fillStyle='#0c0000'; ctx.fillRect(bx,by,bw,bh);
-    const fw=(boss.hp/boss.maxHP*bw)|0;
-    // Bar fill — deep dried blood (phase 1) / ember red (phase 2)
-    ctx.fillStyle=boss.phase===2?'#700808':'#4a0808';
-    ctx.fillRect(bx,by,fw,bh);
-    // Faint top gleam
-    ctx.fillStyle='rgba(255,100,100,0.08)'; ctx.fillRect(bx,by,fw,2);
-    // Phase 2 bar pulse
-    if(boss.phase===2){
-      ctx.fillStyle='rgba(180,20,20,0.15)'; ctx.fillRect(bx,by,fw,bh);
-    }
-    // Phase split marker
-    if(boss.phase===1){
-      ctx.fillStyle='#200000'; ctx.fillRect(bx+(bw/2)|0,by,2,bh);
-    }
-    // Name label — dark iron box, tarnished gold text
-    ctx.fillStyle='#000'; ctx.fillRect(bx,by+bh+2,bw,14);
-    ctx.fillStyle='#0a0806'; ctx.fillRect(bx+1,by+bh+3,bw-2,12);
-    R.bold(`${ENEMY_TYPES.BOSS.name}${boss.phase===2?'  [ PHASE II ]':''}`,
-           SCREEN_W/2,by+bh+13,'#6a5010',10,'center');
+    drawBar(GS.bossRef,'#4a0808','#700808','#2a2006','#6a5010');
   },
 
   _messages(){
@@ -7634,18 +8893,44 @@ function loop(ts){
 
     ScreenFX.apply();
     if(GS.insideHouse){
-      // Inside a house: fill screen with dark interior colour, clip world to house bounds
+      // ── INSIDE HOUSE ─ show only the house interior; blackout everything else ──
       const h=GS.insideHouse;
-      ctx.fillStyle='#100c08'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
-      // Convert house tile bounds to screen px (include 1 tile margin for walls)
-      const hsx=(h.wx*TILE_SIZE-cx)|0, hsy=(h.wy*TILE_SIZE-cy)|0;
-      const hsw=h.ww*TILE_SIZE,         hsh=h.wh*TILE_SIZE;
+      // Fill entire screen with opaque darkness (exterior world invisible)
+      ctx.fillStyle='#0a0806'; ctx.fillRect(0,0,SCREEN_W,SCREEN_H);
+      // Clip rendering to the interior floor bounds
+      const clipX=(h.ix*TILE_SIZE-cx)|0,  clipY=(h.iy*TILE_SIZE-cy)|0;
+      const clipW=h.iw*TILE_SIZE,          clipH=h.ih*TILE_SIZE;
+      // Expand clip slightly to include surrounding walls (roof tile ring)
+      const clipPad=TILE_SIZE;
       ctx.save();
-      ctx.beginPath(); ctx.rect(hsx,hsy,hsw,hsh); ctx.clip();
+      ctx.beginPath();
+      ctx.rect(clipX-clipPad, clipY-clipPad, clipW+clipPad*2, clipH+clipPad*2);
+      ctx.clip();
       World.draw(cx,cy);
+      // Draw only enemies that are inside this house
+      Enemies.drawFiltered(cx,cy,(e)=>{
+        const etx=e.x/TILE_SIZE|0, ety=e.y/TILE_SIZE|0;
+        return etx>=h.ix&&etx<h.ix+h.iw&&ety>=h.iy&&ety<h.iy+h.ih;
+      });
       ctx.restore();
     } else {
+      // ── OUTSIDE ─ draw world but overlay solid roof over house interiors ──
       World.draw(cx,cy);
+      // Draw opaque roof over each house interior so you cannot see inside
+      for(const h of HOUSE_DEFS){
+        const rsx=(h.wx*TILE_SIZE-cx)|0, rsy=(h.wy*TILE_SIZE-cy)|0;
+        // Already rendered as HOUSE_WALL tiles; also blackout interior floor tiles
+        ctx.fillStyle='#1a0c06';
+        ctx.fillRect((h.ix*TILE_SIZE-cx)|0, (h.iy*TILE_SIZE-cy)|0, h.iw*TILE_SIZE, h.ih*TILE_SIZE);
+      }
+      // Draw enemies, but skip any inside a house interior
+      Enemies.drawFiltered(cx,cy,(e)=>{
+        const etx=e.x/TILE_SIZE|0, ety=e.y/TILE_SIZE|0;
+        for(const h of HOUSE_DEFS){
+          if(etx>=h.ix&&etx<h.ix+h.iw&&ety>=h.iy&&ety<h.iy+h.ih) return false;
+        }
+        return true;
+      });
     }
     BossRooms.draw(cx,cy);
     Bonfires.draw(cx,cy);
@@ -7654,7 +8939,7 @@ function loop(ts){
     Shops.draw(cx,cy);
     Village.draw(cx,cy);
     Quest.draw(cx,cy);
-    Enemies.draw(cx,cy);
+    if(!GS.insideHouse&&!GS.insideHouse) {/* enemies drawn above in filtered pass */}
     Particles.draw(cx,cy);
     VFX.draw(cx,cy);
     Player.draw(cx,cy);
