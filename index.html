@@ -701,7 +701,7 @@ const GS = {
 
   camera:{ x:0, y:0 },
 
-  enemies:[], projectiles:[], particles:[], items:[], npcs:[],
+  enemies:[], projectiles:[], particles:[], vfx:[], items:[], npcs:[],
   quest:{ phase:0, found:[false,false,false] },
   // quest phases: 0=not started  1=active  2=all found  3=rewarded
   grasslandQuest:{ phase:0 }, // 0=inactive 1=active 2=boss_killed 3=rewarded
@@ -2389,6 +2389,184 @@ const Particles = {
 };
 
 // ============================================================
+// ABILITY VFX — weapon-ability visual effects (fillRect only)
+// ============================================================
+const VFX = {
+  _fx: GS.vfx,
+
+  // Arc of rects swept in front of player — used for all melee slashes
+  slash(x,y,angle,radius,arcSpan,col,colInner,dur){
+    this._fx.push({type:'slash',x,y,angle,radius,arcSpan,col,colInner,timer:dur,max:dur});
+  },
+
+  // Expanding ring of dots — for shockwaves / AoE hits
+  shockwave(x,y,maxR,col,dur){
+    this._fx.push({type:'shockwave',x,y,maxR,col,timer:dur,max:dur});
+  },
+
+  // Three bands expanding outward in facing direction — for push waves
+  forcewave(x,y,angle,len,wid,col,dur){
+    this._fx.push({type:'forcewave',x,y,angle,len,wid,col,timer:dur,max:dur});
+  },
+
+  // Orbiting silver ring around player — for counter stance buff
+  counterstance(dur){
+    const i=this._fx.findIndex(f=>f.type==='counterstance');
+    if(i>=0) this._fx.splice(i,1);
+    this._fx.push({type:'counterstance',timer:dur,max:dur});
+  },
+
+  // Movement afterimage streak from (x1,y1) to (x2,y2)
+  streak(x1,y1,x2,y2,col,dur){
+    this._fx.push({type:'streak',x1,y1,x2,y2,col,timer:dur,max:dur});
+  },
+
+  update(dt){
+    for(let i=this._fx.length-1;i>=0;i--){
+      this._fx[i].timer-=dt;
+      if(this._fx[i].timer<=0) this._fx.splice(i,1);
+    }
+  },
+
+  draw(cx,cy){
+    const now=Date.now();
+    for(const f of this._fx){
+      const t=Math.max(0,f.timer/f.max); // 1=just spawned, 0=expired
+
+      switch(f.type){
+
+        case 'slash':{
+          // Fan of rects along an arc — outer ring + inner ring for depth
+          const N=16;
+          for(let i=0;i<N;i++){
+            const a=f.angle-f.arcSpan/2+i*(f.arcSpan/(N-1));
+            // Outer ring — larger squares
+            const ox=(f.x+Math.cos(a)*f.radius-cx)|0;
+            const oy=(f.y+Math.sin(a)*f.radius-cy)|0;
+            ctx.globalAlpha=t*0.88;
+            ctx.fillStyle=f.col;
+            ctx.fillRect(ox-3,oy-3,7,7);
+            // Inner ring — smaller, brighter
+            const ix=(f.x+Math.cos(a)*f.radius*0.62-cx)|0;
+            const iy=(f.y+Math.sin(a)*f.radius*0.62-cy)|0;
+            ctx.globalAlpha=t*0.55;
+            ctx.fillStyle=f.colInner;
+            ctx.fillRect(ix-2,iy-2,5,5);
+          }
+          // Bright tip at arc center
+          const tipX=(f.x+Math.cos(f.angle)*f.radius-cx)|0;
+          const tipY=(f.y+Math.sin(f.angle)*f.radius-cy)|0;
+          ctx.globalAlpha=t*0.95;
+          ctx.fillStyle=f.colInner;
+          ctx.fillRect(tipX-4,tipY-4,9,9);
+          ctx.globalAlpha=t*0.50;
+          ctx.fillStyle='#ffffff';
+          ctx.fillRect(tipX-2,tipY-2,5,5);
+          break;
+        }
+
+        case 'shockwave':{
+          // Ring expands outward as timer drains
+          const curR=f.maxR*(1-t);
+          const N=28;
+          for(let i=0;i<N;i++){
+            const a=(i/N)*Math.PI*2;
+            // Main ring
+            const ox=(f.x+Math.cos(a)*curR-cx)|0;
+            const oy=(f.y+Math.sin(a)*curR-cy)|0;
+            ctx.globalAlpha=t*0.85;
+            ctx.fillStyle=f.col;
+            ctx.fillRect(ox-3,oy-3,7,7);
+            // Trailing inner ring (smaller, behind)
+            const ir=curR*0.80;
+            const ix=(f.x+Math.cos(a)*ir-cx)|0;
+            const iy=(f.y+Math.sin(a)*ir-cy)|0;
+            ctx.globalAlpha=t*0.42;
+            ctx.fillStyle=f.col;
+            ctx.fillRect(ix-2,iy-2,4,4);
+          }
+          break;
+        }
+
+        case 'forcewave':{
+          // Three wave-fronts marching outward in facing direction
+          const perpX=-Math.sin(f.angle), perpY=Math.cos(f.angle);
+          for(let wave=0;wave<3;wave++){
+            const prog=Math.max(0,(1-t)-wave*0.18);
+            const dist=prog*f.len;
+            if(dist<=0) continue;
+            const wx=(f.x+Math.cos(f.angle)*dist-cx)|0;
+            const wy=(f.y+Math.sin(f.angle)*dist-cy)|0;
+            const alpha=(1-prog)*0.82*(1-wave*0.28);
+            const halfW=(f.wid*(1-prog*0.35))*0.5;
+            // Draw perpendicular band as a row of rects
+            const step=9, NW=Math.ceil(halfW/step);
+            for(let j=-NW;j<=NW;j++){
+              const falloff=1-Math.abs(j)/NW;
+              ctx.globalAlpha=alpha*falloff;
+              ctx.fillStyle=f.col;
+              const rx=(wx+perpX*j*step)|0, ry=(wy+perpY*j*step)|0;
+              ctx.fillRect(rx-3,ry-3,7,7);
+            }
+          }
+          break;
+        }
+
+        case 'counterstance':{
+          const p=GS.player;
+          const r=28, N=8;
+          // Blink rapidly when about to expire (< 1 s left)
+          const blink=f.timer<1.0&&(now%200)<100;
+          if(blink) break;
+          // Outer ring — slowly rotates
+          const rot=(now/600)*Math.PI*2;
+          for(let i=0;i<N;i++){
+            const a=rot+i*(Math.PI*2/N);
+            const ox=(p.x+Math.cos(a)*r-cx)|0;
+            const oy=(p.y+Math.sin(a)*r-cy)|0;
+            ctx.globalAlpha=Math.min(1,t*4)*0.80;
+            ctx.fillStyle='#c8d8f0';
+            ctx.fillRect(ox-2,oy-2,5,5);
+          }
+          // Inner ring — faster counter-rotation, smaller
+          const rot2=-(now/300)*Math.PI*2;
+          for(let i=0;i<N;i++){
+            const a=rot2+i*(Math.PI*2/N);
+            const ox=(p.x+Math.cos(a)*16-cx)|0;
+            const oy=(p.y+Math.sin(a)*16-cy)|0;
+            ctx.globalAlpha=Math.min(1,t*4)*0.50;
+            ctx.fillStyle='#ffffff';
+            ctx.fillRect(ox-1,oy-1,3,3);
+          }
+          break;
+        }
+
+        case 'streak':{
+          // Dotted afterimage trail from (x1,y1) to (x2,y2), fades quickly
+          const dx=f.x2-f.x1, dy=f.y2-f.y1;
+          const len=Math.hypot(dx,dy);
+          if(len<2) break;
+          const steps=Math.min(14, Math.ceil(len/12));
+          for(let i=0;i<=steps;i++){
+            const frac=i/steps;
+            const sx=(f.x1+dx*frac-cx)|0;
+            const sy=(f.y1+dy*frac-cy)|0;
+            // Fade: bright at end (x2,y2), dim at start
+            ctx.globalAlpha=t*(0.2+frac*0.7);
+            ctx.fillStyle=f.col;
+            const sz=Math.max(2,(4*(1-frac*0.5))|0);
+            ctx.fillRect(sx-(sz>>1),sy-(sz>>1),sz,sz);
+          }
+          break;
+        }
+
+      }
+      ctx.globalAlpha=1;
+    }
+  },
+};
+
+// ============================================================
 // BONFIRE SYSTEM
 // ============================================================
 const Bonfires = {
@@ -3211,7 +3389,13 @@ const Player = {
   _attack(dt){
     const p=GS.player;
     if(p.attackCooldown>0) p.attackCooldown-=dt;
-    if(p.counterTimer>0){ p.counterTimer-=dt; if(p.counterTimer<=0) p.counterActive=false; }
+    if(p.counterTimer>0){
+      p.counterTimer-=dt;
+      if(p.counterTimer<=0){
+        p.counterActive=false;
+        // Ensure the VFX ring fully expires (timer already drains naturally)
+      }
+    }
     if(p.isAttacking){
       p.attackTimer-=dt;
       if(atkHitbox){ this._syncHitbox(); this._checkHits(); atkHitbox.timer-=dt; if(atkHitbox.timer<=0) atkHitbox=null; }
@@ -3270,7 +3454,13 @@ const Player = {
     const p=GS.player;
     const range=type==='light'?52:72, w=type==='light'?34:56;
     let dmg=(type==='light'?PLAYER_CONFIG.lightDmg:PLAYER_CONFIG.heavyDmg)+Stats.damage();
-    if(p.counterActive){ dmg*=3; p.counterActive=false; p.counterTimer=0; ScreenFX.flash('#808090',0.3,0.18); }
+    if(p.counterActive){
+      dmg*=3; p.counterActive=false; p.counterTimer=0;
+      ScreenFX.flash('#808090',0.3,0.18);
+      // Remove counter stance VFX ring immediately on trigger
+      const ci=GS.vfx.findIndex(f=>f.type==='counterstance');
+      if(ci>=0) GS.vfx.splice(ci,1);
+    }
     atkHitbox={
       x:p.x+p.facing.x*range-w/2, y:p.y+p.facing.y*range-w/2,
       w,h:w, dmg, type, timer:type==='light'?PLAYER_CONFIG.lightDur:PLAYER_CONFIG.heavyDur,
@@ -3597,6 +3787,8 @@ const Player = {
         this._checkHits(); atkHitbox=null;
         for(let i=0;i<8;i++) Particles.sparks(
           p.x+p.facing.x*(20+i*10), p.y+p.facing.y*(20+i*10), 4);
+        // Blue-white push wave expanding outward
+        VFX.forcewave(p.x,p.y, angle, 110, 88, '#80b0ff', 0.38);
         ScreenFX.flash('#4050d8',0.15,0.2);
         UI.msg('Force Wave!','combo',0.8);
         break;
@@ -3677,12 +3869,15 @@ const Player = {
         };
         this._checkHits(); atkHitbox=null;
         Particles.sparks(p.x+p.facing.x*56,p.y+p.facing.y*56,10);
+        // Wide rusty-orange slash arc — 120° fan at distance 80
+        VFX.slash(p.x,p.y, angle, 80, Math.PI*0.65, '#c87820','#ffa030', 0.32);
         ScreenFX.flash('#906030',0.18,0.2);
         UI.msg('Heavy Swing!','combo',0.8);
         break;
       }
       case 'SMALL_DAGGER':{ // Blade Rush — lunge forward + hit
         const lx=p.facing.x, ly=p.facing.y;
+        const rushX0=p.x, rushY0=p.y; // capture start position for streak
         p.x+=lx*44; p.y+=ly*44;
         // Keep in bounds
         p.x=Math.max(TILE_SIZE,Math.min((WORLD_W-1)*TILE_SIZE,p.x));
@@ -3694,12 +3889,17 @@ const Player = {
         };
         this._checkHits(); atkHitbox=null;
         Particles.sparks(p.x,p.y,8);
+        // Motion afterimage streak + tight slash arc at endpoint
+        VFX.streak(rushX0,rushY0, p.x,p.y, '#d0e8ff', 0.22);
+        VFX.slash(p.x,p.y, angle, 48, Math.PI*0.42, '#d0e0ff','#ffffff', 0.18);
         ScreenFX.flash('#602040',0.15,0.15);
         UI.msg('Blade Rush!','combo',0.8);
         break;
       }
       case 'IRON_SWORD':{ // Steel Counter — buff next hit 3x
         p.counterActive=true; p.counterTimer=3.5;
+        // Orbiting silver ring shows the active counter window
+        VFX.counterstance(3.5);
         ScreenFX.flash('#808090',0.2,0.3);
         UI.msg('Counter Stance!','combo',1.2);
         break;
@@ -3713,6 +3913,9 @@ const Player = {
         };
         this._checkHits(); atkHitbox=null;
         Particles.sparks(p.x+p.facing.x*48,p.y+p.facing.y*48,10);
+        // Dark purple sweeping drain arc + collapsing shockwave
+        VFX.slash(p.x,p.y, angle, 66, Math.PI*0.55, '#9010c0','#d040ff', 0.30);
+        VFX.shockwave(p.x,p.y, 58, '#6008a0', 0.28);
         ScreenFX.flash('#400050',0.2,0.25);
         UI.msg('Soul Drain!','combo',0.9);
         break;
@@ -3726,6 +3929,9 @@ const Player = {
         this._checkHits(); atkHitbox=null;
         for(let i=0;i<16;i++) Particles.sparks(
           p.x+Math.cos(i*0.393)*aoeR*0.7, p.y+Math.sin(i*0.393)*aoeR*0.7, 4);
+        // Double shockwave ring — outer ember-orange + inner bright fire
+        VFX.shockwave(p.x,p.y, aoeR,    '#c05010', 0.45);
+        VFX.shockwave(p.x,p.y, aoeR*0.6,'#ff8020', 0.32);
         ScreenFX.flash('#604020',0.28,0.35);
         ScreenFX.shake(8,0.25);
         UI.msg('Ground Slam!','combo',1.0);
@@ -7412,6 +7618,7 @@ function loop(ts){
     Quest.update(dt);
     Bonfires.update(dt);
     Particles.update(dt);
+    VFX.update(dt);
     UI.update(dt);
   }
 
@@ -7449,6 +7656,7 @@ function loop(ts){
     Quest.draw(cx,cy);
     Enemies.draw(cx,cy);
     Particles.draw(cx,cy);
+    VFX.draw(cx,cy);
     Player.draw(cx,cy);
     DmgNums.draw(cx,cy);
     ScreenFX.restore();
