@@ -934,6 +934,14 @@ const WEAPON_ABILITIES = {
   IRON_SWORD:    {name:'Steel Counter',  sc:20,fp:0,  cd:3.0},
   HOLLOW_BLADE:  {name:'Soul Drain',     sc:15,fp:10, cd:4.0},
   ASHEN_GREATSWORD:{name:'Ground Slam',  sc:30,fp:0,  cd:4.5},
+  // Desert weapons
+  BONE_BLADE:      {name:'Bone Splinter',sc:20,fp:0,  cd:3.0},
+  SAND_LANCE:      {name:'Sand Thrust',  sc:22,fp:0,  cd:2.5},
+  // Endgame weapons
+  ABYSSAL_BLADE:   {name:'Void Rend',    sc:28,fp:0,  cd:4.0},
+  VOID_LANCE:      {name:'Void Pierce',  sc:25,fp:0,  cd:3.5},
+  CRYSTAL_SCEPTER: {name:'Crystal Barrage',sc:0,fp:35,cd:4.0},
+  CORRUPTED_SWORD: {name:'Corruption Burst',sc:30,fp:10,cd:5.0},
 };
 
 // ============================================================
@@ -4595,6 +4603,130 @@ const Player = {
         UI.msg('Ground Slam!','combo',1.0);
         break;
       }
+      // ── DESERT WEAPONS ───────────────────────────────────────────────────
+      case 'BONE_BLADE':{ // Bone Splinter — scatter 5 bone shards in a cone
+        const spread2=0.32;
+        for(let i=-2;i<=2;i++){
+          const a=angle+i*spread2*0.5;
+          const jit=(Math.random()-0.5)*0.08;
+          GS.projectiles.push({
+            x:p.x+p.facing.x*14, y:p.y+p.facing.y*14,
+            vx:Math.cos(a+jit)*(300+Math.random()*60), vy:Math.sin(a+jit)*(300+Math.random()*60),
+            dmg:baseDmg*0.85, sz:5, life:2.2,
+            color:'#d4c090', glow:'#ffe0a0',
+            isPlayerProj:true, isArrow:true, angle:a,
+          });
+        }
+        Particles.sparks(p.x+p.facing.x*12,p.y+p.facing.y*12,8);
+        VFX.slash(p.x,p.y, angle, 56, Math.PI*0.55, '#c8a860','#ffe0a0', 0.22);
+        ScreenFX.flash('#604820',0.15,0.18);
+        UI.msg('Bone Splinter!','combo',0.9);
+        break;
+      }
+      case 'SAND_LANCE':{ // Sand Thrust — lunge + sand explosion
+        const lx2=p.facing.x, ly2=p.facing.y;
+        const rx0=p.x, ry0=p.y;
+        p.x+=lx2*52; p.y+=ly2*52;
+        p.x=Math.max(TILE_SIZE,Math.min((WORLD_W-1)*TILE_SIZE,p.x));
+        p.y=Math.max(TILE_SIZE,Math.min((WORLD_H-1)*TILE_SIZE,p.y));
+        const hw4=56;
+        atkHitbox={
+          x:p.x+lx2*40-hw4/2, y:p.y+ly2*40-hw4/2,
+          w:hw4, h:hw4, dmg:baseDmg*1.9, type:'heavy', timer:0.25, hit:new Set(),
+        };
+        this._checkHits(); atkHitbox=null;
+        Particles.sparks(p.x,p.y,10);
+        VFX.streak(rx0,ry0, p.x,p.y, '#e0c870', 0.25);
+        VFX.shockwave(p.x+lx2*40,p.y+ly2*40, 70, '#d4a830', 0.38);
+        VFX.slash(p.x,p.y, angle, 60, Math.PI*0.44, '#e0c050','#fff0a0', 0.20);
+        ScreenFX.flash('#705820',0.18,0.2);
+        ScreenFX.shake(5,0.18);
+        UI.msg('Sand Thrust!','combo',0.9);
+        break;
+      }
+      // ── ENDGAME WEAPONS ───────────────────────────────────────────────────
+      case 'ABYSSAL_BLADE':{ // Void Rend — wide dark energy sweep
+        const aoeR2=112;
+        atkHitbox={
+          x:p.x+p.facing.x*48-aoeR2/2, y:p.y+p.facing.y*48-aoeR2/2,
+          w:aoeR2, h:aoeR2, dmg:baseDmg*2.8, type:'heavy', timer:0.4, hit:new Set(),
+        };
+        this._checkHits(); atkHitbox=null;
+        Particles.sparks(p.x+p.facing.x*50,p.y+p.facing.y*50,14);
+        VFX.slash(p.x,p.y, angle, 96, Math.PI*0.80, '#1020a0','#4060ff', 0.38);
+        VFX.shockwave(p.x,p.y, aoeR2*0.7, '#0820c0', 0.32);
+        ScreenFX.flash('#060820',0.3,0.35);
+        ScreenFX.shake(7,0.22);
+        UI.msg('Void Rend!','combo',1.0);
+        break;
+      }
+      case 'VOID_LANCE':{ // Void Pierce — fast void bolt, pierces all enemies
+        GS.projectiles.push({
+          x:p.x+p.facing.x*20, y:p.y+p.facing.y*20,
+          vx:Math.cos(angle)*540, vy:Math.sin(angle)*540,
+          dmg:baseDmg*2.4, sz:10, life:3.5,
+          color:'#1828c0', glow:'#4060ff',
+          isPlayerProj:true, isMagicBolt:true,
+          isPiercing:true, piercedIds:new Set(),
+        });
+        // Trailing void particles
+        for(let i=0;i<4;i++){
+          const jit=(Math.random()-0.5)*0.18;
+          GS.projectiles.push({
+            x:p.x+p.facing.x*(8+i*4), y:p.y+p.facing.y*(8+i*4),
+            vx:Math.cos(angle+jit)*420, vy:Math.sin(angle+jit)*420,
+            dmg:1, sz:4, life:1.0,
+            color:'#0814a0', glow:'#2040d0',
+            isPlayerProj:true, isMagicBolt:true,
+          });
+        }
+        Particles.sparks(p.x+p.facing.x*16,p.y+p.facing.y*16,8);
+        ScreenFX.flash('#040830',0.22,0.25);
+        UI.msg('Void Pierce!','combo',0.9);
+        break;
+      }
+      case 'CRYSTAL_SCEPTER':{ // Crystal Barrage — 5 shards in a fan
+        const spreadC=0.22;
+        for(let i=-2;i<=2;i++){
+          const a=angle+i*spreadC;
+          GS.projectiles.push({
+            x:p.x+p.facing.x*16+(-p.facing.y*i*8), y:p.y+p.facing.y*16+(p.facing.x*i*8),
+            vx:Math.cos(a)*360, vy:Math.sin(a)*360,
+            dmg:baseDmg*1.3, sz:9, life:3.0,
+            color:'#40b0d8', glow:'#80e0ff',
+            isPlayerProj:true, isMagicBolt:true, isIce:true,
+          });
+        }
+        Particles.sparks(p.x+p.facing.x*14,p.y+p.facing.y*14,12);
+        ScreenFX.flash('#0c3050',0.22,0.28);
+        UI.msg('Crystal Barrage!','combo',0.9);
+        break;
+      }
+      case 'CORRUPTED_SWORD':{ // Corruption Burst — AoE explosion of corruption
+        const aoeR3=104;
+        atkHitbox={
+          x:p.x-aoeR3, y:p.y-aoeR3,
+          w:aoeR3*2, h:aoeR3*2, dmg:baseDmg*3.0, type:'heavy', timer:0.45, hit:new Set(),
+        };
+        this._checkHits(); atkHitbox=null;
+        for(let i=0;i<20;i++){
+          const a=(i/20)*Math.PI*2;
+          GS.projectiles.push({
+            x:p.x+Math.cos(a)*20, y:p.y+Math.sin(a)*20,
+            vx:Math.cos(a)*160, vy:Math.sin(a)*160,
+            dmg:baseDmg*0.4, sz:7, life:1.4,
+            color:'#6010b0', glow:'#c040ff',
+            isPlayerProj:true, isMagicBolt:true,
+          });
+        }
+        Particles.sparks(p.x,p.y,16);
+        VFX.shockwave(p.x,p.y, aoeR3,    '#8020c0', 0.50);
+        VFX.shockwave(p.x,p.y, aoeR3*0.55,'#c040ff', 0.35);
+        ScreenFX.flash('#200040',0.35,0.45);
+        ScreenFX.shake(10,0.30);
+        UI.msg('Corruption Burst!','combo',1.2);
+        break;
+      }
     }
   },
 
@@ -7384,59 +7516,127 @@ const Enemies = {
   },
 
   _drawSandSerpent(e,sx,sy){
+    // Sand Serpent — true horizontal snake form, NOT humanoid
+    // The body is a wide sinuous coil centered on (sx,sy), head extends right, tail left
     const r=e.size; const p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
-    // Golden sand aura
-    ctx.globalAlpha=ba*0.16; ctx.fillStyle=p2?'#e08020':'#c06010';
-    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4);
+    const t=(Date.now()/380)%(Math.PI*2);
+    const sway=Math.sin(t)*6|0;  // body sway animation
+
+    ctx.globalAlpha=ba*0.14; ctx.fillStyle=p2?'#e09020':'#c06818';
+    ctx.fillRect(sx-r*3,sy-r,r*6,r*2); // horizontal aura
     ctx.globalAlpha=ba;
-    // Serpent coil body — sinuous rear
-    const t=(Date.now()/400)%(Math.PI*2);
-    const coilOff=Math.sin(t)*8|0;
-    ctx.fillStyle=p2?'#c08018':'#a06010'; ctx.fillRect(sx-r+coilOff,sy+r-4,r*2-coilOff,24);
-    ctx.fillStyle=p2?'#e0a030':'#c07820'; ctx.fillRect(sx-r+coilOff+3,sy+r,r*2-coilOff-6,18);
-    // Belly scales ridge
-    ctx.fillStyle=p2?'#f0c050':'#d09030';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-4+coilOff/2+i*2,sy+r+4,2,12);
-    // Rattle tail
-    ctx.fillStyle='#8a5c08'; ctx.fillRect(sx-6+coilOff,sy+r+22,12,8);
-    ctx.fillStyle='#c09020'; ctx.fillRect(sx-4+coilOff,sy+r+24,8,4);
-    // Main body
-    ctx.fillStyle=p2?'#c08020':'#a06818'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2); ctx.fillRect(sx+r,sy-r+8,1,r*2);
-    // Scale pattern
-    ctx.fillStyle=p2?'#d09028':'#b07818';
-    for(let i=0;i<4;i++) for(let j=0;j<4;j++) ctx.fillRect(sx-r+i*14+j%2*7,sy-r+10+j*10,10,7);
-    // Neck frill
-    ctx.fillStyle=p2?'#e0a030':'#c06010';
-    ctx.fillRect(sx-r-10,sy-r-4,12,r+12); ctx.fillRect(sx+r-2,sy-r-4,12,r+12);
-    ctx.fillStyle=p2?'#f0c050':'#d09030';
-    ctx.fillRect(sx-r-8,sy-r-2,8,r+8); ctx.fillRect(sx+r,sy-r-2,8,r+8);
-    // Head — elongated serpent skull
-    ctx.fillStyle=p2?'#d09020':'#a87018'; ctx.fillRect(sx-r+4,sy-r-16,r*2-8,r+24);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+3,sy-r-16,1,r+24); ctx.fillRect(sx+r-4,sy-r-16,1,r+24);
-    ctx.fillRect(sx-r+4,sy-r-17,r*2-8,1);
+
+    const sc=p2?'#d09828':'#a87020'; // scale color
+    const sc2=p2?'#e8b030':'#c08828'; // lighter scale
+    const belly=p2?'#f0d868':'#d4b040'; // belly color
+    const outline='#000';
+
+    // ── TAIL section (left side, thin rattler) ──────────────────────
+    // Rattle segments
+    ctx.fillStyle='#6a4808'; ctx.fillRect(sx-r*3-10,sy-4+sway,10,8);
+    ctx.fillStyle='#9a7010'; ctx.fillRect(sx-r*3-8, sy-3+sway, 7,6);
+    ctx.fillStyle='#6a4808'; ctx.fillRect(sx-r*3-5, sy-2+sway, 5,4); // rattle tip
+    // Tail body — tapers from left
+    ctx.fillStyle=sc;   ctx.fillRect(sx-r*3,   sy-5+sway, r+2,10);
+    ctx.fillStyle=sc2;  ctx.fillRect(sx-r*3+2, sy-3+sway, r-2, 6);
+    ctx.fillStyle=outline; ctx.fillRect(sx-r*3-1,sy-5+sway,1,10); ctx.fillRect(sx-r*2,sy-6+sway,r+2,1); ctx.fillRect(sx-r*2,sy+5+sway,r+2,1);
+
+    // ── MID-BODY section (center mass, widest part, upper coil) ─────
+    const midY=sway;
+    ctx.fillStyle=sc;   ctx.fillRect(sx-r*2, sy-r/2+midY, r*4, r);
+    ctx.fillStyle=sc2;  ctx.fillRect(sx-r*2+4, sy-r/2+4+midY, r*4-8, r-8);
+    ctx.fillStyle=outline;
+    ctx.fillRect(sx-r*2-1,sy-r/2+midY,1,r); ctx.fillRect(sx+r*2,sy-r/2+midY,1,r);
+    ctx.fillRect(sx-r*2,sy-r/2-1+midY,r*4,1); ctx.fillRect(sx-r*2,sy+r/2+midY,r*4,1);
+
+    // Scale chevrons across mid-body
+    ctx.fillStyle=sc2;
+    for(let i=0;i<8;i++){
+      const bx=sx-r*2+6+i*14;
+      ctx.fillRect(bx,   sy-r/2+4+midY, 10,4);
+      ctx.fillRect(bx+2, sy-r/2+9+midY,  6,3);
+    }
+    // Belly stripe
+    ctx.fillStyle=belly;
+    ctx.fillRect(sx-r*2+6, sy-4+midY, r*4-12, 8);
+    ctx.fillStyle=p2?'#fff080':'#e8c850';
+    for(let i=0;i<12;i++) ctx.fillRect(sx-r*2+8+i*10,sy-2+midY,6,4);
+
+    // Lower coil loop under main body (gives snake its coil silhouette)
+    const loopY=sy+r/2+10;
+    ctx.fillStyle=sc;   ctx.fillRect(sx-r,   loopY, r*2, r*0.7|0);
+    ctx.fillStyle=sc2;  ctx.fillRect(sx-r+4, loopY+3, r*2-8, r*0.7-6|0);
+    ctx.fillStyle=outline; ctx.fillRect(sx-r-1,loopY,1,r*0.7|0); ctx.fillRect(sx+r,loopY,1,r*0.7|0);
+    ctx.fillRect(sx-r,loopY-1,r*2,1); ctx.fillRect(sx-r,loopY+r*0.7|0,r*2,1);
+
+    // ── NECK section (between body and head) ─────────────────────────
+    const neckOff=Math.sin(t+0.5)*4|0;
+    ctx.fillStyle=sc;   ctx.fillRect(sx+r*2-2, sy-r/2+neckOff, r+4, r);
+    ctx.fillStyle=sc2;  ctx.fillRect(sx+r*2,   sy-r/2+4+neckOff, r,   r-8);
+    // Hood flare / neck frill
+    ctx.fillStyle=p2?'#e8a028':'#c07820';
+    ctx.fillRect(sx+r*2+r/2-2,sy-r+neckOff, r+4,4);  // top frill
+    ctx.fillRect(sx+r*2+r/2-2,sy+r/2-4+neckOff, r+4,4); // bottom frill
+    ctx.fillStyle=p2?'#f0c050':'#d4980c';
+    ctx.fillRect(sx+r*2+r/2,sy-r+2+neckOff, r,2);
+    ctx.fillRect(sx+r*2+r/2,sy+r/2-2+neckOff, r,2);
+
+    // ── HEAD section (right side, triangular skull) ───────────────────
+    const hx=sx+r*3+r/2; const hy=sy+neckOff;
+    const hw=r*1.2|0; const hh=r*0.9|0;
+    // Skull — triangular profile (wider at jaw, narrower at snout)
+    ctx.fillStyle=p2?'#c88c20':'#9a6818';
+    ctx.fillRect(hx-4,     hy-hh,    hw+10, hh*2); // main skull block
+    ctx.fillRect(hx+hw-4,  hy-hh+4,  12,   hh*2-8); // snout taper
+    ctx.fillStyle=outline;
+    ctx.fillRect(hx-5,     hy-hh-1,  hw+12,1);  // top outline
+    ctx.fillRect(hx-5,     hy+hh,    hw+12,1);  // bottom outline
+    ctx.fillRect(hx-5,     hy-hh,    1,hh*2);   // back of head outline
     // Scale ridges on head
-    ctx.fillStyle=p2?'#e0b030':'#b88020';
-    ctx.fillRect(sx-r+6,sy-r-16,r*2-12,4);
-    // Fangs
-    ctx.fillStyle='#f0f0e0'; ctx.fillRect(sx-r+10,sy-r+8,5,6); ctx.fillRect(sx+r-14,sy-r+8,5,6);
-    ctx.fillStyle='#c0c0a0'; ctx.fillRect(sx-r+11,sy-r+12,3,4); ctx.fillRect(sx+r-13,sy-r+12,3,4);
-    // Eyes — slitted, predatory
-    ctx.fillStyle='#040008'; ctx.fillRect(sx-r+8,sy-r-4,10,8); ctx.fillRect(sx+r-18,sy-r-4,10,8);
-    ctx.fillStyle=p2?'#ff8010':'#c06008'; ctx.fillRect(sx-r+9,sy-r-3,8,6); ctx.fillRect(sx+r-17,sy-r-3,8,6);
-    ctx.fillStyle='#040008'; ctx.fillRect(sx-r+12,sy-r-3,2,6); ctx.fillRect(sx+r-14,sy-r-3,2,6); // slit pupil
-    ctx.fillStyle=p2?'#ffa030':'#ff7010';
-    ctx.globalAlpha=ba*0.5; ctx.fillRect(sx-r+8,sy-r-8,12,14); ctx.fillRect(sx+r-20,sy-r-8,12,14);
-    ctx.globalAlpha=ba;
-    // Phase 2 — sand aura spikes
+    ctx.fillStyle=p2?'#e0a830':'#b07820';
+    ctx.fillRect(hx-2,  hy-hh+2,  hw+8,  3);
+    ctx.fillRect(hx-2,  hy-hh+8,  hw+4,  2);
+    // Eye socket
+    ctx.fillStyle='#060008'; ctx.fillRect(hx+2,hy-hh+5,12,10);
+    ctx.fillStyle=p2?'#ff8810':'#c06008'; ctx.fillRect(hx+3,hy-hh+6,10,8);
+    ctx.fillStyle='#060008'; ctx.fillRect(hx+7,hy-hh+5,2,10); // vertical slit pupil
+    // Eye glow
+    ctx.globalAlpha=ba*(p2?0.6:0.4); ctx.fillStyle=p2?'#ffa020':'#ff7010';
+    ctx.fillRect(hx+1,hy-hh+3,14,14); ctx.globalAlpha=ba;
+    // Upper jaw / snout tip
+    ctx.fillStyle=p2?'#d09820':'#a07018';
+    ctx.fillRect(hx+hw+4,  hy-hh+6, 8, hh-8);
+    // Lower jaw (slightly offset for open-mouth look)
+    ctx.fillStyle=p2?'#b07018':'#8a5810';
+    ctx.fillRect(hx+hw,    hy+4,    12, hh-6);
+    // Fangs — two long curved fangs
+    ctx.fillStyle='#f0ede0';
+    ctx.fillRect(hx+hw+2,  hy-hh+10, 4,  8); // upper fang
+    ctx.fillRect(hx+hw+2,  hy+6,     4,  7); // lower fang
+    ctx.fillStyle='#c8c8a8';
+    ctx.fillRect(hx+hw+3,  hy-hh+14, 2,  5);
+    ctx.fillRect(hx+hw+3,  hy+9,     2,  5);
+    // Forked tongue
+    ctx.fillStyle='#d01020';
+    ctx.fillRect(hx+hw+12, hy-2,     8,  4); // tongue base
+    ctx.fillRect(hx+hw+18, hy-4,     4,  3); // fork top
+    ctx.fillRect(hx+hw+18, hy+2,     4,  3); // fork bottom
+
+    // ── PHASE 2 — swirling sand spikes around whole body ────────────
     if(p2){
-      ctx.fillStyle='#e0a020';
-      for(let i=0;i<8;i++){
-        const ang=i*Math.PI/4+t*0.5; const dr=r+14;
-        const bx=sx+Math.cos(ang)*dr|0, by=sy+Math.sin(ang)*dr|0;
-        ctx.fillRect(bx-2,by-2,4,4);
+      ctx.fillStyle='#e0a820';
+      for(let i=0;i<10;i++){
+        const ang=i*Math.PI/5+t*0.6;
+        const dr=r+20;
+        const bx2=sx+Math.cos(ang)*dr|0, by2=sy+Math.sin(ang)*dr|0;
+        ctx.fillRect(bx2-3,by2-3,6,6);
+        ctx.fillStyle='#f0c840'; ctx.fillRect(bx2-1,by2-1,3,3);
+        ctx.fillStyle='#e0a820';
       }
+      // Sand column rising effect
+      ctx.globalAlpha=ba*0.25; ctx.fillStyle='#c89020';
+      ctx.fillRect(sx-r*3,sy-r*2,r*6,r); ctx.globalAlpha=ba;
     }
   },
 
@@ -7551,182 +7751,505 @@ const Enemies = {
 
   // ========================== END-GAME BOSS SPRITES ==========================
   _drawLavaTitan(e,sx,sy){
+    // Lava Titan — gorilla-proportioned stone giant. WIDE body, giant dragging fists,
+    // exposed lava chest cavity, 4 curving obsidian horns. No weapon — fists ARE weapons.
     const r=e.size; const p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
-    ctx.globalAlpha=ba*0.18; ctx.fillStyle=p2?'#ff5010':'#c03008';
-    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
-    // Legs — massive magma pillars
-    ctx.fillStyle=p2?'#4a1608':'#2e1004'; ctx.fillRect(sx-r+2,sy+r-4,r-4,r+10); ctx.fillRect(sx+4,sy+r-4,r-4,r+10);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+1,sy+r-4,1,r+10); ctx.fillRect(sx+r-1,sy+r-4,1,r+10);
-    ctx.fillStyle=p2?'#e06020':'#801808'; ctx.fillRect(sx-r+4,sy+r,r-6,4); ctx.fillRect(sx+6,sy+r,r-6,4);
-    // Body — titanic forge-plate
-    ctx.fillStyle=p2?'#5a1a0c':'#3a1008'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2+4);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2+4); ctx.fillRect(sx+r,sy-r+8,1,r*2+4);
-    ctx.fillRect(sx-r,sy-r+7,r*2,1); ctx.fillRect(sx-r,sy+r+12,r*2,1);
-    // Magma crack network
-    ctx.fillStyle=p2?'#ff7010':'#c04010';
-    ctx.fillRect(sx-r+4,sy-r+10,r*2-8,3); ctx.fillRect(sx-2,sy-r+8,4,r*2+4);
-    ctx.fillRect(sx-r+8,sy-r+20,r*2-16,3); ctx.fillRect(sx-r+4,sy-r+28,r*2-8,3);
-    // Bright molten core
-    ctx.fillStyle=p2?'#ffb020':'#ff8010'; ctx.fillRect(sx-4,sy-4,8,8);
-    ctx.fillStyle=p2?'#ffe060':'#ffd030'; ctx.fillRect(sx-2,sy-2,4,4);
-    // Shoulder pauldrons
-    ctx.fillStyle=p2?'#4a1a0a':'#301008'; ctx.fillRect(sx-r-14,sy-r+8,16,r+8); ctx.fillRect(sx+r-2,sy-r+8,16,r+8);
-    ctx.fillStyle=p2?'#c04010':'#801808'; ctx.fillRect(sx-r-12,sy-r+10,12,r+4); ctx.fillRect(sx+r,sy-r+10,12,r+4);
-    // Massive forged arms
-    ctx.fillStyle=p2?'#3a1006':'#241004'; ctx.fillRect(sx-r-12,sy-r+16,14,r+4); ctx.fillRect(sx+r-2,sy-r+16,14,r+4);
-    // Weapon — colossal fire axe
-    ctx.fillStyle='#000'; ctx.fillRect(sx+r+12,sy-r-14,6,r*2+28);
-    ctx.fillStyle='#4a1008'; ctx.fillRect(sx+r+13,sy-r-12,4,r*2+24);
-    ctx.fillStyle=p2?'#ff5010':'#c03010'; ctx.fillRect(sx+r+8,sy-r-14,14,16);
-    ctx.fillStyle=p2?'#ff8020':'#e05020'; ctx.fillRect(sx+r+10,sy-r-12,10,12);
-    // Head — molten forge-mask
-    ctx.fillStyle=p2?'#4a1a0c':'#301008'; ctx.fillRect(sx-r+6,sy-r-r+2,r*2-12,r+r-6);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+5,sy-r-r+2,1,r+r-6); ctx.fillRect(sx+r-6,sy-r-r+2,1,r+r-6);
-    ctx.fillRect(sx-r+6,sy-r-r+1,r*2-12,1);
-    // Crown of magma spikes
-    ctx.fillStyle=p2?'#c04010':'#902010';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-r+8+i*10,sy-r-r-8,6,12);
-    // Eyes — blazing forge fire
-    ctx.fillStyle='#040004'; ctx.fillRect(sx-r+10,sy-r-r+6,r-4,r-6); ctx.fillRect(sx+4,sy-r-r+6,r-4,r-6);
-    ctx.fillStyle=p2?'#ff8010':'#e06010'; ctx.fillRect(sx-r+11,sy-r-r+7,r-6,r-8); ctx.fillRect(sx+5,sy-r-r+7,r-6,r-8);
-    ctx.fillStyle=p2?'#ffe040':'#ffc020'; ctx.fillRect(sx-r+12,sy-r-r+8,r-8,r-10); ctx.fillRect(sx+6,sy-r-r+8,r-8,r-10);
-    ctx.globalAlpha=ba*0.4; ctx.fillStyle=p2?'#ff9020':'#ff5010';
-    ctx.fillRect(sx-r+8,sy-r-r+4,r*2-16+2,r+r-8); ctx.globalAlpha=ba;
+    const t=(Date.now()/320)%(Math.PI*2);
+    const pulse=Math.sin(t)*3|0; // breathing lava pulse
+
+    ctx.globalAlpha=ba*0.20; ctx.fillStyle=p2?'#ff6010':'#c04008';
+    ctx.fillRect(sx-r*2-8,sy-r*2,r*4+16,r*4); ctx.globalAlpha=ba;
+
+    // ── LEGS — stubby thick pillars, wide stance ──────────────────────
+    ctx.fillStyle=p2?'#3a1008':'#261004';
+    ctx.fillRect(sx-r+2,sy+r,r-2,r+14); ctx.fillRect(sx+2,sy+r,r-2,r+14);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-r+1,sy+r,1,r+14); ctx.fillRect(sx+r-1,sy+r,1,r+14);
+    // Lava-crack on shins
+    ctx.fillStyle=p2?'#ff6010':'#d03808';
+    ctx.fillRect(sx-r+4,sy+r+6,r-6,3); ctx.fillRect(sx+4,sy+r+6,r-6,3);
+    // Stone feet — flat wide
+    ctx.fillStyle=p2?'#2e1006':'#1e0c04';
+    ctx.fillRect(sx-r,   sy+r+14,r+4,8); ctx.fillRect(sx-4,   sy+r+14,r+4,8);
+
+    // ── BODY — extra-wide barrel chest (wider than tall) ─────────────
+    const bw=r*2+16; // body is 16px wider than r*2
+    ctx.fillStyle=p2?'#4a1408':'#301008';
+    ctx.fillRect(sx-bw/2,sy-r+6,bw,r*2+4);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-bw/2-1,sy-r+6,1,r*2+4); ctx.fillRect(sx+bw/2,sy-r+6,1,r*2+4);
+    ctx.fillRect(sx-bw/2,sy-r+5,bw,1); ctx.fillRect(sx-bw/2,sy+r+10,bw,1);
+    // Obsidian plate segments
+    ctx.fillStyle=p2?'#381006':'#200c04';
+    ctx.fillRect(sx-bw/2+4,sy-r+8,bw-8,r-4);
+    ctx.fillRect(sx-bw/2+4,sy+4,bw-8,r-2);
+    // Lava river cracks across body
+    ctx.fillStyle=p2?'#ff8020':'#e05010';
+    ctx.fillRect(sx-bw/2+6,sy-r+10,bw-12,3); // horizontal seam top
+    ctx.fillRect(sx-bw/2+6,sy+6,bw-12,3);   // horizontal seam bottom
+    ctx.fillRect(sx-4,sy-r+6,8,r*2+4);       // central vertical crack
+    ctx.fillRect(sx-bw/2+14,sy-r+16,r-4,2); ctx.fillRect(sx+4,sy-r+16,r-4,2); // branch cracks
+    // EXPOSED LAVA CHEST CAVITY — the signature feature
+    const cavW=r-4; const cavH=r-2;
+    ctx.fillStyle='#1a0804';
+    ctx.fillRect(sx-cavW/2,sy-cavH/2+2,cavW,cavH);
+    ctx.fillStyle=p2?'#ff9020':'#e06010';
+    ctx.fillRect(sx-cavW/2+2,sy-cavH/2+4,cavW-4,cavH-4);
+    ctx.fillStyle=p2?'#ffcc40':'#ff9020';
+    ctx.fillRect(sx-cavW/2+4,sy-cavH/2+6,cavW-8,cavH-8);
+    ctx.fillStyle=p2?'#ffff80':'#ffcc40';
+    ctx.fillRect(sx-cavW/2+6,sy-cavH/2+pulse+8,cavW-12,cavH-12-pulse); // pulsing inner core
+
+    // ── ARMS — gorilla long, knuckle-dragging ─────────────────────────
+    // Left arm hangs to sy+r+8 (past the legs)
+    ctx.fillStyle=p2?'#3a1008':'#281006';
+    ctx.fillRect(sx-bw/2-r+4,sy-r+10,r-2,r*2+12); // upper arm
+    ctx.fillRect(sx-bw/2-r+2,sy+r-2,r+4,r+8);     // forearm wider
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-bw/2-r+3,sy-r+10,1,r*2+12); ctx.fillRect(sx-bw/2+5,sy-r+10,1,r*2+12);
+    ctx.fillStyle=p2?'#ff7010':'#c04008';
+    ctx.fillRect(sx-bw/2-r+6,sy-r+14,r-6,2);
+    // Right arm (holds axe-like pose, slightly raised)
+    ctx.fillStyle=p2?'#3a1008':'#281006';
+    ctx.fillRect(sx+bw/2-6,sy-r+6,r-2,r*2+8);
+    ctx.fillRect(sx+bw/2-4,sy+r-4,r+2,r+6);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx+bw/2-7,sy-r+6,1,r*2+8); ctx.fillRect(sx+bw/2+r-9,sy-r+6,1,r*2+8);
+    // Stone fists (big blocky knuckles)
+    ctx.fillStyle=p2?'#2e1206':'#1e0c04';
+    ctx.fillRect(sx-bw/2-r+2,sy+r+8,r+6,12); // left fist
+    ctx.fillRect(sx+bw/2-4,   sy+r+4,r+6,12); // right fist raised
+    ctx.fillStyle=p2?'#ff6010':'#c03808';
+    ctx.fillRect(sx-bw/2-r+4,sy+r+10,r+2,4);  // fist lava seam
+    ctx.fillRect(sx+bw/2-2,   sy+r+6, r+2,4);
+
+    // ── HEAD — wide low skull, 4 obsidian horns ───────────────────────
+    const hh=r+r/2; const hw=r*2-8;
+    ctx.fillStyle=p2?'#3a1208':'#261006';
+    ctx.fillRect(sx-hw/2,sy-r-hh+4,hw,hh);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-hw/2-1,sy-r-hh+4,1,hh); ctx.fillRect(sx+hw/2,sy-r-hh+4,1,hh);
+    ctx.fillRect(sx-hw/2,sy-r-hh+3,hw,1);
+    // Brow ridge (heavy prognathism)
+    ctx.fillStyle=p2?'#281006':'#180804';
+    ctx.fillRect(sx-hw/2+2,sy-r-hh+4,hw-4,hh/3|0);
+    // 4 obsidian horns — 2 large outer, 2 smaller inner
+    ctx.fillStyle=p2?'#180804':'#100604';
+    ctx.fillRect(sx-hw/2+2,sy-r-hh-18,7,20);  // far left horn
+    ctx.fillRect(sx+hw/2-8, sy-r-hh-18,7,20); // far right horn
+    ctx.fillRect(sx-hw/2+12,sy-r-hh-12,5,14); // inner left
+    ctx.fillRect(sx+hw/2-16,sy-r-hh-12,5,14); // inner right
+    ctx.fillStyle=p2?'#c04010':'#801808';
+    // lava seam on horns
+    ctx.fillRect(sx-hw/2+4,sy-r-hh-14,3,12); ctx.fillRect(sx+hw/2-6,sy-r-hh-14,3,12);
+    // Eyes — two deep magma furnaces
+    ctx.fillStyle='#060002'; ctx.fillRect(sx-hw/2+10,sy-r-hh+hh/3|0,r-6,r-6); ctx.fillRect(sx+6,sy-r-hh+hh/3|0,r-6,r-6);
+    ctx.fillStyle=p2?'#ff8020':'#e06010'; ctx.fillRect(sx-hw/2+12,sy-r-hh+hh/3+2|0,r-10,r-10); ctx.fillRect(sx+8,sy-r-hh+hh/3+2|0,r-10,r-10);
+    ctx.fillStyle=p2?'#ffdd40':'#ffaa20'; ctx.fillRect(sx-hw/2+14,sy-r-hh+hh/3+4|0,r-14,r-14); ctx.fillRect(sx+10,sy-r-hh+hh/3+4|0,r-14,r-14);
+    // Eye glow
+    ctx.globalAlpha=ba*(p2?0.55:0.35); ctx.fillStyle=p2?'#ff8010':'#ff5008';
+    ctx.fillRect(sx-hw/2+8,sy-r-hh+hh/3-2|0,r-2,r-2); ctx.fillRect(sx+4,sy-r-hh+hh/3-2|0,r-2,r-2);
+    ctx.globalAlpha=ba;
+    // Jaw cracks
+    ctx.fillStyle=p2?'#d04010':'#902010';
+    ctx.fillRect(sx-hw/2+6,sy-r-hh+hh*2/3|0,hw-12,2);
   },
 
   _drawVoidLeviathan(e,sx,sy){
+    // Void Leviathan — deep-sea eel creature. Horizontal elongated body, rows of eyes,
+    // massive fanged maw at front-right, thrashing tentacle tail at rear-left.
     const r=e.size; const p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
-    const t=(Date.now()/500)%(Math.PI*2);
-    ctx.globalAlpha=ba*0.20; ctx.fillStyle=p2?'#4060ff':'#0820c0';
-    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
-    // Tentacle appendages (5 around body)
-    for(let i=0;i<5;i++){
-      const ang=i*(Math.PI*2/5)+t; const tr=r+18;
-      const tx2=sx+Math.cos(ang)*tr|0, ty2=sy+Math.sin(ang)*tr|0;
-      ctx.fillStyle=p2?'#0c1848':'#060c30'; ctx.fillRect(tx2-4,ty2-4,8,8);
-      ctx.fillStyle=p2?'#1838a0':'#0c1870'; ctx.fillRect(tx2-3,ty2-3,6,6);
+    const t=(Date.now()/420)%(Math.PI*2);
+    const wave=Math.sin(t)*5|0; // body undulation
+
+    ctx.globalAlpha=ba*0.18; ctx.fillStyle=p2?'#3060ff':'#0818b0';
+    ctx.fillRect(sx-r*3,sy-r,r*6,r*2); ctx.globalAlpha=ba; // horizontal aura
+
+    const bc=p2?'#0c1840':'#060c28';   // body dark
+    const bc2=p2?'#1838a0':'#0c1870';  // body mid
+    const vc=p2?'#4080ff':'#2050c0';   // void-energy color
+
+    // ── TAIL tentacles (left side) ────────────────────────────────────
+    for(let i=0;i<4;i++){
+      const ty2=wave+sy+(i-1.5)*10;
+      const len=30+i%2*14;
+      ctx.fillStyle=bc; ctx.fillRect(sx-r*3-len,ty2-4+i*2,len,6-i);
+      ctx.fillStyle=bc2; ctx.fillRect(sx-r*3-len+2,ty2-2+i*2,len-4,3-Math.floor(i/2));
+      // Sucker dots
+      ctx.fillStyle=vc;
+      for(let j=0;j<3;j++) ctx.fillRect(sx-r*3-10-j*10,ty2-1+i*2,3,3);
     }
-    // Main body — massive void sphere
-    ctx.fillStyle=p2?'#0c1840':'#060c28'; ctx.fillRect(sx-r,sy-r,r*2,r*2);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r,1,r*2); ctx.fillRect(sx+r,sy-r,1,r*2);
-    ctx.fillRect(sx-r,sy-r-1,r*2,1); ctx.fillRect(sx-r,sy+r,r*2,1);
-    // Void-energy lattice
+
+    // ── BODY — long horizontal slab, widest in center ─────────────────
+    const bh=r*1.1|0; // body height
+    ctx.fillStyle=bc;
+    ctx.fillRect(sx-r*3, sy-bh/2+wave, r*6, bh);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-r*3-1,sy-bh/2+wave,1,bh); ctx.fillRect(sx+r*3,sy-bh/2+wave,1,bh);
+    ctx.fillRect(sx-r*3,sy-bh/2-1+wave,r*6,1); ctx.fillRect(sx-r*3,sy+bh/2+wave,r*6,1);
+    // Void-energy rib lines along body
+    ctx.fillStyle=bc2;
+    ctx.fillRect(sx-r*2+4,sy-bh/2+2+wave,r*4-8,bh-4);
+    ctx.fillStyle=vc;
+    for(let i=0;i<7;i++) ctx.fillRect(sx-r*2+6+i*16,sy-bh/2+wave,2,bh); // ribs
+    // Bioluminescent belly stripe
     ctx.fillStyle=p2?'#2050d0':'#1030a0';
-    ctx.fillRect(sx-r+4,sy-r+4,r*2-8,2); ctx.fillRect(sx-r+4,sy+r-6,r*2-8,2);
-    ctx.fillRect(sx-r+4,sy-r+4,2,r*2-8); ctx.fillRect(sx+r-6,sy-r+4,2,r*2-8);
-    // Inner glowing core
-    ctx.fillStyle=p2?'#4080ff':'#2050c0'; ctx.fillRect(sx-r+10,sy-r+10,r*2-20,r*2-20);
-    ctx.fillStyle=p2?'#80b0ff':'#4070d0'; ctx.fillRect(sx-r+14,sy-r+14,r*2-28,r*2-28);
-    ctx.fillStyle=p2?'#c0d8ff':'#80a8e0'; ctx.fillRect(sx-8,sy-8,16,16);
-    ctx.fillStyle=p2?'#ffffff':'#e0f0ff'; ctx.fillRect(sx-4,sy-4,8,8);
-    // Eyes — massive void stare
-    ctx.fillStyle='#000000'; ctx.fillRect(sx-r+8,sy-r+8,r-4,r-4); ctx.fillRect(sx+4,sy-r+8,r-4,r-4);
-    ctx.fillStyle=p2?'#6090ff':'#2050d0'; ctx.fillRect(sx-r+10,sy-r+10,r-8,r-8); ctx.fillRect(sx+6,sy-r+10,r-8,r-8);
-    ctx.fillStyle=p2?'#c0d8ff':'#80a8e0'; ctx.fillRect(sx-r+13,sy-r+13,r-14,r-14); ctx.fillRect(sx+9,sy-r+13,r-14,r-14);
-    // Void pupil
-    ctx.fillStyle='#000000'; ctx.fillRect(sx-r+16,sy-r+16,4,4); ctx.fillRect(sx+12,sy-r+16,4,4);
+    ctx.fillRect(sx-r*2+6,sy-4+wave,r*4-12,8);
+    ctx.fillStyle=p2?'#80c0ff':'#4070d0';
+    ctx.fillRect(sx-r*2+10,sy-2+wave,r*4-20,4);
+
+    // ── EYES — 4 eyes along top of body ──────────────────────────────
+    for(let i=0;i<4;i++){
+      const ex=sx-r*1.5+i*r*0.9|0;
+      const ey=sy-bh/2+2+wave;
+      ctx.fillStyle='#020306'; ctx.fillRect(ex-5,ey,10,9);
+      ctx.fillStyle=p2?'#5090ff':'#2050d0'; ctx.fillRect(ex-4,ey+1,8,7);
+      ctx.fillStyle=p2?'#a0d0ff':'#5090d0'; ctx.fillRect(ex-2,ey+2,4,4);
+      ctx.fillStyle='#000002'; ctx.fillRect(ex-1,ey+2,2,4); // pupil slit
+      // Eye glow
+      ctx.globalAlpha=ba*(p2?0.5:0.3); ctx.fillStyle=p2?'#4080ff':'#2050c0';
+      ctx.fillRect(ex-6,ey-1,12,11); ctx.globalAlpha=ba;
+    }
+
+    // ── HEAD — massive blunt snout with gaping maw (right side) ───────
+    const hx=sx+r*3-r/2; const hy=sy+wave;
+    const hw2=r+r/2; const hh2=r*1.4|0;
+    // Upper jaw
+    ctx.fillStyle=p2?'#0e1838':'#080c22';
+    ctx.fillRect(hx-4,hy-hh2/2-4,hw2+8,hh2/2+2);
+    ctx.fillStyle='#000';
+    ctx.fillRect(hx-5,hy-hh2/2-5,hw2+10,1); ctx.fillRect(hx-5,hy-hh2/2-5,1,hh2/2+3);
+    // Lower jaw (offset down for open maw)
+    ctx.fillStyle=p2?'#0a1430':'#060a1c';
+    ctx.fillRect(hx-4,hy+2,hw2+6,hh2/2);
+    ctx.fillStyle='#000';
+    ctx.fillRect(hx-5,hy+hh2/2+3,hw2+8,1); ctx.fillRect(hx-5,hy+2,1,hh2/2+1);
+    // Mouth gap — dark void inside
+    ctx.fillStyle='#000008'; ctx.fillRect(hx-2,hy-2,hw2+4,8);
+    ctx.fillStyle=p2?'#1020a0':'#080a50'; ctx.fillRect(hx,hy-1,hw2,6);
+    // Needle teeth — upper row
+    ctx.fillStyle='#b0c8e0';
+    for(let i=0;i<6;i++) ctx.fillRect(hx+2+i*8,hy-hh2/2+4,4,8);
+    // Needle teeth — lower row
+    for(let i=0;i<5;i++) ctx.fillRect(hx+6+i*8,hy+3,4,7);
+    // Large primary eye on head (single dominant eye)
+    ctx.fillStyle='#020308'; ctx.fillRect(hx+4,hy-hh2/2-2,r-4,r-4);
+    ctx.fillStyle=p2?'#6090ff':'#3060d0'; ctx.fillRect(hx+6,hy-hh2/2,r-8,r-8);
+    ctx.fillStyle=p2?'#d0e8ff':'#8090c0'; ctx.fillRect(hx+8,hy-hh2/2+2,r-12,r-12);
+    ctx.fillStyle='#000006'; ctx.fillRect(hx+r/2-2,hy-hh2/2+2,4,r-12); // elongated pupil
+    ctx.globalAlpha=ba*(p2?0.6:0.38); ctx.fillStyle=p2?'#5080ff':'#2040b0';
+    ctx.fillRect(hx+2,hy-hh2/2-4,r,r); ctx.globalAlpha=ba;
+
+    // ── PHASE 2 — void energy rings orbiting body ─────────────────────
+    if(p2){
+      for(let i=0;i<3;i++){
+        const ang=i*(Math.PI*2/3)+t;
+        const ox=sx+Math.cos(ang)*(r+22)|0, oy=sy+Math.sin(ang)*(r+22)|0;
+        ctx.fillStyle='#1030c0'; ctx.fillRect(ox-5,oy-5,10,10);
+        ctx.fillStyle='#4060ff'; ctx.fillRect(ox-3,oy-3,6,6);
+        ctx.fillStyle='#a0c0ff'; ctx.fillRect(ox-1,oy-1,2,2);
+      }
+    }
   },
 
   _drawCrystalColossus(e,sx,sy){
+    // Crystal Colossus — no legs. Floats on a hovering crystal pillar.
+    // Body is an irregular polyhedron with many facets. 4 crystal arms radiate outward.
+    // Single giant compound eye (mosaic). Crown of asymmetric mega-spires.
     const r=e.size; const p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
-    ctx.globalAlpha=ba*0.18; ctx.fillStyle=p2?'#80d0ff':'#40a0e0';
-    ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
-    // Crystalline legs
-    ctx.fillStyle=p2?'#2070c0':'#1450a0'; ctx.fillRect(sx-r+4,sy+r-2,r-6,r+12); ctx.fillRect(sx+6,sy+r-2,r-6,r+12);
-    ctx.fillStyle=p2?'#3090e0':'#1870c0'; ctx.fillRect(sx-r+6,sy+r+2,r-10,r+8); ctx.fillRect(sx+8,sy+r+2,r-10,r+8);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+3,sy+r-2,1,r+12); ctx.fillRect(sx+r-3,sy+r-2,1,r+12);
-    // Crystal feet
-    ctx.fillStyle=p2?'#60c0ff':'#40a0e0'; ctx.fillRect(sx-r+2,sy+r+12,r-3,6); ctx.fillRect(sx+4,sy+r+12,r-3,6);
-    // Body — grand crystal prism
-    ctx.fillStyle=p2?'#1860c0':'#1050a8'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2+4);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2+4); ctx.fillRect(sx+r,sy-r+8,1,r*2+4);
-    ctx.fillStyle=p2?'#3090e0':'#1870c8'; ctx.fillRect(sx-r+4,sy-r+10,r*2-8,3);
-    ctx.fillStyle=p2?'#60c0ff':'#4090d0'; ctx.fillRect(sx-r+8,sy-r+12,r*2-16,2);
-    ctx.fillStyle=p2?'#a0e0ff':'#70c0ff'; ctx.fillRect(sx-r+12,sy-r+13,r*2-24,1); // specular
-    // Giant crystal spires on shoulders
-    ctx.fillStyle=p2?'#2878d0':'#1460b8'; ctx.fillRect(sx-r-18,sy-r+8,20,r+8); ctx.fillRect(sx+r-2,sy-r+8,20,r+8);
-    ctx.fillStyle=p2?'#5098e0':'#2870c0'; ctx.fillRect(sx-r-16,sy-r+10,16,r+4); ctx.fillRect(sx+r,sy-r+10,16,r+4);
-    // Spire peaks
-    ctx.fillStyle=p2?'#70c0ff':'#4090d0'; ctx.fillRect(sx-r-14,sy-r,14,12); ctx.fillRect(sx+r,sy-r,14,12);
-    ctx.fillStyle=p2?'#b0e8ff':'#80c0ff'; ctx.fillRect(sx-r-12,sy-r-2,10,6); ctx.fillRect(sx+r+2,sy-r-2,10,6);
-    // Head — crystalline helm
-    ctx.fillStyle=p2?'#1460b8':'#0e50a8'; ctx.fillRect(sx-r+6,sy-r-r+4,r*2-12,r+r-8);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+5,sy-r-r+4,1,r+r-8); ctx.fillRect(sx+r-6,sy-r-r+4,1,r+r-8);
-    ctx.fillRect(sx-r+6,sy-r-r+3,r*2-12,1);
-    // Crown spire array
-    ctx.fillStyle=p2?'#3080d0':'#1460b8';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-r+8+i*10,sy-r-r-6,7,12);
-    ctx.fillStyle=p2?'#80d0ff':'#50a8e0';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-r+9+i*10,sy-r-r-6,5,6);
-    // Eyes — refracted prismatic light
-    ctx.fillStyle='#040408'; ctx.fillRect(sx-r+10,sy-r-r+8,r-5,r-8); ctx.fillRect(sx+5,sy-r-r+8,r-5,r-8);
-    ctx.fillStyle=p2?'#60c0ff':'#3090d0'; ctx.fillRect(sx-r+11,sy-r-r+9,r-7,r-10); ctx.fillRect(sx+6,sy-r-r+9,r-7,r-10);
-    ctx.fillStyle=p2?'#e0f8ff':'#a0d8ff'; ctx.fillRect(sx-r+13,sy-r-r+11,r-11,r-14); ctx.fillRect(sx+8,sy-r-r+11,r-11,r-14);
+    const t=(Date.now()/460)%(Math.PI*2);
+    const bob=Math.sin(t*1.3)*4|0; // levitation bob
+
+    ctx.globalAlpha=ba*0.16; ctx.fillStyle=p2?'#80d8ff':'#40a8e0';
+    ctx.fillRect(sx-r*2,sy-r*2+bob,r*4,r*4); ctx.globalAlpha=ba;
+
+    // ── HOVER PILLAR (instead of legs) ────────────────────────────────
+    ctx.fillStyle=p2?'#1460b8':'#0e50a0';
+    ctx.fillRect(sx-8,sy+r+bob,16,r+14);
+    ctx.fillStyle=p2?'#2870c8':'#1460b8';
+    ctx.fillRect(sx-6,sy+r+bob,12,r+12);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-9,sy+r+bob,1,r+14); ctx.fillRect(sx+8,sy+r+bob,1,r+14);
+    // Crystal base shard (wider at bottom)
+    ctx.fillStyle=p2?'#3080d0':'#1868c0';
+    ctx.fillRect(sx-16,sy+r+r/2+bob,32,12);
+    ctx.fillStyle=p2?'#60b0f0':'#3080d0';
+    ctx.fillRect(sx-14,sy+r+r/2+2+bob,28,8);
+    // Pillar inner light beam
+    ctx.globalAlpha=ba*(p2?0.5:0.3); ctx.fillStyle=p2?'#80d8ff':'#4090d0';
+    ctx.fillRect(sx-4,sy+r+bob,8,r+14); ctx.globalAlpha=ba;
+
+    // ── BODY — wide hexagonal crystal prism, irregular facets ─────────
+    const bw=r*2+6; const bh=r*2+2;
+    ctx.fillStyle=p2?'#1460b8':'#0e50a8';
+    ctx.fillRect(sx-bw/2,sy-bh/2+bob,bw,bh);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-bw/2-1,sy-bh/2+bob,1,bh); ctx.fillRect(sx+bw/2,sy-bh/2+bob,1,bh);
+    ctx.fillRect(sx-bw/2,sy-bh/2-1+bob,bw,1); ctx.fillRect(sx-bw/2,sy+bh/2+bob,bw,1);
+    // Facet planes — angled highlights
+    ctx.fillStyle=p2?'#3090e0':'#1870c8';
+    ctx.fillRect(sx-bw/2+4,sy-bh/2+2+bob,bw-8,bh*0.4|0);
+    ctx.fillRect(sx-bw/2+4,sy+4+bob,bw-8,bh*0.35|0);
+    ctx.fillStyle=p2?'#60c0ff':'#3898d8';
+    ctx.fillRect(sx-bw/2+8,sy-bh/2+4+bob,bw-16,10); // top specular band
+    ctx.fillRect(sx-bw/2+10,sy-bh/2+6+bob,bw-20,4);
+    ctx.fillStyle=p2?'#a8e8ff':'#70c0ff';
+    ctx.fillRect(sx-bw/2+14,sy-bh/2+7+bob,bw-28,2); // sharp specular line
+    // Internal crystal lattice cracks
+    ctx.fillStyle=p2?'#2060c0':'#1050a8';
+    ctx.fillRect(sx-bw/2+6,sy-bh/2+bh*0.4|0+bob,bw-12,2);
+    ctx.fillRect(sx-4,sy-bh/2+2+bob,8,bh-4);
+
+    // ── 4 CRYSTAL ARMS radiating from body ────────────────────────────
+    // Left arm (horizontal, large)
+    ctx.fillStyle=p2?'#2070c0':'#1458b0';
+    ctx.fillRect(sx-bw/2-r-6,sy-6+bob,r+8,14);
+    ctx.fillStyle=p2?'#4090d8':'#2870c0';
+    ctx.fillRect(sx-bw/2-r-4,sy-4+bob,r+4,10);
+    // Left arm crystal tip (long spire)
+    ctx.fillStyle=p2?'#3088d0':'#1868c0';
+    ctx.fillRect(sx-bw/2-r-18,sy-8+bob,16,18);
+    ctx.fillStyle=p2?'#70c8ff':'#4098e0';
+    ctx.fillRect(sx-bw/2-r-16,sy-6+bob,12,12);
+    // Right arm (angled upward)
+    ctx.fillStyle=p2?'#2070c0':'#1458b0';
+    ctx.fillRect(sx+bw/2-2,sy-10+bob,r+6,12);
+    ctx.fillStyle=p2?'#4090d8':'#2870c0';
+    ctx.fillRect(sx+bw/2,sy-8+bob,r+2,8);
+    // Right arm tip
+    ctx.fillStyle=p2?'#3088d0':'#1868c0';
+    ctx.fillRect(sx+bw/2+r+2,sy-14+bob,14,16);
+    ctx.fillStyle=p2?'#70c8ff':'#4098e0';
+    ctx.fillRect(sx+bw/2+r+4,sy-12+bob,10,12);
+    // Upper-left diagonal arm
+    ctx.fillStyle=p2?'#1860b8':'#1050a0';
+    ctx.fillRect(sx-bw/2-12,sy-bh/2-r+bob,10,r+2);
+    ctx.fillStyle=p2?'#3080d0':'#1868b8';
+    ctx.fillRect(sx-bw/2-10,sy-bh/2-r+2+bob,6,r);
+    // Upper-right diagonal arm (slightly longer)
+    ctx.fillStyle=p2?'#1860b8':'#1050a0';
+    ctx.fillRect(sx+bw/2+4,sy-bh/2-r+4+bob,10,r+2);
+
+    // ── HEAD — wide flat crystal face, mounted atop body ──────────────
+    const hh3=r+r/2; const hw3=r*2-6;
+    ctx.fillStyle=p2?'#1258b0':'#0c4898';
+    ctx.fillRect(sx-hw3/2,sy-bh/2-hh3+4+bob,hw3,hh3);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-hw3/2-1,sy-bh/2-hh3+4+bob,1,hh3); ctx.fillRect(sx+hw3/2,sy-bh/2-hh3+4+bob,1,hh3);
+    ctx.fillRect(sx-hw3/2,sy-bh/2-hh3+3+bob,hw3,1);
+    // Facet texture on face
+    ctx.fillStyle=p2?'#2878d0':'#1668c0';
+    ctx.fillRect(sx-hw3/2+4,sy-bh/2-hh3+6+bob,hw3-8,hh3*0.4|0);
+    ctx.fillStyle=p2?'#50a0e8':'#2870c8';
+    ctx.fillRect(sx-hw3/2+8,sy-bh/2-hh3+8+bob,hw3-16,6);
+
+    // SINGLE GIANT COMPOUND EYE — mosaic of crystal hexagons
+    const ex2=sx, ey2=sy-bh/2-hh3+hh3/2+bob;
+    const er=r*0.7|0;
+    ctx.fillStyle='#020408'; ctx.fillRect(ex2-er,ey2-er/2,er*2,er);
+    // Mosaic facets (5×2 grid of tiny crystal cells)
+    for(let fi=0;fi<5;fi++) for(let fj=0;fj<2;fj++){
+      const fcx=ex2-er+4+fi*((er*2-8)/5), fcy=ey2-er/2+2+fj*((er-4)/2);
+      const fcs=[(er*2-8)/5-2,(er-4)/2-2];
+      ctx.fillStyle=p2?'#3080e0':'#1858c0'; ctx.fillRect(fcx,fcy,fcs[0],fcs[1]);
+      ctx.fillStyle=p2?'#80c8ff':'#4898d8'; ctx.fillRect(fcx+1,fcy+1,fcs[0]-2,fcs[1]-2);
+      ctx.fillStyle=p2?'#d0f0ff':'#90d0f8'; ctx.fillRect(fcx+2,fcy+2,fcs[0]-4,fcs[1]-4);
+    }
+    // Eye outer ring glow
+    ctx.globalAlpha=ba*(p2?0.55:0.35); ctx.fillStyle=p2?'#60b0ff':'#3080d0';
+    ctx.fillRect(ex2-er-2,ey2-er/2-2,er*2+4,er+4); ctx.globalAlpha=ba;
+
+    // ASYMMETRIC CROWN SPIRES — varied heights, not uniform
+    const spireH=[28,18,36,14,22,32,10];
+    const spireX=[-r+4,-r+14,-r+24,-2,-r+44,-r+54,-r+64];
+    ctx.fillStyle=p2?'#2878d0':'#1460b8';
+    for(let i=0;i<7;i++) ctx.fillRect(sx+spireX[i],sy-bh/2-hh3-spireH[i]+4+bob,8,spireH[i]);
+    ctx.fillStyle=p2?'#70c0ff':'#4090d0';
+    for(let i=0;i<7;i++) ctx.fillRect(sx+spireX[i]+1,sy-bh/2-hh3-spireH[i]+4+bob,5,spireH[i]*0.5|0);
+    ctx.fillStyle=p2?'#d0f0ff':'#90d0f8';
+    for(let i=0;i<7;i++) ctx.fillRect(sx+spireX[i]+2,sy-bh/2-hh3-spireH[i]+4+bob,3,6); // tip glint
+
+    // Phase 2 — orbiting crystal shards
+    if(p2){
+      for(let i=0;i<6;i++){
+        const ang=i*(Math.PI/3)+t*1.4;
+        const ox=sx+Math.cos(ang)*(r+28)|0, oy=sy+Math.sin(ang)*(r+28)|0+bob;
+        ctx.fillStyle='#2070c0'; ctx.fillRect(ox-5,oy-5,10,10);
+        ctx.fillStyle='#60b0ff'; ctx.fillRect(ox-3,oy-3,6,6);
+        ctx.fillStyle='#c0e8ff'; ctx.fillRect(ox-1,oy-1,2,2);
+      }
+    }
   },
 
   _drawCorruptSovereign(e,sx,sy){
+    // Corrupt Sovereign — a dark sorcerer king, clearly robed (no visible legs, robe pools
+    // into shadow tendrils). Gaunt skeletal hands. Visible corrupted face. 3-point ornate
+    // crown. Staff topped with void orb. Exposed corrupted third eye on forehead.
     const r=e.size; const p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
-    const t=(Date.now()/400)%(Math.PI*2);
+    const t=(Date.now()/380)%(Math.PI*2);
+    const sway=Math.sin(t*0.7)*2|0;
+
     ctx.globalAlpha=ba*0.22; ctx.fillStyle=p2?'#c040ff':'#6010b0';
     ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4); ctx.globalAlpha=ba;
-    // Dark robe legs
-    ctx.fillStyle=p2?'#280840':'#1a0428'; ctx.fillRect(sx-r+4,sy+r-2,r-6,r+12); ctx.fillRect(sx+6,sy+r-2,r-6,r+12);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+3,sy+r-2,1,r+12); ctx.fillRect(sx+r-3,sy+r-2,1,r+12);
-    // Corruption tendrils at feet
+
+    // ── ROBE BASE — wide bell shape pooling at ground ─────────────────
+    ctx.fillStyle=p2?'#200538':'#140228';
+    ctx.fillRect(sx-r-8,sy+r/2,r*2+16,r+14); // wide hem at bottom
+    ctx.fillRect(sx-r-4, sy-r/2,r*2+8, r+4);  // waist
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-r-9,sy+r/2,1,r+14); ctx.fillRect(sx+r+8,sy+r/2,1,r+14);
+    ctx.fillRect(sx-r-5,sy-r/2,1,r+4);  ctx.fillRect(sx+r+4,sy-r/2,1,r+4);
+    ctx.fillRect(sx-r-8,sy+r+14,r*2+16,1); // bottom of robe
+    // Robe trim — gilded corruption
     ctx.fillStyle=p2?'#6010a0':'#3a0860';
-    for(let i=0;i<3;i++){
-      ctx.fillRect(sx-r+2+i*8,sy+r+12,4,6); ctx.fillRect(sx+6+i*8,sy+r+12,4,6);
-    }
-    // Body — void-corrupted plate and robe
-    ctx.fillStyle=p2?'#360c4a':'#200630'; ctx.fillRect(sx-r,sy-r+8,r*2,r*2+4);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r-1,sy-r+8,1,r*2+4); ctx.fillRect(sx+r,sy-r+8,1,r*2+4);
-    ctx.fillStyle=p2?'#7818c0':'#4010a0';
-    ctx.fillRect(sx-r+3,sy-r+10,r*2-6,2); ctx.fillRect(sx-r+3,sy+r+2,r*2-6,2);
-    ctx.fillRect(sx-2,sy-r+8,4,r*2+4);
-    // Flowing shadow-cloak sides
-    ctx.fillStyle=p2?'#280640':'#180420'; ctx.fillRect(sx-r-10,sy-r+8,12,r*2+4); ctx.fillRect(sx+r-2,sy-r+8,12,r*2+4);
-    // Massive pauldrons
-    ctx.fillStyle=p2?'#3a0c50':'#220830'; ctx.fillRect(sx-r-16,sy-r+8,18,r+10); ctx.fillRect(sx+r-2,sy-r+8,18,r+10);
-    ctx.fillStyle=p2?'#6010a0':'#3a0860'; ctx.fillRect(sx-r-14,sy-r+10,14,r+6); ctx.fillRect(sx+r,sy-r+10,14,r+6);
-    // Corruption orbs on pauldrons
-    ctx.fillStyle=p2?'#c040ff':'#8020d0'; ctx.fillRect(sx-r-10,sy-r+10,8,8); ctx.fillRect(sx+r+2,sy-r+10,8,8);
-    ctx.fillStyle=p2?'#f080ff':'#b040ff'; ctx.fillRect(sx-r-9,sy-r+11,6,6); ctx.fillRect(sx+r+3,sy-r+11,6,6);
-    // Corruption sword (massive)
-    ctx.fillStyle='#000'; ctx.fillRect(sx+r+16,sy-r-20,6,r*2+40);
-    ctx.fillStyle=p2?'#3a0858':'#1e0430'; ctx.fillRect(sx+r+17,sy-r-18,4,r*2+36);
-    ctx.fillStyle=p2?'#8020c0':'#5010a0'; ctx.fillRect(sx+r+13,sy-r-20,14,12);
-    ctx.fillStyle=p2?'#c040ff':'#8020d0'; ctx.fillRect(sx+r+15,sy-r-18,10,8);
-    // Orbiting corruption shards
-    if(p2){
-      for(let i=0;i<4;i++){
-        const ang=i*(Math.PI/2)+t;
-        const tx2=sx+Math.cos(ang)*(r+20)|0, ty2=sy+Math.sin(ang)*(r+20)|0;
-        ctx.fillStyle='#8020c0'; ctx.fillRect(tx2-4,ty2-4,8,8);
-        ctx.fillStyle='#c060ff'; ctx.fillRect(tx2-2,ty2-2,4,4);
-      }
-    }
-    // Head — crowned void sovereign
-    ctx.fillStyle=p2?'#280640':'#160420'; ctx.fillRect(sx-r+6,sy-r-r+4,r*2-12,r+r-8);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-r+5,sy-r-r+4,1,r+r-8); ctx.fillRect(sx+r-6,sy-r-r+4,1,r+r-8);
-    ctx.fillRect(sx-r+6,sy-r-r+3,r*2-12,1);
-    // Corruption crown — massive spikes
-    ctx.fillStyle=p2?'#6010a0':'#3a0868';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-r+6+i*10,sy-r-r-10,8,14);
+    ctx.fillRect(sx-r-6,sy+r/2+2,r*2+12,3); // hem band
+    ctx.fillRect(sx-r+2,sy-r/2,r*2-4,2);    // waist band
     ctx.fillStyle=p2?'#c040ff':'#8020c0';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-r+7+i*10,sy-r-r-10,6,6);
-    // Crown orb (central)
-    ctx.fillStyle=p2?'#ff80ff':'#c040ff'; ctx.fillRect(sx-4,sy-r-r-6,8,8);
-    ctx.fillStyle=p2?'#ffffff':'#f0c0ff'; ctx.fillRect(sx-2,sy-r-r-4,4,4);
-    // Eyes — eldritch void gaze
-    ctx.fillStyle='#040006'; ctx.fillRect(sx-r+8,sy-r-r+8,r-4,r-8); ctx.fillRect(sx+4,sy-r-r+8,r-4,r-8);
-    ctx.fillStyle=p2?'#c040ff':'#8020c0'; ctx.fillRect(sx-r+9,sy-r-r+9,r-6,r-10); ctx.fillRect(sx+5,sy-r-r+9,r-6,r-10);
-    ctx.fillStyle=p2?'#ff80ff':'#d060ff'; ctx.fillRect(sx-r+11,sy-r-r+11,r-10,r-14); ctx.fillRect(sx+7,sy-r-r+11,r-10,r-14);
-    ctx.globalAlpha=ba*(0.3+Math.sin(t)*0.1); ctx.fillStyle=p2?'#a020e0':'#6010b0';
-    ctx.fillRect(sx-r+6,sy-r-r+6,r*2-12,r+r-12); ctx.globalAlpha=ba;
+    ctx.fillRect(sx-r-4,sy+r/2+3,r*2+8,1);  // inner trim glint
+    // Vertical robe seam
+    ctx.fillStyle=p2?'#3a0860':'#220450';
+    ctx.fillRect(sx-2,sy-r/2,4,r*2+14);
+    ctx.fillStyle=p2?'#8010c0':'#4a0880';
+    ctx.fillRect(sx-1,sy-r/2+2,2,r*2+10);
+
+    // ── SHADOW TENDRILS at robe hem (instead of feet) ─────────────────
+    ctx.fillStyle=p2?'#5010a0':'#2e0660';
+    for(let i=0;i<5;i++){
+      const tx3=sx-r-2+i*((r*2+4)/4), len=8+Math.sin(t+i)*5|0;
+      ctx.fillRect(tx3,sy+r+14,5,len);
+    }
+    ctx.fillStyle=p2?'#8020d0':'#4a0880';
+    for(let i=0;i<4;i++){
+      const tx3=sx-r+4+i*((r*2-8)/3), len=5+Math.sin(t*1.3+i)*4|0;
+      ctx.fillRect(tx3,sy+r+16,3,len);
+    }
+
+    // ── BODY — robed torso, narrow shoulders ─────────────────────────
+    ctx.fillStyle=p2?'#2a0648':'#180330';
+    ctx.fillRect(sx-r+2,sy-r-r/2+4,r*2-4,r+r/2+4);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-r+1,sy-r-r/2+4,1,r+r/2+4); ctx.fillRect(sx+r-1,sy-r-r/2+4,1,r+r/2+4);
+    // Robe chest pattern — arcane glyphs suggestion
+    ctx.fillStyle=p2?'#6010a0':'#380860';
+    ctx.fillRect(sx-r+6,sy-r-r/2+8,r*2-12,4);
+    ctx.fillRect(sx-r+10,sy-r-r/2+16,r*2-20,3);
+    ctx.fillRect(sx-r+8,sy-r-r/2+22,r*2-16,2);
+    ctx.fillStyle=p2?'#c040ff':'#7020c0';
+    ctx.fillRect(sx-r+8,sy-r-r/2+9,r*2-16,2);
+    ctx.fillRect(sx-r+12,sy-r-r/2+17,r*2-24,1);
+
+    // ── WIDE DRAPED SHOULDERS + PAULDRONS ────────────────────────────
+    ctx.fillStyle=p2?'#300858':'#1e0440';
+    ctx.fillRect(sx-r-14,sy-r-r/2+4,16,r/2+8); // left drape
+    ctx.fillRect(sx+r-2, sy-r-r/2+4,16,r/2+8); // right drape
+    ctx.fillStyle=p2?'#6010a0':'#380860';
+    ctx.fillRect(sx-r-12,sy-r-r/2+6,12,r/2+4);
+    ctx.fillRect(sx+r,   sy-r-r/2+6,12,r/2+4);
+    // Pauldron orbs
+    ctx.fillStyle=p2?'#c040ff':'#8020d0'; ctx.fillRect(sx-r-8,sy-r-r/2+8,8,8); ctx.fillRect(sx+r+2,sy-r-r/2+8,8,8);
+    ctx.fillStyle=p2?'#f080ff':'#b040ff'; ctx.fillRect(sx-r-7,sy-r-r/2+9,6,6); ctx.fillRect(sx+r+3,sy-r-r/2+9,6,6);
+
+    // ── SKELETAL HANDS (visible below wide sleeves) ───────────────────
+    // Left hand holding robe
+    ctx.fillStyle=p2?'#c0a8d8':'#90789a';
+    ctx.fillRect(sx-r-8,sy-r/2+4,6,8); // palm
+    ctx.fillRect(sx-r-10,sy-r/2,4,5);  // finger 1
+    ctx.fillRect(sx-r-8, sy-r/2-1,3,4);// finger 2
+    ctx.fillRect(sx-r-10,sy-r/2+9,4,4);// thumb
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-r-9,sy-r/2,2,4); ctx.fillRect(sx-r-7,sy-r/2-1,1,4); // knuckle lines
+    // Right hand holding staff
+    ctx.fillStyle=p2?'#c0a8d8':'#90789a';
+    ctx.fillRect(sx+r+4,sy-r/2+2,6,8);
+    ctx.fillRect(sx+r+6, sy-r/2-1,3,5);
+    ctx.fillRect(sx+r+8, sy-r/2,3,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+7,sy-r/2-1,1,4);
+
+    // ── CORRUPTION STAFF (left side, tall) ───────────────────────────
+    ctx.fillStyle='#000'; ctx.fillRect(sx-r-18,sy-r*2-18,4,r*3+20);
+    ctx.fillStyle=p2?'#1e0438':'#120228'; ctx.fillRect(sx-r-17,sy-r*2-16,2,r*3+16);
+    // Staff orb — void sphere
+    ctx.fillStyle=p2?'#3a0868':'#220550'; ctx.fillRect(sx-r-22,sy-r*2-22,12,12);
+    ctx.fillStyle=p2?'#8020c0':'#5010a0'; ctx.fillRect(sx-r-21,sy-r*2-21,10,10);
+    ctx.fillStyle=p2?'#d060ff':'#9030e0'; ctx.fillRect(sx-r-20,sy-r*2-20,8,8);
+    ctx.fillStyle=p2?'#ff90ff':'#c050ff'; ctx.fillRect(sx-r-19,sy-r*2-18,4,4); // orb highlight
+    // Staff orb glow
+    ctx.globalAlpha=ba*(p2?0.55:0.35); ctx.fillStyle=p2?'#c040ff':'#8020d0';
+    ctx.fillRect(sx-r-24,sy-r*2-24,16,16); ctx.globalAlpha=ba;
+
+    // ── ORBITING CORRUPTION SHARDS ────────────────────────────────────
+    const numShards=p2?6:4;
+    for(let i=0;i<numShards;i++){
+      const ang=i*(Math.PI*2/numShards)+t*(p2?1.4:0.9);
+      const sr=r+22+(p2?6:0);
+      const ox=sx+Math.cos(ang)*sr|0, oy=sy+Math.sin(ang)*sr|0;
+      ctx.fillStyle=p2?'#7020b8':'#4a0880'; ctx.fillRect(ox-5,oy-5,10,10);
+      ctx.fillStyle=p2?'#c040ff':'#8020c0'; ctx.fillRect(ox-3,oy-3,6,6);
+      ctx.fillStyle=p2?'#f080ff':'#b040ff'; ctx.fillRect(ox-1,oy-1,3,3);
+    }
+
+    // ── HEAD — gaunt face with visible features ───────────────────────
+    const fh=r+r*0.7|0; const fw=r*1.6|0;
+    ctx.fillStyle=p2?'#220540':'#160330';
+    ctx.fillRect(sx-fw/2,sy-r-r-fh+6+sway,fw,fh);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-fw/2-1,sy-r-r-fh+6+sway,1,fh); ctx.fillRect(sx+fw/2,sy-r-r-fh+6+sway,1,fh);
+    ctx.fillRect(sx-fw/2,sy-r-r-fh+5+sway,fw,1);
+    // Gaunt cheekbones / skull shading
+    ctx.fillStyle=p2?'#300650':'#1c0438';
+    ctx.fillRect(sx-fw/2+4,sy-r-r-fh+8+sway,fw*0.35|0,fh*0.5|0);
+    ctx.fillRect(sx+fw/2-4-(fw*0.35|0),sy-r-r-fh+8+sway,fw*0.35|0,fh*0.5|0);
+    // Deep-set eyes (hollow orbital sockets)
+    ctx.fillStyle='#0a0014'; ctx.fillRect(sx-fw/2+8,sy-r-r-fh+fh*0.3|0+sway,r-6,r-6); ctx.fillRect(sx+6,sy-r-r-fh+fh*0.3|0+sway,r-6,r-6);
+    ctx.fillStyle=p2?'#a030e0':'#7018b8'; ctx.fillRect(sx-fw/2+10,sy-r-r-fh+fh*0.3+2|0+sway,r-10,r-10); ctx.fillRect(sx+8,sy-r-r-fh+fh*0.3+2|0+sway,r-10,r-10);
+    ctx.fillStyle=p2?'#e060ff':'#b030e0'; ctx.fillRect(sx-fw/2+12,sy-r-r-fh+fh*0.3+4|0+sway,r-14,r-14); ctx.fillRect(sx+10,sy-r-r-fh+fh*0.3+4|0+sway,r-14,r-14);
+    // Eye glow
+    ctx.globalAlpha=ba*(p2?0.5:0.3); ctx.fillStyle=p2?'#c040ff':'#8010c0';
+    ctx.fillRect(sx-fw/2+6,sy-r-r-fh+fh*0.3-2|0+sway,r-2,r-2); ctx.fillRect(sx+4,sy-r-r-fh+fh*0.3-2|0+sway,r-2,r-2);
+    ctx.globalAlpha=ba;
+    // Nose cavity (hollow suggestion)
+    ctx.fillStyle='#0a0014'; ctx.fillRect(sx-3,sy-r-r-fh+fh*0.52|0+sway,6,5);
+    // Thin cruel mouth
+    ctx.fillStyle='#0c0018'; ctx.fillRect(sx-fw/2+10,sy-r-r-fh+fh*0.68|0+sway,fw-20,3);
+    ctx.fillStyle=p2?'#c040ff':'#7010b0'; ctx.fillRect(sx-fw/2+12,sy-r-r-fh+fh*0.69|0+sway,fw-24,1);
+    // CORRUPTED THIRD EYE (forehead) — glowing purple gem
+    ctx.fillStyle='#100020'; ctx.fillRect(sx-5,sy-r-r-fh+fh*0.14|0+sway,10,10);
+    ctx.fillStyle=p2?'#c040ff':'#8010d0'; ctx.fillRect(sx-4,sy-r-r-fh+fh*0.15|0+sway,8,8);
+    ctx.fillStyle=p2?'#ff80ff':'#d050ff'; ctx.fillRect(sx-2,sy-r-r-fh+fh*0.16|0+sway,4,4);
+    ctx.fillStyle=p2?'#ffffff':'#f0b0ff'; ctx.fillRect(sx-1,sy-r-r-fh+fh*0.16|0+sway,2,2);
+    ctx.globalAlpha=ba*(p2?0.65:0.40); ctx.fillStyle=p2?'#d050ff':'#a020e0';
+    ctx.fillRect(sx-7,sy-r-r-fh+fh*0.12|0+sway,14,14); ctx.globalAlpha=ba;
+
+    // 3-POINT ORNATE CROWN
+    ctx.fillStyle=p2?'#5010a0':'#2e0660';
+    // Center spike — tallest
+    ctx.fillRect(sx-5,sy-r-r-fh-18+sway,10,20);
+    ctx.fillStyle=p2?'#9020d0':'#5a0f9a';
+    ctx.fillRect(sx-4,sy-r-r-fh-16+sway,8,16);
+    // Left spike
+    ctx.fillStyle=p2?'#3a0860':'#220450';
+    ctx.fillRect(sx-fw/2+6,sy-r-r-fh-12+sway,7,14);
+    ctx.fillStyle=p2?'#7018b8':'#480888';
+    ctx.fillRect(sx-fw/2+7,sy-r-r-fh-10+sway,5,10);
+    // Right spike
+    ctx.fillStyle=p2?'#3a0860':'#220450';
+    ctx.fillRect(sx+fw/2-12,sy-r-r-fh-12+sway,7,14);
+    ctx.fillStyle=p2?'#7018b8':'#480888';
+    ctx.fillRect(sx+fw/2-11,sy-r-r-fh-10+sway,5,10);
+    // Crown band connecting the 3 points
+    ctx.fillStyle=p2?'#4a0880':'#2a0558';
+    ctx.fillRect(sx-fw/2+4,sy-r-r-fh+sway,fw-8,6);
+    ctx.fillStyle=p2?'#a030e0':'#6010b0';
+    ctx.fillRect(sx-fw/2+6,sy-r-r-fh+1+sway,fw-12,4);
+    // Crown gems
+    ctx.fillStyle=p2?'#ff80ff':'#d050ff';
+    ctx.fillRect(sx-2,sy-r-r-fh+1+sway,4,4); // center gem
+    ctx.fillRect(sx-fw/2+10,sy-r-r-fh+1+sway,4,4); // left gem
+    ctx.fillRect(sx+fw/2-14,sy-r-r-fh+1+sway,4,4); // right gem
   },
 };
 
