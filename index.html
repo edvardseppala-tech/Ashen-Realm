@@ -726,6 +726,7 @@ const LOOT_TABLES = {
     {item:'SCARAB_RING',  chance:0.07},
   ],
   SAND_SERPENT:[
+    {item:'SAND_LANCE',          chance:1.0},
     {item:'SERPENT_FANG',        chance:1.0},
     {item:'SERPENT_SCALE_ARMOR', chance:1.0},
   ],
@@ -1713,6 +1714,7 @@ const World = {
     lf(98,6,5,10);   // far-NE pocket
     lf(104,28,5,10); // far-E pocket
     lf(100,52,5,8);  // far-SE pocket
+    lf(101,47,3,22); // connector: bridges far-SE pocket north gap (y=47-51) and south gap (y=60-68)
 
     // Village connector entry (local x=95-114, y=16-47 → bridge to new village x=185)
     lf(95,16,20,32);
@@ -2071,6 +2073,14 @@ const World = {
     // 8. Castle ↔ Mountain — east passage x=218-224, y=142-158
     for(let cy=142;cy<=158;cy++) for(let cx=218;cx<=224;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
     for(let cy=142;cy<=158;cy++) for(let cx=221;cx<=224;cx++) this._set(cx,cy,T.MOUNTAIN_FLOOR);
+
+    // 9. Desert ↔ Mountain — south passage x=249-265, y=131-136
+    // Lets players enter desert from mountain freely (Desert Key only needed for boss gate)
+    for(let cx=249;cx<=265;cx++){
+      this._set(cx,131,T.DESERT_FLOOR);    // open desert south wall
+      this._set(cx,132,T.MOUNTAIN_FLOOR);  // open mountain north wall
+      for(let cy=133;cy<=136;cy++) this._set(cx,cy,T.MOUNTAIN_FLOOR);
+    }
   },
 
   _waterAndBridge(){
@@ -3613,7 +3623,7 @@ const Shops = {
 const ALTAR_DEFS = [
   {id:'main_boss', label:'Ashen Altar', tx:129, ty:163, zone:'CASTLE', flashCol:'#6020a0'},
   {id:'swamp_boss', label:'Swamp Totem', tx:261, ty:38, zone:'SWAMP', flashCol:'#204010'},
-  {id:'mtn_boss', label:'Frost Shrine', tx:250, ty:167, zone:'MOUNTAIN', flashCol:'#202840'},
+  {id:'mtn_boss', label:'Frost Shrine', tx:248, ty:150, zone:'MOUNTAIN', flashCol:'#202840'},
   {id:'desert_shrine', label:'Desert Obelisk', tx:256, ty:95, zone:'DESERT', flashCol:'#d08010'},
 ];
 
@@ -4189,9 +4199,10 @@ const Player = {
     // === END-GAME GATE — south of Boss Arena ===
     if(tx>=127&&tx<=131&&(ty>=197&&ty<=202)){
       if(GS.endgameUnlocked) return;
-      const all4=GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
-        GS.miniBosses.mountain.defeated&&GS.miniBosses.grassland.defeated;
-      if(all4){
+      const all5=GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
+        GS.miniBosses.mountain.defeated&&GS.miniBosses.grassland.defeated&&
+        GS.desertBoss.defeated;
+      if(all5){
         GS.endgameUnlocked=true;
         for(let gx=125;gx<=133;gx++)
           for(let gy=197;gy<=204;gy++)
@@ -4199,7 +4210,7 @@ const Player = {
         UI.msg('THE GATE OF RECKONING OPENS','boss',5);
         ScreenFX.flash('#8040ff',0.7,1.2);
       } else {
-        UI.msg('Four rulers must fall to break this seal','rune',2.5);
+        UI.msg('Five rulers must fall to break this seal','rune',2.5);
         p.y-=56;
       }
       return;
@@ -4224,7 +4235,7 @@ const Player = {
     if(tx>=241&&tx<=277&&ty>=128&&ty<=132){
       if(GS.desertBoss.defeated) return;
       if(GS.desertBoss.active) return;
-      if(!GS.desertGateOpen){ UI.msg('Desert passage is sealed','rune',2); p.y-=40; return; }
+      if(!GS.desertGateOpen){ UI.msg('Desert passage is sealed','rune',2); if(ty>=130) p.y+=40; else p.y-=40; return; }
       BossRooms.enter('desert');
       return;
     }
