@@ -47,39 +47,39 @@ const T = {
 
 const ZONES = {
   RUINS: {
-    name:'Crumbling Ruins',  bounds:{x:5,   y:38,  w:70,  h:64},
+    name:'Crumbling Ruins',  bounds:{x:2,   y:5,   w:65,  h:94},
     ambientColor:'#1a1510',  fogTint:'rgba(20,15,10,0.10)'
   },
   FOREST: {
-    name:'Darkroot Forest',  bounds:{x:70,  y:5,   w:140, h:90},
+    name:'Darkroot Forest',  bounds:{x:62,  y:62,  w:112, h:78},
     ambientColor:'#0a100a',  fogTint:'rgba(5,12,5,0.15)'
   },
   VILLAGE: {
-    name:'Ember Village',    bounds:{x:185, y:5,   w:55,  h:55},
+    name:'Ember Village',    bounds:{x:144, y:4,   w:26,  h:58},
     ambientColor:'#12100a',  fogTint:'rgba(15,12,5,0.06)'
   },
   CASTLE: {
-    name:'Castle Approach',  bounds:{x:18,  y:112, w:202, h:58},
+    name:'Castle Approach',  bounds:{x:80,  y:136, w:96,  h:62},
     ambientColor:'#111111',  fogTint:'rgba(10,10,15,0.12)'
   },
   BOSS_ARENA: {
-    name:'Throne of Ashes',  bounds:{x:108, y:168, w:44,  h:29},
+    name:'Throne of Ashes',  bounds:{x:106, y:166, w:46,  h:32},
     ambientColor:'#0a0505',  fogTint:'rgba(15,5,5,0.20)'
   },
   SWAMP: {
-    name:'Festering Swamp',  bounds:{x:241, y:0,   w:37,  h:78},
+    name:'Festering Swamp',  bounds:{x:170, y:1,   w:104, h:78},
     ambientColor:'#060e05',  fogTint:'rgba(8,20,5,0.22)'
   },
   MOUNTAIN: {
-    name:'Frosted Peaks',    bounds:{x:220, y:132, w:57,  h:65},
+    name:'Frosted Peaks',    bounds:{x:2,   y:118, w:82,  h:80},
     ambientColor:'#0c1018',  fogTint:'rgba(20,25,40,0.18)'
   },
   GRASSLAND:{
-    name:'Verdant Expanse',  bounds:{x:5,   y:1,   w:155, h:36},
+    name:'Verdant Expanse',  bounds:{x:65,  y:3,   w:108, h:62},
     ambientColor:'#080e06',  fogTint:'rgba(8,18,5,0.14)'
   },
   DESERT:{
-    name:'Scorched Sands',   bounds:{x:241, y:78,  w:37,  h:54},
+    name:'Scorched Sands',   bounds:{x:170, y:76,  w:104, h:108},
     ambientColor:'#1a140a',  fogTint:'rgba(30,20,5,0.14)'
   },
   VOLCANIC:{
@@ -105,20 +105,20 @@ const ZONES = {
 const HOUSE_DEFS = [
   {
     name:'Inn',
-    // Outer wall: tile x 42..51, y 17..24 (10×8)
-    wx:42, wy:17, ww:10, wh:8,
-    // Interior floor: tile x 43..50, y 18..23 (8×6)
-    ix:43, iy:18, iw:8, ih:6,
+    // Outer wall: tile x 145..154, y 8..15 (10×8)
+    wx:145, wy:8,  ww:10, wh:8,
+    // Interior floor: tile x 146..153, y 9..14 (8×6)
+    ix:146, iy:9,  iw:8, ih:6,
     // Door gap in south wall
-    doorX:47, doorY:24,
+    doorX:150, doorY:15,
   },
   {
     name:'Shop',
-    // Outer wall: tile x 56..65, y 17..24 (10×8)
-    wx:56, wy:17, ww:10, wh:8,
-    // Interior floor: tile x 57..64, y 18..23 (8×6)
-    ix:57, iy:18, iw:8, ih:6,
-    doorX:61, doorY:24,
+    // Outer wall: tile x 145..154, y 35..42 (10×8)
+    wx:145, wy:35, ww:10, wh:8,
+    // Interior floor: tile x 146..153, y 36..41 (8×6)
+    ix:146, iy:36, iw:8, ih:6,
+    doorX:150, doorY:42,
   },
 ];
 
@@ -1575,9 +1575,8 @@ const World = {
   generate(){
     // Fill entire world with impassable void
     for(let y=0;y<WORLD_H;y++){ this.map[y]=[]; for(let x=0;x<WORLD_W;x++) this.map[y][x]=T.WALL; }
-    // Grassland first so ruins/forest can overwrite overlapping tiles
-    this._grassland();
     // Carve zones in order (later calls overwrite earlier for overlaps)
+    this._grassland();
     this._ruins();
     this._forest();
     this._village();
@@ -1590,18 +1589,18 @@ const World = {
     this._endgameZones();
     this._connectors();
     this._waterAndBridge();
-    // Fog gate at end of castle central corridor (main boss)
+    // Castle boss fog gate (main boss)
     for(let fx=127;fx<=131;fx++){
-      this._set(fx,164,T.FOG_GATE); this._set(fx,165,T.FOG_GATE); this._set(fx,166,T.FOG_GATE);
+      this._set(fx,164,T.FOG_GATE); this._set(fx,165,T.FOG_GATE);
     }
-    // Swamp boss room entry — south edge of boss clearing (ty=24, tx=253..266)
-    for(let fx=253;fx<=266;fx++) this._set(fx,24,T.FOG_GATE);
-    // Mountain boss room entry — west edge of boss clearing (tx=234, ty=140..158)
-    for(let fy=140;fy<=158;fy++) this._set(234,fy,T.FOG_GATE);
-    // Desert boss arena entry — dividing wall at y=109
-    for(let fx=253;fx<=266;fx++) this._set(fx,109,T.FOG_GATE);
+    // Swamp boss fog gate — south wall of boss chamber at y=30
+    for(let fx=249;fx<=271;fx++) this._set(fx,30,T.FOG_GATE);
+    // Mountain boss fog gate — north wall of boss chamber at y=174
+    for(let fx=19;fx<=65;fx++) this._set(fx,174,T.FOG_GATE);
+    // Desert boss fog gate — dividing wall at y=152
+    for(let fx=173;fx<=271;fx++) this._set(fx,152,T.FOG_GATE);
     // Endgame gate — south of Boss Arena
-    for(let fx=127;fx<=131;fx++)
+    for(let fx=116;fx<=128;fx++)
       for(let fy=197;fy<=202;fy++) this._set(fx,fy,T.FOG_GATE);
     // Endgame zone boss room entries
     for(let fx=5; fx<=139;fx++) this._set(fx,201,T.FOG_GATE);  // volcanic
@@ -1626,7 +1625,7 @@ const World = {
   },
 
   _ruins(){
-    const b=ZONES.RUINS.bounds; // x:5 y:38 w:70 h:64
+    const b=ZONES.RUINS.bounds; // x:2 y:5 w:65 h:94
     this._fill(b.x,b.y,b.w,b.h,T.RUINS_FLOOR);
 
     // Irregular western cliff edge (stepped, not a straight wall)
@@ -1635,39 +1634,45 @@ const World = {
       for(let i=0;i<d;i++) this._set(b.x+i,ty,T.WALL);
     }
 
-    // Wall clusters forming interconnected rooms
-    // (coords relative to b.x, b.y)
+    // Wall clusters forming interconnected rooms (coords relative to b.x, b.y)
     const walls=[
       // North row
-      [7,1,5,3],[15,2,4,4],[24,1,5,3],[34,2,4,4],[43,1,5,3],[53,2,4,4],[61,1,5,3],
+      [7,1,5,3],[15,2,4,4],[24,1,5,3],[34,2,4,4],[43,1,5,3],[53,2,4,4],[61,1,3,3],
       // Row 2
-      [8,7,4,3],[17,8,3,3],[27,7,4,3],[37,8,3,3],[47,7,4,3],[56,8,3,3],[62,7,4,3],
+      [8,7,4,3],[17,8,3,3],[27,7,4,3],[37,8,3,3],[47,7,4,3],[56,8,3,3],[62,7,3,3],
       // Row 3
       [7,13,3,3],[18,13,4,3],[29,12,5,3],[39,13,3,3],[49,12,4,3],[58,13,3,3],
       // Row 4
-      [8,19,4,2],[19,19,3,3],[28,18,5,2],[38,19,4,2],[48,18,3,3],[57,19,4,2],[63,18,3,3],
+      [8,19,4,2],[19,19,3,3],[28,18,5,2],[38,19,4,2],[48,18,3,3],[57,19,4,2],[62,18,3,3],
       // Row 5
-      [7,24,3,3],[17,24,4,3],[27,23,3,3],[36,24,4,2],[46,23,5,3],[56,24,3,3],[62,23,4,3],
+      [7,24,3,3],[17,24,4,3],[27,23,3,3],[36,24,4,2],[46,23,5,3],[56,24,3,3],[62,23,3,3],
       // Row 6
       [8,30,4,3],[18,30,3,3],[27,29,4,3],[37,30,5,2],[47,29,4,3],[57,30,3,3],
-      // Row 7 (near south / bridge approach)
+      // Row 7
       [7,36,3,3],[16,36,4,2],[26,35,3,3],[35,36,4,3],[45,35,5,2],[54,36,4,3],[62,35,3,4],
       // Row 8
       [8,42,4,3],[19,42,3,3],[29,41,4,3],[39,42,3,3],[49,41,4,2],[58,42,3,3],
-      // Southern section near bridge
+      // Southern section
       [7,48,3,3],[17,48,4,3],[28,47,3,3],[38,48,4,3],[48,47,3,3],[57,48,4,3],
       [8,54,4,2],[19,54,3,3],[28,53,4,3],[38,54,3,3],[48,53,4,3],[57,54,4,2],
       [7,59,3,3],[17,59,4,3],[27,58,3,3],[36,59,4,3],[46,58,5,3],[56,59,4,3],
+      // Extended rows 60-90
+      [8,65,4,3],[19,65,3,3],[29,64,4,3],[39,65,3,3],[49,64,4,3],[58,65,3,3],
+      [7,71,3,3],[17,71,4,3],[27,70,3,3],[36,71,4,3],[46,70,5,3],[56,71,4,3],
+      [8,77,4,3],[19,77,3,3],[28,76,4,3],[38,77,3,3],[48,76,4,3],[57,77,4,3],
+      [7,83,3,3],[17,83,4,3],[27,82,3,3],[36,83,4,3],[46,82,5,3],[56,83,3,3],
     ];
     for(const[wx,wy,ww,wh] of walls) this._fill(b.x+wx,b.y+wy,ww,wh,T.RUINS_WALL);
 
     // Clear main corridors — 2-tile wide horizontal and vertical paths
     const bx=b.x, by=b.y;
-    // Horizontal corridors at row offsets 11, 28, 46
+    // Horizontal corridors at row offsets 11, 28, 46, 63, 80
     for(let x=bx+4;x<bx+b.w-1;x++){
       this._set(x,by+11,T.RUINS_FLOOR); this._set(x,by+12,T.RUINS_FLOOR);
       this._set(x,by+28,T.RUINS_FLOOR); this._set(x,by+29,T.RUINS_FLOOR);
       this._set(x,by+46,T.RUINS_FLOOR); this._set(x,by+47,T.RUINS_FLOOR);
+      this._set(x,by+63,T.RUINS_FLOOR); this._set(x,by+64,T.RUINS_FLOOR);
+      this._set(x,by+80,T.RUINS_FLOOR); this._set(x,by+81,T.RUINS_FLOOR);
     }
     // Vertical corridors at col offsets 22 and 50
     for(let y=by+2;y<by+b.h-1;y++){
@@ -1677,99 +1682,78 @@ const World = {
   },
 
   _forest(){
-    const b=ZONES.FOREST.bounds; // x:70 y:5 w:140 h:90
-    // Start fully packed with trees, then carve winding paths
+    const b=ZONES.FOREST.bounds; // x:62 y:62 w:112 h:78
+    // Start fully packed with trees, then carve rooms and corridors
     this._fill(b.x,b.y,b.w,b.h,T.FOREST_TREE);
     const lf=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.FOREST_FLOOR);
 
-    // ─── Maze rooms ────────────────────────────────────────────
-    lf(2, 5, 20,16);   // R1  NW dead-end pocket
-    lf(2,43, 23,18);   // R2  West hub  (ruins entry arrives here)
-    lf(2,68, 21,16);   // R3  SW dead-end pocket
-    lf(44, 5, 23,17);  // R4  N-center dead-end pocket
-    lf(44,36, 29,25);  // R5  Central bonfire clearing
-    lf(48,68, 25,22);  // R6  South corridor  (castle exit)
-    lf(84, 4, 46,27);  // R7  NE room / village connector
-    lf(82,40, 29,23);  // R8  East hub
-    lf(82,70, 30,16);  // R9  SE dead-end pocket
+    // ─── Maze rooms (local coords) ─────────────────────────────
+    lf(2, 2, 18,14);   // R1  NW — Grasslands entry
+    lf(2,44, 16,20);   // R2  SW — Ruins entry
+    lf(22,24, 20,20);  // R3  Center-W hub
+    lf(44,12, 24,26);  // R4  Center main
+    lf(70, 5, 38,22);  // R5  NE — Village area
+    lf(44,62, 26,14);  // R6  SE — exit to Castle
+    lf(74,36, 30,22);  // R7  East hub
+    lf(92,62, 18,12);  // R8  SE dead-end
 
-    // ─── Connecting corridors (3 tiles wide) ───────────────────
-    lf(10,19,  3,26);  // C1  R1 → R2  (vertical)
-    lf(10,59,  3,11);  // C2  R2 → R3  (vertical)
-    lf( 2,50, 44, 3);  // C3  R2 → R5  (main horizontal — critical path)
-    lf(10, 9, 36, 3);  // C4  R1 → R4  (horizontal dead-end route)
-    lf(57,20,  3,18);  // C5  R4 → R5  (vertical)
-    lf(57,59,  3,11);  // C6  R5 → R6  (vertical)
-    lf(65, 9, 21, 3);  // C7  R4 → R7  (horizontal)
-    lf(71,50, 13, 3);  // C8  R5 → R8  (horizontal)
-    lf(82,28,  3,14);  // C9  R7 → R8  (vertical)
-    lf(82,61,  3,11);  // C10 R8 → R9  (vertical)
-
-    // ─── Dead-end exploration spurs ────────────────────────────
-    lf( 2,26, 16, 3);  // spur from C1 mid-point going west
-    lf(28, 5,  3,14);  // spur going north off C4
-    lf(110,40,  3,28); // long dead-end south from R8
-    lf(100,68, 28, 3); // dead-end east from R9
-    lf(  2,82, 20, 3); // dead-end in SW pocket
-
-    // ─── Connection zones (overwritten by _connectors() later) ─
-    lf(54,79, 18,11);  // widen south exit from R6 → castle connector
-    lf(36,82, 20, 8);  // castle bridge forest approach
-    lf(96,17, 38,30);  // wide east zone → village connector
+    // ─── Connecting corridors (2 tiles wide) ───────────────────
+    lf(8,14,  2,32);   // C1  R1 → R2  vertical  at lx:8-9
+    lf(16,52, 8, 2);   // C2  R2 → R3  horizontal at ly:52-53
+    lf(40,32, 6, 2);   // C3  R3 → R4  horizontal at ly:32-33
+    lf(66,22, 6, 2);   // C4  R4 → R5  horizontal at ly:22-23
+    lf(54,36, 2,28);   // C5  R4 → R6  vertical   at lx:54-55
+    lf(80,25, 2,13);   // C6  R5 → R7  vertical   at lx:80-81
+    lf(98,56, 2, 8);   // C7  R7 → R8  vertical   at lx:98-99
   },
 
   _village(){
-    const b=ZONES.VILLAGE.bounds; // x:185 y:5 w:55 h:55  (tiles 185-240, rows 5-60)
+    const b=ZONES.VILLAGE.bounds; // x:144 y:4 w:26 h:58
     this._fill(b.x,b.y,b.w,b.h,T.VILLAGE_FLOOR);
 
-    // Irregular natural eastern border
+    // Irregular eastern border
     for(let ty=b.y;ty<b.y+b.h;ty++){
-      const d=1+((ty*11+5)%4);
+      const d=1+((ty*11+5)%3);
       for(let i=0;i<d;i++) this._set(b.x+b.w-1-i,ty,T.WALL);
     }
     // Irregular southern border
     for(let tx=b.x;tx<b.x+b.w;tx++){
-      const d=1+((tx*7+3)%4);
+      const d=1+((tx*7+3)%3);
       for(let i=0;i<d;i++) this._set(tx,b.y+b.h-1-i,T.WALL);
     }
 
-    // Building 1 — Inn:  tx=190-200, ty=8-15 (11x8)
-    for(let dx=0;dx<11;dx++) for(let dy=0;dy<8;dy++){
-      const tx=190+dx, ty=8+dy;
-      const door=(dx>=4&&dx<=6&&dy===7);
-      if((dx===0||dx===10||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
-    }
-    // Building 2 — House: tx=207-215, ty=7-13 (9x7)
-    for(let dx=0;dx<9;dx++) for(let dy=0;dy<7;dy++){
-      const tx=207+dx, ty=7+dy;
-      const door=(dx>=3&&dx<=5&&dy===6);
-      if((dx===0||dx===8||dy===0||dy===6)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
-    }
-    // Building 3 — Forge: tx=220-229, ty=9-16 (10x8)
+    // Building 1 — Inn: outer wall tx=145-154, ty=8-15 (10x8)
     for(let dx=0;dx<10;dx++) for(let dy=0;dy<8;dy++){
-      const tx=220+dx, ty=9+dy;
-      const door=(dx>=3&&dx<=5&&dy===7);
+      const tx=145+dx, ty=8+dy;
+      const door=(dx===5&&dy===7);
       if((dx===0||dx===9||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+      else if(dx>0&&dx<9&&dy>0&&dy<7) this._set(tx,ty,T.HOUSE_FLOOR);
     }
-    // Building 4 — Church: tx=188-201, ty=38-49 (14x12)
-    for(let dx=0;dx<14;dx++) for(let dy=0;dy<12;dy++){
-      const tx=188+dx, ty=38+dy;
-      const door=(dx>=5&&dx<=8&&dy===11);
-      if((dx===0||dx===13||dy===0||dy===11)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+    // Door threshold
+    this._set(150,15,T.VILLAGE_FLOOR); this._set(150,14,T.HOUSE_FLOOR);
+
+    // Building 2 — Blacksmith/Shop: outer wall tx=145-154, ty=35-42 (10x8)
+    for(let dx=0;dx<10;dx++) for(let dy=0;dy<8;dy++){
+      const tx=145+dx, ty=35+dy;
+      const door=(dx===5&&dy===7);
+      if((dx===0||dx===9||dy===0||dy===7)&&!door) this._set(tx,ty,T.VILLAGE_WALL);
+      else if(dx>0&&dx<9&&dy>0&&dy<7) this._set(tx,ty,T.HOUSE_FLOOR);
     }
+    // Door threshold
+    this._set(150,42,T.VILLAGE_FLOOR); this._set(150,41,T.HOUSE_FLOOR);
 
-    // Village well — 2x2 block near center square
-    this._fill(210,44,2,2,T.VILLAGE_WALL);
+    // Small decorative fences between buildings
+    for(let tx=146;tx<=153;tx++) this._set(tx,23,T.VILLAGE_WALL); // fence between inn and shop
+    this._set(149,23,T.VILLAGE_FLOOR); this._set(150,23,T.VILLAGE_FLOOR); // gate gap
+    for(let tx=146;tx<=153;tx++) this._set(tx,29,T.VILLAGE_WALL); // south fence
+    this._set(149,29,T.VILLAGE_FLOOR); this._set(150,29,T.VILLAGE_FLOOR); // gate gap
 
-    // Low decorative fences along the main path (single-tile thick)
-    for(let tx=191;tx<=204;tx++) this._set(tx,22,T.VILLAGE_WALL); // north fence
-    for(let tx=191;tx<=204;tx++) this._set(tx,35,T.VILLAGE_WALL); // south fence
-    // Open gate gap in fences
-    for(let tx=196;tx<=199;tx++){ this._set(tx,22,T.VILLAGE_FLOOR); this._set(tx,35,T.VILLAGE_FLOOR); }
+    // Village well — 2x2 near center
+    this._fill(155,25,2,2,T.VILLAGE_WALL);
   },
 
   _castle(){
-    const b=ZONES.CASTLE.bounds; // x:18 y:112 w:202 h:58
+    const b=ZONES.CASTLE.bounds; // x:80 y:136 w:96 h:62
     this._fill(b.x,b.y,b.w,b.h,T.CASTLE_FLOOR);
 
     // Crenellated ramparts on all four sides
@@ -1784,40 +1768,38 @@ const World = {
       }
     }
 
-    // Interior structural walls with gate openings
+    // Interior structural walls with gate openings (relative to b.x, b.y)
     const walls=[
-      // Three east-west dividers
-      [8,10,38,2],[60,10,38,2],[112,10,38,2],[163,10,32,2],
-      [8,24,38,2],[60,24,38,2],[112,24,38,2],[163,24,32,2],
-      [8,38,38,2],[60,38,38,2],[112,38,38,2],[163,38,32,2],
-      // North-south pillars with gate gaps
-      [22,4,2,16],[22,24,2,16],[22,42,2,14],
-      [48,4,2,12],[48,18,2,12],[48,34,2,12],[48,48,2,8],
-      [82,4,2,16],[82,24,2,16],[82,42,2,14],
-      [112,4,2,12],[112,18,2,12],[112,34,2,12],[112,48,2,8],
-      [148,4,2,16],[148,24,2,16],[148,42,2,14],
-      [175,4,2,12],[175,18,2,12],[175,34,2,12],[175,48,2,8],
+      // East-west dividers
+      [8,10,28,2],[44,10,28,2],[72,10,16,2],
+      [8,24,28,2],[44,24,28,2],[72,24,16,2],
+      [8,38,28,2],[44,38,28,2],[72,38,16,2],
+      // North-south pillars
+      [18,4,2,14],[18,22,2,14],[18,40,2,14],
+      [38,4,2,10],[38,16,2,10],[38,30,2,10],[38,44,2,8],
+      [60,4,2,14],[60,22,2,14],[60,40,2,14],
+      [76,4,2,10],[76,16,2,10],[76,34,2,10],
     ];
     for(const[wx,wy,ww,wh] of walls) this._fill(b.x+wx,b.y+wy,ww,wh,T.CASTLE_WALL);
 
-    // Central corridor leading to fog gate (x=125-133, full height)
+    // Central corridor leading to boss fog gate (x=125-133, full height)
     for(let y=b.y;y<b.y+b.h;y++)
       for(let x=125;x<=133;x++) this._set(x,y,T.CASTLE_FLOOR);
   },
 
   _graveyard(){
-    // Graveyard occupies northwest castle corner
-    const gx=23, gy=117, gw=48, gh=44;
+    // Graveyard occupies northwest castle area
+    const gx=85, gy=140, gw=48, gh=44;
     this._fill(gx,gy,gw,gh,T.GRAVEYARD_FLOOR);
 
     // Stone fence (CASTLE_WALL border) with two gate openings
     for(let x=gx;x<gx+gw;x++){
-      const southGate=(x>=37&&x<=40);
+      const southGate=(x>=99&&x<=102);
       this._set(x,gy,T.CASTLE_WALL);
       if(!southGate) this._set(x,gy+gh-1,T.CASTLE_WALL);
     }
     for(let y=gy;y<gy+gh;y++){
-      const eastGate=(y>=140&&y<=143);
+      const eastGate=(y>=154&&y<=157);
       this._set(gx,y,T.CASTLE_WALL);
       if(!eastGate) this._set(gx+gw-1,y,T.CASTLE_WALL);
     }
@@ -1839,19 +1821,20 @@ const World = {
   },
 
   _bossArena(){
-    const b=ZONES.BOSS_ARENA.bounds; // x:108 y:168 w:44 h:29
+    const b=ZONES.BOSS_ARENA.bounds; // x:106 y:166 w:46 h:32
     this._fill(b.x,b.y,b.w,b.h,T.CASTLE_WALL);
     const cx=b.x+b.w/2, cy=b.y+b.h/2, r=b.w/2-2;
     for(let y=b.y;y<b.y+b.h;y++) for(let x=b.x;x<b.x+b.w;x++)
       if(Math.hypot(x-cx,y-cy)<r) this._set(x,y,T.BOSS_FLOOR);
-    // Entrance from fog gate corridor
+    // Entrance from fog gate corridor above
     for(let fy=b.y;fy<=b.y+2;fy++){
-      this._set(128,fy,T.BOSS_FLOOR); this._set(129,fy,T.BOSS_FLOOR); this._set(130,fy,T.BOSS_FLOOR);
+      this._set(127,fy,T.BOSS_FLOOR); this._set(128,fy,T.BOSS_FLOOR);
+      this._set(129,fy,T.BOSS_FLOOR); this._set(130,fy,T.BOSS_FLOOR); this._set(131,fy,T.BOSS_FLOOR);
     }
   },
 
   _swamp(){
-    const b=ZONES.SWAMP.bounds; // x:241 y:0 w:37 h:78
+    const b=ZONES.SWAMP.bounds; // x:170 y:1 w:104 h:78
     this._fill(b.x,b.y,b.w,b.h,T.SWAMP_FLOOR);
     const lf=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.SWAMP_FLOOR);
     const lt=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.SWAMP_WALL);
@@ -1860,46 +1843,46 @@ const World = {
     for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.SWAMP_WALL); this._set(x,b.y+b.h-1,T.SWAMP_WALL); }
     for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.SWAMP_WALL); this._set(b.x+b.w-1,y,T.SWAMP_WALL); }
 
-    // Twisted mangrove clusters
-    lt(3,3,4,8); lt(10,2,5,7); lt(18,4,4,8); lt(28,3,5,7);
-    lt(5,14,3,7); lt(14,13,4,8); lt(24,12,3,7);
-    lt(3,26,4,7); lt(11,25,3,8); lt(20,27,4,7); lt(29,24,4,8);
-    lt(6,38,3,7); lt(15,37,4,8); lt(25,39,3,7);
-    lt(4,50,3,7); lt(13,51,4,6); lt(22,49,3,8); lt(30,52,4,6);
-    lt(5,62,4,7); lt(16,63,3,8); lt(26,61,4,7);
+    // Boss room at top-right corner (abs x:248-272, y:1-30) — enclosed by SWAMP_WALL
+    // North wall (y=1 = b.y)
+    for(let x=248;x<=272;x++) this._set(x,b.y,T.SWAMP_WALL);
+    // South wall of boss room at y=30
+    for(let x=248;x<=272;x++) this._set(x,30,T.SWAMP_WALL);
+    // West wall of boss room at x=248
+    for(let y=b.y;y<=30;y++) this._set(248,y,T.SWAMP_WALL);
+    // East wall at x=272 (east border, already set)
+    for(let y=b.y;y<=30;y++) this._set(272,y,T.SWAMP_WALL);
+    // Interior clearing
+    this._fill(249,b.y+1,23,28,T.SWAMP_FLOOR);
 
-    // Murky toxic pools (WATER tiles)
-    this._fill(b.x+7, b.y+8,  6,5,T.WATER);
-    this._fill(b.x+21,b.y+9,  5,4,T.WATER);
-    this._fill(b.x+8, b.y+32, 5,5,T.WATER);
-    this._fill(b.x+22,b.y+33, 4,5,T.WATER);
-    this._fill(b.x+9, b.y+56, 6,4,T.WATER);
-    this._fill(b.x+23,b.y+57, 5,4,T.WATER);
+    // Twisted mangrove clusters (lower 3/4 of zone, local coords)
+    lt(3,32,4,7); lt(12,30,5,6); lt(24,33,4,7); lt(36,31,5,6); lt(48,33,4,7); lt(60,30,5,6); lt(72,32,4,7); lt(84,31,5,6); lt(94,33,3,7);
+    lt(5,42,3,6); lt(16,41,4,7); lt(28,43,3,6); lt(40,40,4,7); lt(52,42,3,6); lt(64,41,4,7); lt(76,43,3,6); lt(88,40,4,7);
+    lt(4,54,4,6); lt(14,53,3,7); lt(26,55,4,6); lt(38,52,3,7); lt(50,54,4,6); lt(62,53,3,7); lt(74,55,4,6); lt(86,52,3,7); lt(96,54,3,6);
+    lt(6,64,3,6); lt(18,63,4,7); lt(30,65,3,6); lt(44,63,4,7); lt(58,65,3,6); lt(70,62,4,7); lt(82,64,3,6); lt(94,63,3,6);
 
-    // Clear main paths — winding corridors (below boss room)
-    lf(6,26,3,50);   // western path
-    lf(16,26,4,50);  // center path
-    lf(25,26,4,50);  // eastern path
-    lf(6,44,22,4);   // cross-path 1
-    lf(6,64,22,5);   // cross-path 2 (near village connector)
-    // Approach corridor to boss room fog gate
-    lf(8,24,22,4);   // horizontal approach at y=24 (fog gate row)
-    // Boss room — walled chamber at north
-    for(let x=b.x+8;x<=b.x+31;x++) this._set(x,b.y+1,T.SWAMP_WALL);      // north wall
-    for(let y=b.y+1;y<=b.y+24;y++){
-      this._set(b.x+8, y,T.SWAMP_WALL);   // west wall
-      this._set(b.x+31,y,T.SWAMP_WALL);   // east wall
-    }
-    // South wall row with gap for fog gate (fog gate placed by generate())
-    for(let x=b.x+8;x<=b.x+31;x++) this._set(x,b.y+24,T.SWAMP_WALL);
-    // Interior clearing (overwrites any mangroves placed earlier)
-    this._fill(b.x+9,b.y+2,22,22,T.SWAMP_FLOOR);
-    // Entry gap in south wall (to village connector)
-    for(let x=b.x+8;x<=b.x+24;x++) this._set(x,b.y+b.h-1,T.SWAMP_FLOOR);
+    // Murky toxic pools
+    this._fill(b.x+8,  b.y+36, 6,5,T.WATER);
+    this._fill(b.x+22, b.y+37, 5,4,T.WATER);
+    this._fill(b.x+44, b.y+48, 6,5,T.WATER);
+    this._fill(b.x+62, b.y+49, 5,4,T.WATER);
+    this._fill(b.x+80, b.y+60, 6,4,T.WATER);
+    this._fill(b.x+95, b.y+61, 5,4,T.WATER);
+
+    // Clear main exploration paths (below boss room, y>30)
+    lf(6, 32,4,44);   // western path
+    lf(20,32,4,44);   // center-west path
+    lf(40,32,4,44);   // center path
+    lf(60,32,4,44);   // center-east path
+    lf(80,32,4,44);   // eastern path
+    lf(6, 48,76,4);   // horizontal cross-path 1
+    lf(6, 64,76,5);   // horizontal cross-path 2
+    // Approach corridor from south to boss room fog gate
+    lf(40,28,44,4);   // horizontal approach from center to boss at y=28-31
   },
 
   _mountain(){
-    const b=ZONES.MOUNTAIN.bounds; // x:220 y:132 w:57 h:65
+    const b=ZONES.MOUNTAIN.bounds; // x:2 y:118 w:82 h:80
     this._fill(b.x,b.y,b.w,b.h,T.MOUNTAIN_FLOOR);
     const lf=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.MOUNTAIN_FLOOR);
     const lr=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.MOUNTAIN_WALL);
@@ -1908,35 +1891,36 @@ const World = {
     for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.MOUNTAIN_WALL); this._set(x,b.y+b.h-1,T.MOUNTAIN_WALL); }
     for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.MOUNTAIN_WALL); this._set(b.x+b.w-1,y,T.MOUNTAIN_WALL); }
 
-    // Boulder formations
-    lr(4,3,6,8); lr(14,2,5,9); lr(24,4,6,7); lr(38,3,5,8); lr(48,2,6,8);
-    lr(5,16,4,7); lr(18,15,5,8); lr(30,17,4,7); lr(44,14,5,8);
-    lr(3,30,5,8); lr(15,29,4,9); lr(27,31,5,7); lr(40,28,6,8); lr(50,30,4,8);
-    lr(6,44,4,7); lr(17,43,5,8); lr(29,45,4,7); lr(42,42,5,8);
-    lr(4,56,5,6); lr(18,55,4,7); lr(32,57,5,6); lr(46,54,5,7);
+    // Boulder formations (upper 2/3 of zone, y:0-52)
+    lr(4,3,6,8);  lr(16,2,5,8);  lr(28,4,6,7);  lr(42,3,5,8);  lr(56,2,6,8);  lr(68,4,5,7);
+    lr(5,15,4,7); lr(18,14,5,8); lr(32,16,4,7); lr(46,13,5,8); lr(60,15,4,7); lr(72,13,5,8);
+    lr(4,28,5,8); lr(16,27,4,8); lr(30,29,5,7); lr(44,26,6,8); lr(58,28,5,8); lr(70,27,4,8);
+    lr(6,40,4,7); lr(18,39,5,8); lr(30,41,4,7); lr(44,38,5,8); lr(58,40,4,7); lr(70,39,5,7);
 
-    // Snow patches (lighter floor variant uses same tile, just variation in draw)
-    // Carved paths through the mountain
-    lf(5,5,4,60);   // western trail
-    lf(24,5,5,60);  // center trail
-    lf(44,5,5,60);  // eastern trail
-    lf(5,20,50,5);  // horizontal pass 1
-    lf(5,38,50,5);  // horizontal pass 2
-    lf(5,54,50,5);  // horizontal pass 3
-    // Boss room — walled chamber (north-east section)
-    for(let x=b.x+14;x<=b.x+44;x++){
-      this._set(x,b.y+4, T.MOUNTAIN_WALL);  // north wall
-      this._set(x,b.y+30,T.MOUNTAIN_WALL);  // south wall
-    }
-    for(let y=b.y+4;y<=b.y+30;y++) this._set(b.x+44,y,T.MOUNTAIN_WALL); // east wall
-    // Interior clearing (overwrites boulder formations)
-    this._fill(b.x+15,b.y+5,29,25,T.MOUNTAIN_FLOOR);
-    // Entry gap in west wall — fog gate placed here by generate()
-    for(let y=b.y+10;y<=b.y+26;y++) this._set(b.x,y,T.MOUNTAIN_FLOOR);
+    // Carved trails through the mountain (upper area)
+    lf(5,5,4,52);   // western trail
+    lf(22,5,5,52);  // center-west trail
+    lf(40,5,5,52);  // center-east trail
+    lf(60,5,4,52);  // eastern trail
+    lf(5,18,70,5);  // horizontal pass 1
+    lf(5,34,70,5);  // horizontal pass 2
+    lf(5,48,70,5);  // horizontal pass 3
+
+    // Boss room — walled chamber at bottom (abs x:18-66, y:174-197)
+    // North wall at abs y=174 (local y=56)
+    for(let x=18;x<=66;x++) this._set(x,174,T.MOUNTAIN_WALL);
+    // South wall at abs y=197 (local y=79, b.y+b.h-1)
+    for(let x=18;x<=66;x++) this._set(x,b.y+b.h-1,T.MOUNTAIN_WALL);
+    // West wall at abs x=18
+    for(let y=174;y<b.y+b.h;y++) this._set(18,y,T.MOUNTAIN_WALL);
+    // East wall at abs x=66
+    for(let y=174;y<b.y+b.h;y++) this._set(66,y,T.MOUNTAIN_WALL);
+    // Interior clearing (fog gate at y=174 placed by generate())
+    this._fill(19,175,47,22,T.MOUNTAIN_FLOOR);
   },
 
   _desert(){
-    const b=ZONES.DESERT.bounds; // x:241, y:78, w:37, h:54
+    const b=ZONES.DESERT.bounds; // x:170 y:76 w:104 h:108
     this._fill(b.x,b.y,b.w,b.h,T.DESERT_FLOOR);
     const ld=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.DESERT_FLOOR);
     const lw=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.DESERT_WALL);
@@ -1945,31 +1929,35 @@ const World = {
     for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.DESERT_WALL); this._set(x,b.y+b.h-1,T.DESERT_WALL); }
     for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.DESERT_WALL); this._set(b.x+b.w-1,y,T.DESERT_WALL); }
 
-    // Desert rock formations (sandstone pillars)
-    lw(4,3,5,7);  lw(14,2,4,8);  lw(24,4,5,6);
-    lw(5,14,4,6); lw(16,13,5,7); lw(27,12,4,7);
-    lw(3,26,5,7); lw(13,25,4,8); lw(23,27,5,6); lw(30,24,4,8);
-    lw(6,40,4,6); lw(17,39,5,7); lw(28,41,4,6);
+    // Desert rock formations (sandstone pillars) — upper exploration area
+    lw(4,3,5,7);   lw(16,2,4,8);  lw(28,4,5,6);  lw(42,3,4,7);  lw(56,2,5,7);  lw(70,4,4,6);  lw(84,3,5,7);  lw(96,2,4,7);
+    lw(5,14,4,6);  lw(18,13,5,7); lw(30,12,4,7); lw(44,14,5,6); lw(58,13,4,7); lw(72,12,5,7); lw(86,14,4,6); lw(98,13,3,7);
+    lw(3,26,5,7);  lw(16,25,4,8); lw(30,27,5,6); lw(44,24,4,8); lw(58,26,5,7); lw(72,25,4,8); lw(86,27,5,6); lw(96,24,4,7);
+    lw(6,40,4,6);  lw(18,39,5,7); lw(32,41,4,6); lw(46,38,5,7); lw(60,40,4,6); lw(74,39,5,7); lw(88,41,4,6);
+    lw(4,56,5,6);  lw(18,55,4,7); lw(34,57,5,6); lw(50,54,4,7); lw(66,56,5,6); lw(80,55,4,7); lw(94,57,4,6);
 
-    // Dry oasis pools (small water features)
-    this._fill(b.x+8, b.y+10, 4,3,T.WATER);
-    this._fill(b.x+22,b.y+32, 4,3,T.WATER);
+    // Dry oasis pools
+    this._fill(b.x+8,  b.y+10, 5,3,T.WATER);
+    this._fill(b.x+30, b.y+22, 4,3,T.WATER);
+    this._fill(b.x+60, b.y+38, 5,3,T.WATER);
+    this._fill(b.x+85, b.y+50, 4,3,T.WATER);
 
-    // Upper exploration area (y=78-108, local y=0-30)
-    ld(6,5,3,25);   // western trail
-    ld(16,5,5,25);  // center trail
-    ld(26,5,4,25);  // eastern trail
-    ld(5,12,28,4);  // horizontal cross-path
+    // Upper exploration trails (y=76-151, local y=0-75)
+    ld(6,5,4,70);   // western trail
+    ld(22,5,5,70);  // center-west trail
+    ld(42,5,4,70);  // center trail
+    ld(62,5,4,70);  // center-east trail
+    ld(82,5,4,70);  // eastern trail
+    ld(5,18,96,4);  // horizontal cross-path 1
+    ld(5,34,96,4);  // horizontal cross-path 2
+    ld(5,50,96,4);  // horizontal cross-path 3
+    ld(5,66,96,4);  // horizontal cross-path 4
 
-    // Boss room dividing wall at local y=31 (abs y=109)
-    for(let x=b.x;x<b.x+b.w;x++) this._set(x,b.y+31,T.DESERT_WALL);
-    // Fog gate opening in dividing wall placed by generate() at x=253-266
+    // Dividing wall at abs y=152 (local y=76) — fog gate placed by generate()
+    for(let x=b.x;x<b.x+b.w;x++) this._set(x,152,T.DESERT_WALL);
 
-    // Boss room interior — large open arena (local y=32-51)
-    this._fill(b.x+1,b.y+32,35,20,T.DESERT_FLOOR);
-
-    // Entry passage at north (from swamp)
-    for(let x=b.x+8;x<=b.x+24;x++) this._set(x,b.y,T.DESERT_FLOOR);
+    // Boss room interior — open arena (abs x:172-272, y:153-182, local y=77-106)
+    this._fill(172,153,101,30,T.DESERT_FLOOR);
   },
 
   _endgameZones(){
@@ -2037,8 +2025,8 @@ const World = {
     for(let y=b.y+1;y<b.y+b.h-1;y++) for(const cx of [b.x+20,b.x+62,b.x+102]) this._set(cx,y,T.CORRUPTED_FLOOR);
     this._fill(b.x+50,b.y+2,35,30,T.CORRUPTED_FLOOR);}
 
-    // Endgame entry corridor from Boss Arena (y:197-204, x:127-131)
-    for(let x=126;x<=132;x++) for(let y=197;y<=204;y++) this._set(x,y,T.BOSS_FLOOR);
+    // Endgame entry corridor from Boss Arena (y:197-205, x:116-128)
+    for(let x=116;x<=128;x++) for(let y=197;y<=205;y++) this._set(x,y,T.BOSS_FLOOR);
     // Cross-connector between volcanic and abyssal (y=218-220)
     for(let x=5;x<=275;x++) for(let y=218;y<=220;y++) this._set(x,y,T.VOLCANIC_FLOOR);
     // Cross-connector between crystal and corrupted (y=254-256)
@@ -2050,60 +2038,54 @@ const World = {
   },
 
   _connectors(){
-    // 1. Ruins ↔ Forest — eastern corridor x=67-77, y=55-102
-    this._carve(67,55,10,47,T.RUINS_FLOOR);
-    // Forest entry side (y=55-94)
-    for(let cy=55;cy<=94;cy++) for(let cx=70;cx<=77;cx++) this._set(cx,cy,T.FOREST_FLOOR);
+    // 1. Ruins → Grasslands: x=62-68, y=38-55 (horizontal stub from Ruins east edge)
+    this._carve(62,38,7,18,T.RUINS_FLOOR);
+    for(let cy=38;cy<=55;cy++) for(let cx=62;cx<=69;cx++) this._set(cx,cy,T.RUINS_FLOOR);
 
-    // 2. Forest ↔ Castle — south corridor x=128-140, y=90-115
-    this._carve(128,90,12,26,T.FOREST_FLOOR);
-    // Castle-side floor
-    for(let cy=112;cy<=117;cy++) for(let cx=128;cx<=140;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
+    // 2. Ruins → Mountains bridge A: x=22-28, y=97-122 (vertical)
+    for(let cy=97;cy<=122;cy++) for(let cx=22;cx<=28;cx++) this._set(cx,cy,T.RUINS_FLOOR);
 
-    // 3. Forest ↔ Village — east passage x=166-186, y=22-50
-    // Carve extends to x=186 to bridge the FOREST_TREE gap between old village
-    // connector end (x=175) and new village west edge (x=185)
-    this._carve(166,22,21,30,T.FOREST_FLOOR);
-    for(let cy=22;cy<=50;cy++) for(let cx=166;cx<=187;cx++) this._set(cx,cy,T.VILLAGE_FLOOR);
+    // 3. Ruins → Mountains bridge B: x=38-44, y=97-122 (parallel vertical)
+    for(let cy=97;cy<=122;cy++) for(let cx=38;cx<=44;cx++) this._set(cx,cy,T.RUINS_FLOOR);
 
-    // 4. Ruins south approach to bridge x=46-54, y=96-103
-    this._carve(46,96,10,8,T.RUINS_FLOOR);
+    // 4. Mountains → Castle: x=80-90, y=154-168 (horizontal)
+    for(let cy=154;cy<=168;cy++) for(let cx=80;cx<=90;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
 
-    // 5. Castle north from bridge x=46-54, y=112-120
-    for(let cy=112;cy<=120;cy++) for(let cx=46;cx<=54;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
+    // 5. Forest → Castle: x=116-128, y=138-140 (vertical, 12 tiles wide)
+    for(let cy=138;cy<=142;cy++) for(let cx=116;cx<=128;cx++) this._set(cx,cy,T.FOREST_FLOOR);
 
-    // 6. Ruined bridge approach from forest side x=36-48, y=95-103
-    this._carve(36,95,14,9,T.FOREST_FLOOR);
+    // 6. Grasslands → Swamp: x=168-173, y=18-38 (horizontal, 5 tiles wide)
+    for(let cy=18;cy<=38;cy++) for(let cx=168;cx<=174;cx++) this._set(cx,cy,T.GRASS_FLOOR);
 
-    // 7. Village ↔ Swamp — east passage x=237-244, y=55-80
-    for(let cy=55;cy<=80;cy++) for(let cx=237;cx<=244;cx++) this._set(cx,cy,T.VILLAGE_FLOOR);
-    // Transition to swamp floor
-    for(let cy=55;cy<=80;cy++) for(let cx=241;cx<=244;cx++) this._set(cx,cy,T.SWAMP_FLOOR);
+    // 7. Swamp → Desert: x=218-230, y=76-82 (vertical, 12 tiles wide)
+    for(let cy=76;cy<=82;cy++) for(let cx=218;cx<=230;cx++) this._set(cx,cy,T.SWAMP_FLOOR);
 
-    // 8. Castle ↔ Mountain — east passage x=218-224, y=142-158
-    for(let cy=142;cy<=158;cy++) for(let cx=218;cx<=224;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
-    for(let cy=142;cy<=158;cy++) for(let cx=221;cx<=224;cx++) this._set(cx,cy,T.MOUNTAIN_FLOOR);
+    // 8. Castle → Desert: x=173-182, y=154-168 (horizontal)
+    for(let cy=154;cy<=168;cy++) for(let cx=173;cx<=182;cx++) this._set(cx,cy,T.CASTLE_FLOOR);
 
-    // 9. Desert ↔ Mountain — south passage x=249-265, y=131-136
-    // Lets players enter desert from mountain freely (Desert Key only needed for boss gate)
-    for(let cx=249;cx<=265;cx++){
-      this._set(cx,131,T.DESERT_FLOOR);    // open desert south wall
-      this._set(cx,132,T.MOUNTAIN_FLOOR);  // open mountain north wall
-      for(let cy=133;cy<=136;cy++) this._set(cx,cy,T.MOUNTAIN_FLOOR);
-    }
+    // 9. Castle → Endgame: x=116-128, y=197-205 (vertical)
+    for(let cy=197;cy<=205;cy++) for(let cx=116;cx<=128;cx++) this._set(cx,cy,T.BOSS_FLOOR);
   },
 
   _waterAndBridge(){
-    // River strip between ruins/forest and castle
-    for(let cy=103;cy<=113;cy++) for(let cx=18;cx<=220;cx++) this._set(cx,cy,T.WATER);
-    // Ruins bridge — 8 tiles wide, stone walkway
-    for(let cy=103;cy<=113;cy++) for(let cx=46;cx<=54;cx++) this._set(cx,cy,T.RUINS_FLOOR);
-    // Bridge guard rails (wall blocks flanking bridge)
-    for(let cy=103;cy<=113;cy++){
-      this._set(45,cy,T.RUINS_WALL); this._set(55,cy,T.RUINS_WALL);
+    // Narrow water channels flanking the Ruins→Mountains bridges
+    // Water strip at y=97-100 on sides of bridges A and B
+    for(let cx=2;cx<=67;cx++){
+      // Water above the bridge entry (just a thin strip)
+      if(cx<22||cx>44) this._set(cx,97,T.WATER);
+      if(cx<22||cx>44) this._set(cx,98,T.WATER);
     }
-    // Forest side: secondary crossing near castle connector — stepping stones
-    for(let cy=103;cy<=113;cy++) for(let cx=130;cx<=138;cx++) this._set(cx,cy,T.FOREST_FLOOR);
+    // Bridge guard rails flanking bridge A
+    this._set(21,97,T.RUINS_WALL); this._set(29,97,T.RUINS_WALL);
+    this._set(21,98,T.RUINS_WALL); this._set(29,98,T.RUINS_WALL);
+    // Bridge guard rails flanking bridge B
+    this._set(37,97,T.RUINS_WALL); this._set(45,97,T.RUINS_WALL);
+    this._set(37,98,T.RUINS_WALL); this._set(45,98,T.RUINS_WALL);
+    // Ensure bridge tiles remain passable floor
+    for(let cy=97;cy<=98;cy++){
+      for(let cx=22;cx<=28;cx++) this._set(cx,cy,T.RUINS_FLOOR);
+      for(let cx=38;cx<=44;cx++) this._set(cx,cy,T.RUINS_FLOOR);
+    }
   },
 
   _border(){
@@ -2120,37 +2102,28 @@ const World = {
         // ── Ocean border band ─────────────────────────────
         if(tx<=3||ty<=3||tx>=WORLD_W-4||ty>=WORLD_H-4) rep=T.WATER;
         else if(ty<5) rep=T.WATER;
-        else if(tx<5) rep=T.WATER;
+        else if(tx<4) rep=T.WATER;
         else if(tx>=WORLD_W-5) rep=T.WATER;
         else if(ty>=WORLD_H-5) rep=T.WATER;
-        // ── Gap between grassland and ruins ──
-        else if(ty===37&&tx>=5&&tx<75) rep=T.GRASS_FLOOR;
-        // ── West cliff ──
-        else if(tx<18&&ty>=38&&ty<200) rep=T.MOUNTAIN_WALL;
-        // ── Forest/Ruins above river ──
-        else if(ty>=95&&ty<103&&tx>=75&&tx<128) rep=T.RUINS_FLOOR;
-        else if(ty>=95&&ty<103&&tx>=140&&tx<185) rep=T.FOREST_FLOOR;
-        // ── Forest east-extension gap (new w:140 zone, x=170-184 not yet carved) ──
-        else if(tx>=170&&tx<185&&ty>=5&&ty<60) rep=T.FOREST_FLOOR;
-        // ── Below village, left of mountain (now mostly forest) ──
-        else if(tx>=170&&tx<185&&ty>=60&&ty<112) rep=T.FOREST_FLOOR;
-        else if(tx>=185&&tx<220&&ty>=60&&ty<112) rep=T.MOUNTAIN_WALL;
-        // ── Village east edge — thin strip col=240 connecting village to swamp corridor ──
-        else if(tx===240&&ty>=55&&ty<=80) rep=T.VILLAGE_FLOOR;
-        // ── Between swamp/desert and castle/mountain ──
-        else if(tx>=220&&tx<241&&ty>=78&&ty<132) rep=T.MOUNTAIN_WALL;
-        // ── Desert region gap (swamp south / desert north seam) ──
-        else if(tx>=241&&tx<278&&ty>=74&&ty<78) rep=T.SWAMP_FLOOR;
-        // ── Desert / mountain seam ──
-        else if(tx>=241&&tx<278&&ty>=131&&ty<136) rep=T.DESERT_FLOOR;
-        // ── South void below CASTLE ──
-        else if(ty>=170&&ty<200&&tx>=18&&tx<220) rep=T.CASTLE_WALL;
+        // ── Swamp/Desert east border ──
+        else if(tx>=274&&ty>=1&&ty<184) rep=T.WATER;
+        // ── Void between Ruins and Grassland (y:5-62, x:67-64 gap) ──
+        else if(ty>=5&&ty<62&&tx>=2&&tx<65) rep=T.MOUNTAIN_WALL;
+        // ── Void between Grassland and Forest (y:62-65, horizontal seam) ──
+        else if(ty>=62&&ty<65&&tx>=65&&tx<174) rep=T.GRASS_FLOOR;
+        // ── Void between Forest and Village ──
+        else if(ty>=62&&ty<140&&tx>=144&&tx<170) rep=T.FOREST_FLOOR;
+        // ── Void above Castle, left of Forest (y:100-136) ──
+        else if(ty>=100&&ty<136&&tx>=2&&tx<80) rep=T.MOUNTAIN_WALL;
+        // ── Void above Castle, right of Forest (y:140-136 area) ──
+        else if(ty>=100&&ty<136&&tx>=174&&tx<275) rep=T.MOUNTAIN_WALL;
+        // ── South void below Castle and Arena ──
+        else if(ty>=198&&ty<202&&tx>=80&&tx<176) rep=T.CASTLE_WALL;
         // ── Endgame corridor seam ──
-        else if(ty>=197&&ty<202&&tx>=118&&tx<140) rep=T.BOSS_FLOOR;
+        else if(ty>=197&&ty<202&&tx>=116&&tx<129) rep=T.BOSS_FLOOR;
         // ── Endgame zones — fill inter-zone gaps ──
         else if(ty>=200&&ty<202&&tx>=5&&tx<275) rep=T.VOLCANIC_FLOOR;
         else if(ty>=202&&ty<238&&tx>=5&&tx<275){
-          // volcanic left, abyssal right (already filled by _endgameZones)
           rep=(tx<140)?T.VOLCANIC_WALL:T.ABYSSAL_WALL;
         }
         else if(ty>=238&&ty<275&&tx>=5&&tx<275){
@@ -2162,53 +2135,33 @@ const World = {
   },
 
   _grassland(){
-    const b=ZONES.GRASSLAND.bounds; // x:5 y:1 w:155 h:36
+    const b=ZONES.GRASSLAND.bounds; // x:65 y:3 w:108 h:62
     this._fill(b.x,b.y,b.w,b.h,T.GRASS_FLOOR);
     const lg=(tx,ty,tw,th)=>this._fill(b.x+tx,b.y+ty,tw,th,T.GRASS_WALL);
 
-    // Border hedge
-    for(let x=b.x;x<b.x+b.w;x++){ this._set(x,b.y,T.GRASS_WALL); }
-    for(let y=b.y;y<b.y+b.h;y++){ this._set(b.x,y,T.GRASS_WALL); this._set(b.x+b.w-1,y,T.GRASS_WALL); }
+    // Border hedge — north and east sides only (south/west connect to other zones)
+    for(let x=b.x;x<b.x+b.w;x++) this._set(x,b.y,T.GRASS_WALL);
+    for(let y=b.y;y<b.y+b.h;y++) this._set(b.x+b.w-1,y,T.GRASS_WALL);
 
-    // Hedge/rock formations (interior obstacles)
-    lg(4,3,8,4);  lg(15,2,6,5);  lg(25,4,8,3);  lg(36,3,5,4);  lg(48,2,7,4);
-    lg(60,4,6,3); lg(70,2,8,4);  lg(82,3,6,4);  lg(95,2,7,3);  lg(108,4,5,4);
-    lg(120,2,8,3); lg(132,3,6,4); lg(143,2,7,4);
-    lg(4,14,5,6); lg(18,13,6,5); lg(30,15,5,5); lg(42,13,7,5); lg(56,14,5,6);
-    lg(68,13,6,5); lg(80,15,7,4); lg(92,13,5,6); lg(105,14,6,5); lg(118,13,7,5);
-    lg(130,15,5,5); lg(142,13,6,5);
-    lg(4,25,7,5);  lg(18,24,5,6); lg(30,26,7,4); lg(44,24,5,6); lg(58,25,6,5);
-    lg(72,24,7,5); lg(86,26,5,5); lg(100,24,6,5); lg(114,25,7,4); lg(128,24,5,6);
+    // Hedge/rock formations scattered throughout
+    lg(4,3,8,4);   lg(16,2,6,5);  lg(28,4,7,3);  lg(40,3,5,4);  lg(52,2,7,4);
+    lg(64,4,6,3);  lg(78,2,7,4);  lg(92,3,6,4);
+    lg(4,14,5,6);  lg(18,13,6,5); lg(32,15,5,5); lg(46,13,7,5); lg(62,14,5,6);
+    lg(76,13,6,5); lg(88,15,7,4);
+    lg(4,35,7,5);  lg(20,34,5,6); lg(34,36,7,4); lg(50,34,5,6); lg(64,35,6,5);
+    lg(78,34,7,5);
 
-    // Village clearing — open 30×16 area at (x:35, y:14 local) → abs (40,15)
-    const vx=b.x+35, vy=b.y+14;
-    this._fill(vx,vy,30,16,T.GRASS_FLOOR);
+    // Open clearing at center abs x:90-130, y:20-50 (local x:25-65, y:17-47)
+    this._fill(b.x+25,b.y+17,40,30,T.GRASS_FLOOR);
 
-    // ── Inn (HOUSE_DEFS[0]: outer x:42..51 y:17..24, interior x:43..50 y:18..23)
-    this._fill(vx+2,vy+2,10,8,T.HOUSE_WALL);   // outer wall / roof
-    this._fill(vx+3,vy+3,8,6,T.HOUSE_FLOOR);   // interior floor
-    // Door gap in south wall (vx+7 = tile 47, vy+9 = tile 24)
-    this._set(vx+7,vy+9,T.HOUSE_FLOOR); // south wall doorway
-    this._set(vx+7,vy+8,T.HOUSE_FLOOR); // entry threshold
-
-    // ── Shop (HOUSE_DEFS[1]: outer x:56..65 y:17..24, interior x:57..64 y:18..23)
-    this._fill(vx+16,vy+2,10,8,T.HOUSE_WALL);  // outer wall / roof
-    this._fill(vx+17,vy+3,8,6,T.HOUSE_FLOOR);  // interior floor
-    // Door gap in south wall (vx+21 = tile 61, vy+9 = tile 24)
-    this._set(vx+21,vy+9,T.HOUSE_FLOOR); // south wall doorway
-    this._set(vx+21,vy+8,T.HOUSE_FLOOR); // entry threshold
-
-    // Boss arena — far right, open 28×24 at local (x:120, y:6) → abs (125,7)
-    const ax=b.x+120, ay=b.y+6;
+    // Boss arena — Verdant Warden at abs x:125-152, y:8-31 (local x:60, y:5)
+    const ax=125, ay=b.y+5;
     this._fill(ax,ay,28,24,T.GRASS_FLOOR);
     // Boss room hedge border (semi-enclosed)
     for(let x=ax;x<ax+28;x++){ this._set(x,ay,T.GRASS_WALL); this._set(x,ay+24,T.GRASS_WALL); }
     for(let y=ay;y<ay+25;y++){ this._set(ax,y,T.GRASS_WALL); this._set(ax+27,y,T.GRASS_WALL); }
-    // Boss fog gate — west entrance (ay+8 to ay+14)
-    for(let fy=ay+8;fy<=ay+14;fy++) this._set(ax,fy,T.FOG_GATE);
-
-    // Connector: south edge of grassland connects to ruins north (y:38) via corridor at x:35-42
-    for(let cy=b.y+b.h-2;cy<=38;cy++) for(let cx=35;cx<=42;cx++) this._set(cx,cy,T.GRASS_FLOOR);
+    // Boss fog gate — west entrance (y=16 to y=24, x=125)
+    for(let fy=ay+8;fy<=ay+16;fy++) this._set(ax,fy,T.FOG_GATE);
   },
 
   tile(wx,wy){
@@ -2234,7 +2187,7 @@ const World = {
 
   zoneAt(wx,wy){
     const tx=wx/TILE_SIZE, ty=wy/TILE_SIZE;
-    const order=['BOSS_ARENA','SWAMP','DESERT','MOUNTAIN','CORRUPTED','CRYSTAL','ABYSSAL','VOLCANIC','VILLAGE','FOREST','GRASSLAND','RUINS','CASTLE'];
+    const order=['BOSS_ARENA','SWAMP','DESERT','MOUNTAIN','CORRUPTED','CRYSTAL','ABYSSAL','VOLCANIC','VILLAGE','FOREST','RUINS','GRASSLAND','CASTLE'];
     for(const id of order){
       if(!ZONES[id]) continue;
       const b=ZONES[id].bounds;
@@ -3125,15 +3078,15 @@ const Bonfires = {
   init(){
     this.list.push(
       {id:0, x:10*TILE_SIZE+16, y:48*TILE_SIZE+16, lit:true,  name:'Ruins Bonfire'},
-      {id:1, x:57*TILE_SIZE+16, y:90*TILE_SIZE+16, lit:false, name:'Deep Ruins Bonfire'},
-      {id:2, x:111*TILE_SIZE+16,y:45*TILE_SIZE+16, lit:false, name:'Forest Bonfire'},
-      {id:3, x:205*TILE_SIZE+16,y:46*TILE_SIZE+16, lit:false, name:'Village Bonfire'},
-      {id:4, x:152*TILE_SIZE+16,y:148*TILE_SIZE+16,lit:false, name:'Castle Bonfire'},
-      {id:5, x:252*TILE_SIZE+16,y:40*TILE_SIZE+16, lit:false, name:'Swamp Bonfire'},
-      {id:6, x:228*TILE_SIZE+16,y:143*TILE_SIZE+16,lit:false, name:'Peak Bonfire'},
-      {id:7, x:48*TILE_SIZE+16, y:20*TILE_SIZE+16, lit:false, name:'Verdant Bonfire'},
+      {id:1, x:52*TILE_SIZE+16, y:80*TILE_SIZE+16, lit:false, name:'Deep Ruins Bonfire'},
+      {id:2, x:110*TILE_SIZE+16,y:95*TILE_SIZE+16, lit:false, name:'Forest Bonfire'},
+      {id:3, x:155*TILE_SIZE+16,y:30*TILE_SIZE+16, lit:false, name:'Village Bonfire'},
+      {id:4, x:130*TILE_SIZE+16,y:150*TILE_SIZE+16,lit:false, name:'Castle Bonfire'},
+      {id:5, x:200*TILE_SIZE+16,y:55*TILE_SIZE+16, lit:false, name:'Swamp Bonfire'},
+      {id:6, x:30*TILE_SIZE+16, y:140*TILE_SIZE+16,lit:false, name:'Peak Bonfire'},
+      {id:7, x:95*TILE_SIZE+16, y:20*TILE_SIZE+16, lit:false, name:'Verdant Bonfire'},
       // Desert bonfire — near oasis in desert zone entrance
-      {id:8, x:248*TILE_SIZE+16,y:85*TILE_SIZE+16, lit:false, name:'Desert Oasis Bonfire'},
+      {id:8, x:200*TILE_SIZE+16,y:100*TILE_SIZE+16,lit:false, name:'Desert Oasis Bonfire'},
       // End-game bonfires — one per zone at the zone entry
       {id:9,  x:12*TILE_SIZE+16, y:210*TILE_SIZE+16,lit:false, name:'Volcanic Gateway Bonfire'},
       {id:10, x:148*TILE_SIZE+16,y:210*TILE_SIZE+16,lit:false, name:'Abyssal Gateway Bonfire'},
@@ -3248,25 +3201,25 @@ const Chests = {
   init(){
     const pos=[
       // ---- GUARANTEED PROGRESSION GEAR ----
-      {tx:45,  ty:55,  zone:'RUINS',    fixedItem:'HOLLOW_BLADE'},
-      {tx:113, ty:65,  zone:'FOREST',   fixedItem:'CHAIN_MAIL'},
-      {tx:204, ty:32,  zone:'VILLAGE',  fixedItem:'CRIMSON_RING'},
+      {tx:30,  ty:60,  zone:'RUINS',    fixedItem:'HOLLOW_BLADE'},
+      {tx:105, ty:100, zone:'FOREST',   fixedItem:'CHAIN_MAIL'},
+      {tx:152, ty:25,  zone:'VILLAGE',  fixedItem:'CRIMSON_RING'},
       // ---- RANDOM CHESTS ----
-      {tx:23,  ty:50,  zone:'RUINS'},
-      {tx:52,  ty:62,  zone:'RUINS'},
-      {tx:8,   ty:88,  zone:'RUINS'},
-      {tx:88,  ty:22,  zone:'FOREST'},
-      {tx:140, ty:55,  zone:'FOREST'},
-      {tx:55,  ty:130, zone:'CASTLE'},
-      {tx:195, ty:148, zone:'CASTLE'},
-      {tx:252, ty:40,  zone:'SWAMP'},
-      {tx:263, ty:58,  zone:'SWAMP'},
-      {tx:232, ty:152, zone:'MOUNTAIN'},
-      {tx:230, ty:165, zone:'MOUNTAIN'},
+      {tx:20,  ty:40,  zone:'RUINS'},
+      {tx:50,  ty:75,  zone:'RUINS'},
+      {tx:10,  ty:90,  zone:'RUINS'},
+      {tx:80,  ty:80,  zone:'FOREST'},
+      {tx:120, ty:110, zone:'FOREST'},
+      {tx:95,  ty:155, zone:'CASTLE'},
+      {tx:145, ty:148, zone:'CASTLE'},
+      {tx:195, ty:40,  zone:'SWAMP'},
+      {tx:220, ty:60,  zone:'SWAMP'},
+      {tx:20,  ty:135, zone:'MOUNTAIN'},
+      {tx:55,  ty:160, zone:'MOUNTAIN'},
       // ---- DESERT CHESTS ----
-      {tx:248, ty:90,  zone:'DESERT',   fixedItem:'BONE_BLADE'},
-      {tx:262, ty:108, zone:'DESERT'},
-      {tx:252, ty:100, zone:'DESERT'},
+      {tx:185, ty:95,  zone:'DESERT',   fixedItem:'BONE_BLADE'},
+      {tx:230, ty:110, zone:'DESERT'},
+      {tx:200, ty:130, zone:'DESERT'},
       // ---- END-GAME CHESTS ----
       {tx:30,  ty:210, zone:'VOLCANIC'},
       {tx:90,  ty:218, zone:'VOLCANIC'},
@@ -3368,7 +3321,7 @@ const Chests = {
 // ============================================================
 const SHOP_DEFS = [
   {
-    id:'ruins_merchant', name:'Ruins Merchant', tx:15, ty:52,
+    id:'ruins_merchant', name:'Ruins Merchant', tx:15, ty:55,
     isBlacksmith:false,
     stock:[
       {type:'equip', id:'IRON_SWORD',      price:400},
@@ -3380,7 +3333,7 @@ const SHOP_DEFS = [
     ]
   },
   {
-    id:'forest_herbalist', name:'Forest Herbalist', tx:100, ty:45,
+    id:'forest_herbalist', name:'Forest Herbalist', tx:98, ty:90,
     isBlacksmith:false,
     stock:[
       {type:'equip', id:'HOLLOW_BLADE',  price:1100},
@@ -3392,7 +3345,7 @@ const SHOP_DEFS = [
     ]
   },
   {
-    id:'village_blacksmith', name:'Village Blacksmith', tx:198, ty:32,
+    id:'village_blacksmith', name:'Village Blacksmith', tx:149, ty:38,
     isBlacksmith:true,
     stock:[
       {type:'equip', id:'HOLLOW_BLADE',  price:1200},
@@ -3403,7 +3356,7 @@ const SHOP_DEFS = [
     ]
   },
   {
-    id:'castle_armorer', name:'Castle Armorer', tx:88, ty:132,
+    id:'castle_armorer', name:'Castle Armorer', tx:90, ty:150,
     isBlacksmith:true,
     stock:[
       {type:'equip', id:'HOLLOW_BLADE',   price:1400},
@@ -3415,7 +3368,7 @@ const SHOP_DEFS = [
     ]
   },
   {
-    id:'sylvan_trader', name:'Sylvan Trader', tx:59, ty:19,
+    id:'sylvan_trader', name:'Sylvan Trader', tx:88, ty:20,
     isBlacksmith:false,
     stock:[
       {type:'equip', id:'HUNTERS_BOW',  price:480},
@@ -3725,35 +3678,35 @@ const Altars = {
 // ============================================================
 const BOSS_ROOM_DEFS = {
   main: {
-    px0:108*32, py0:168*32, px1:152*32, py1:197*32,
+    px0:106*32, py0:166*32, px1:152*32, py1:198*32,
     unlockMsg:'THE ASHEN KING AWAKENS', flashCol:'#6020a0',
     spawn(){ Enemies.spawnBoss(); GS.flags.fogGateEntered=true; },
     isDefeated(){ return GS.bossDefeated; },
     isActive(){   return GS.bossActive; },
   },
   swamp: {
-    px0:249*32, py0:32, px1:272*32, py1:25*32,
+    px0:248*32, py0:32,     px1:273*32, py1:31*32,
     unlockMsg:'THE SWAMP HORROR STIRS', flashCol:'#204010',
     spawn(){ Enemies.spawnMiniBoss('SWAMP_MONSTER','swamp'); GS.miniBosses.swamp.summoned=true; },
     isDefeated(){ return GS.miniBosses.swamp.defeated; },
     isActive(){   return GS.miniBosses.swamp.active; },
   },
   mountain: {
-    px0:235*32, py0:136*32, px1:264*32, py1:162*32,
+    px0:18*32,  py0:174*32, px1:67*32,  py1:198*32,
     unlockMsg:'THE GLACIAL YETI AWAKENS', flashCol:'#202840',
     spawn(){ Enemies.spawnMiniBoss('YETI','mountain'); GS.miniBosses.mountain.summoned=true; },
     isDefeated(){ return GS.miniBosses.mountain.defeated; },
     isActive(){   return GS.miniBosses.mountain.active; },
   },
   grassland: {
-    px0:125*32, py0:7*32, px1:153*32, py1:31*32,
+    px0:125*32, py0:8*32,   px1:153*32, py1:32*32,
     unlockMsg:'THE VERDANT WARDEN AWAKENS', flashCol:'#204010',
     spawn(){ Enemies.spawnMiniBoss('VERDANT_WARDEN','grassland'); GS.miniBosses.grassland.summoned=true; },
     isDefeated(){ return GS.miniBosses.grassland.defeated; },
     isActive(){   return GS.miniBosses.grassland.active; },
   },
   desert: {
-    px0:241*32, py0:110*32, px1:278*32, py1:132*32,
+    px0:172*32, py0:152*32, px1:273*32, py1:183*32,
     unlockMsg:'THE SAND SERPENT AWAKENS', flashCol:'#d08010',
     spawn(){ Enemies.spawnDesertBoss(); },
     isDefeated(){ return GS.desertBoss.defeated; },
@@ -4201,7 +4154,7 @@ const Player = {
     const tx=p.x/TILE_SIZE|0, ty=p.y/TILE_SIZE|0;
 
     // === END-GAME GATE — south of Boss Arena ===
-    if(tx>=127&&tx<=131&&(ty>=197&&ty<=202)){
+    if(tx>=116&&tx<=128&&(ty>=197&&ty<=202)){
       if(GS.endgameUnlocked) return;
       const all4=GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
         GS.miniBosses.mountain.defeated&&GS.desertBoss.defeated;
@@ -4230,7 +4183,7 @@ const Player = {
     }
 
     // === DESERT BOSS ROOM GATE ===
-    if(tx>=241&&tx<=277&&ty===109){
+    if(tx>=173&&tx<=271&&ty===152){
       if(GS.desertBoss.defeated) return;
       if(GS.desertBoss.active) return;
       BossRooms.enter('desert');
@@ -4239,10 +4192,10 @@ const Player = {
 
     // === STANDARD BOSS ROOM FOG GATES ===
     let roomId=null;
-    if(tx>=127&&tx<=131&&ty>=164&&ty<=166) roomId='main';
-    else if(tx>=253&&tx<=266&&ty===24)      roomId='swamp';
-    else if(tx===234&&ty>=140&&ty<=158)     roomId='mountain';
-    else if(tx===125&&ty>=15&&ty<=23)       roomId='grassland';
+    if(tx>=127&&tx<=131&&ty>=164&&ty<=166)  roomId='main';
+    else if(tx>=249&&tx<=271&&ty===30)       roomId='swamp';
+    else if(tx>=19&&tx<=65&&ty===174)        roomId='mountain';
+    else if(tx===125&&ty>=16&&ty<=24)        roomId='grassland';
     if(!roomId) return;
 
     const def=BOSS_ROOM_DEFS[roomId];
@@ -5479,101 +5432,86 @@ const Enemies = {
 
   init(){
     this.spawnCfg=[
-      // ====== Crumbling Ruins ======
-      // Grunts — original 9
-      {t:'GRUNT', x:16,y:51},{t:'GRUNT', x:28,y:44},{t:'GRUNT', x:42,y:52},
-      {t:'GRUNT', x:55,y:46},{t:'GRUNT', x:20,y:72},{t:'GRUNT', x:38,y:80},
-      {t:'GRUNT', x:60,y:76},{t:'GRUNT', x:48,y:62},{t:'GRUNT', x:25,y:88},
-      // Grunts — added
-      {t:'GRUNT', x:12,y:58},{t:'GRUNT', x:32,y:58},{t:'GRUNT', x:52,y:68},
-      {t:'GRUNT', x:18,y:82},{t:'GRUNT', x:44,y:86},{t:'GRUNT', x:64,y:84},
-      // Archers — original 3
-      {t:'ARCHER',x:35,y:65},{t:'ARCHER',x:55,y:85},{t:'ARCHER',x:62,y:56},
-      // Archers — added
-      {t:'ARCHER',x:22,y:64},{t:'ARCHER',x:48,y:76},{t:'ARCHER',x:60,y:66},
-      // Hollows — fast fragile skeletons in the ruins
-      {t:'HOLLOW',x:14,y:55},{t:'HOLLOW',x:30,y:50},{t:'HOLLOW',x:46,y:58},
-      {t:'HOLLOW',x:58,y:74},{t:'HOLLOW',x:22,y:84},{t:'HOLLOW',x:40,y:90},
+      // ====== Crumbling Ruins (x:2-66, y:5-98) ======
+      {t:'GRUNT', x:16,y:15},{t:'GRUNT', x:28,y:12},{t:'GRUNT', x:42,y:18},
+      {t:'GRUNT', x:55,y:14},{t:'GRUNT', x:20,y:30},{t:'GRUNT', x:38,y:38},
+      {t:'GRUNT', x:58,y:34},{t:'GRUNT', x:48,y:22},{t:'GRUNT', x:25,y:48},
+      {t:'GRUNT', x:12,y:55},{t:'GRUNT', x:32,y:58},{t:'GRUNT', x:52,y:62},
+      {t:'GRUNT', x:18,y:70},{t:'GRUNT', x:44,y:75},{t:'GRUNT', x:60,y:80},
+      {t:'ARCHER',x:35,y:25},{t:'ARCHER',x:55,y:45},{t:'ARCHER',x:60,y:16},
+      {t:'ARCHER',x:22,y:40},{t:'ARCHER',x:48,y:60},{t:'ARCHER',x:58,y:70},
+      {t:'HOLLOW',x:14,y:20},{t:'HOLLOW',x:30,y:18},{t:'HOLLOW',x:46,y:28},
+      {t:'HOLLOW',x:56,y:50},{t:'HOLLOW',x:22,y:65},{t:'HOLLOW',x:40,y:85},
+      {t:'GRAVE_KNIGHT',x:25,y:35},{t:'GRAVE_KNIGHT',x:45,y:42},
+      {t:'GRAVE_KNIGHT',x:55,y:72},{t:'GRAVE_KNIGHT',x:30,y:82},
 
-      // ====== Darkroot Forest — sparse maze (one per room) ======
-      {t:'HOLLOW',x:80,y:15},{t:'GRUNT',x:78,y:55},{t:'HOLLOW',x:78,y:80},
-      {t:'GRUNT',x:120,y:18},
-      {t:'BEAST_KNIGHT',x:125,y:50},{t:'ARCHER',x:132,y:58},
-      {t:'ARCHER',x:165,y:20},{t:'BEAST_KNIGHT',x:185,y:25},
-      {t:'GRUNT',x:162,y:55},{t:'HOLLOW',x:160,y:82},
+      // ====== Darkroot Forest (x:62-173, y:62-139) — sparse, one per room ======
+      // R1 NW (abs x:64, y:64)
+      {t:'HOLLOW', x:68,y:66},
+      // R2 SW (abs x:64, y:106)
+      {t:'GRUNT',  x:66,y:108},
+      // R3 Center-W hub (abs x:84, y:86)
+      {t:'HOLLOW', x:86,y:88},
+      // R4 Center main (abs x:106, y:74)
+      {t:'GRUNT',  x:108,y:76},
+      // R5 NE Village area (abs x:132, y:67)
+      {t:'ARCHER', x:134,y:69},
+      // R6 SE exit (abs x:106, y:124)
+      {t:'HOLLOW', x:108,y:126},
+      // R7 East hub (abs x:136, y:98)
+      {t:'BEAST_KNIGHT',x:138,y:100},
+      // R8 SE dead-end (abs x:154, y:124)
+      {t:'ARCHER', x:154,y:126},
+      // Extra — corridor areas
+      {t:'HOLLOW', x:72,y:80},
+      {t:'GRUNT',  x:116,y:90},
 
-      // ====== Castle Approach ======
-      // Grunts — original 12
-      {t:'GRUNT', x:35,y:120},{t:'GRUNT', x:62,y:118},{t:'GRUNT', x:88,y:125},
-      {t:'GRUNT', x:118,y:120},{t:'GRUNT', x:148,y:128},{t:'GRUNT', x:178,y:122},
-      {t:'GRUNT', x:205,y:118},{t:'GRUNT', x:50,y:152},{t:'GRUNT', x:98,y:148},
-      {t:'GRUNT', x:155,y:158},{t:'GRUNT', x:185,y:152},{t:'GRUNT', x:215,y:145},
-      // Grunts — added
-      {t:'GRUNT', x:45,y:130},{t:'GRUNT', x:72,y:140},{t:'GRUNT', x:108,y:135},
-      {t:'GRUNT', x:140,y:118},{t:'GRUNT', x:168,y:145},{t:'GRUNT', x:200,y:138},
-      {t:'GRUNT', x:220,y:125},{t:'GRUNT', x:60,y:160},{t:'GRUNT', x:125,y:158},
-      // Archers — original 3
-      {t:'ARCHER',x:75,y:140},{t:'ARCHER',x:138,y:145},{t:'ARCHER',x:198,y:138},
-      // Archers — added
-      {t:'ARCHER',x:40,y:142},{t:'ARCHER',x:115,y:150},{t:'ARCHER',x:175,y:158},
-      // Beast Knights — castle has heavy guards
-      {t:'BEAST_KNIGHT',x:55,y:125},{t:'BEAST_KNIGHT',x:145,y:135},
-      {t:'BEAST_KNIGHT',x:190,y:148},{t:'BEAST_KNIGHT',x:210,y:120},
-      // Hollows — swarming the outer walls
-      {t:'HOLLOW',x:30,y:118},{t:'HOLLOW',x:78,y:122},{t:'HOLLOW',x:122,y:118},
-      {t:'HOLLOW',x:162,y:128},{t:'HOLLOW',x:200,y:155},{t:'HOLLOW',x:42,y:155},
+      // ====== Castle Approach (x:80-175, y:136-197, exclude BOSS_ARENA x:106-151, y:166-197) ======
+      {t:'GRUNT', x:88,y:142},{t:'GRUNT', x:100,y:148},{t:'GRUNT', x:155,y:140},
+      {t:'GRUNT', x:165,y:148},{t:'GRUNT', x:88,y:158},{t:'GRUNT', x:170,y:158},
+      {t:'GRUNT', x:100,y:162},{t:'GRUNT', x:158,y:162},
+      {t:'ARCHER',x:92,y:145},{t:'ARCHER',x:160,y:145},{t:'ARCHER',x:168,y:155},
+      {t:'BEAST_KNIGHT',x:96,y:152},{t:'BEAST_KNIGHT',x:162,y:152},
+      {t:'HOLLOW',x:84,y:140},{t:'HOLLOW',x:170,y:140},{t:'HOLLOW',x:104,y:158},
+      {t:'HOLLOW',x:155,y:162},
 
-      // ====== Graveyard ======
-      // Grave Knights — original 6
-      {t:'GRAVE_KNIGHT',x:30,y:122},{t:'GRAVE_KNIGHT',x:42,y:130},
-      {t:'GRAVE_KNIGHT',x:55,y:125},{t:'GRAVE_KNIGHT',x:35,y:148},
-      {t:'GRAVE_KNIGHT',x:50,y:155},{t:'GRAVE_KNIGHT',x:62,y:140},
-      // Grave Knights — added
-      {t:'GRAVE_KNIGHT',x:36,y:135},{t:'GRAVE_KNIGHT',x:48,y:145},
-      {t:'GRAVE_KNIGHT',x:58,y:150},{t:'GRAVE_KNIGHT',x:28,y:138},
-      // Archers — original 2
-      {t:'ARCHER',x:28,y:142},{t:'ARCHER',x:58,y:132},
-      // Archers — added
-      {t:'ARCHER',x:40,y:120},{t:'ARCHER',x:64,y:148},
-      // Hollows rise from the graves
-      {t:'HOLLOW',x:33,y:125},{t:'HOLLOW',x:46,y:132},{t:'HOLLOW',x:60,y:128},
-      {t:'HOLLOW',x:38,y:145},{t:'HOLLOW',x:54,y:152},{t:'HOLLOW',x:29,y:155},
-      // Beast Knight — one heavy undead guardian at the graveyard center
-      {t:'BEAST_KNIGHT',x:44,y:140},
+      // ====== Graveyard (x:85-132, y:140-183) ======
+      {t:'GRAVE_KNIGHT',x:90,y:146},{t:'GRAVE_KNIGHT',x:100,y:152},
+      {t:'GRAVE_KNIGHT',x:112,y:148},{t:'GRAVE_KNIGHT',x:92,y:162},
+      {t:'GRAVE_KNIGHT',x:105,y:168},{t:'GRAVE_KNIGHT',x:118,y:158},
+      {t:'ARCHER',x:95,y:155},{t:'ARCHER',x:115,y:165},
+      {t:'HOLLOW',x:98,y:148},{t:'HOLLOW',x:108,y:155},{t:'HOLLOW',x:120,y:162},
+      {t:'BEAST_KNIGHT',x:105,y:160},
 
-      // ====== Festering Swamp ======
-      {t:'SWAMP_BEAST',x:250,y:28},{t:'SWAMP_BEAST',x:258,y:35},{t:'SWAMP_BEAST',x:265,y:22},
-      {t:'SWAMP_BEAST',x:252,y:45},{t:'SWAMP_BEAST',x:260,y:52},{t:'SWAMP_BEAST',x:268,y:40},
-      {t:'SWAMP_BEAST',x:248,y:62},{t:'SWAMP_BEAST',x:257,y:68},{t:'SWAMP_BEAST',x:264,y:58},
+      // ====== Festering Swamp (x:170-273, y:1-78) — NOT inside boss room (y<30) ======
+      {t:'SWAMP_BEAST',x:178,y:38},{t:'SWAMP_BEAST',x:192,y:45},{t:'SWAMP_BEAST',x:208,y:38},
+      {t:'SWAMP_BEAST',x:222,y:50},{t:'SWAMP_BEAST',x:238,y:42},{t:'SWAMP_BEAST',x:182,y:58},
+      {t:'SWAMP_BEAST',x:200,y:62},{t:'SWAMP_BEAST',x:220,y:68},{t:'SWAMP_BEAST',x:240,y:58},
 
-      // ====== Frosted Peaks ======
-      {t:'SNOW_GRUNT',x:228,y:140},
-      {t:'SNOW_GRUNT',x:230,y:158},{t:'SNOW_GRUNT',x:240,y:165},
-      {t:'SNOW_GRUNT',x:232,y:172},{t:'SNOW_GRUNT',x:250,y:174},{t:'SNOW_GRUNT',x:265,y:165},
+      // ====== Frosted Peaks (x:2-83, y:118-197) — NOT inside boss room (y>174) ======
+      {t:'SNOW_GRUNT',x:10,y:125},{t:'SNOW_GRUNT',x:25,y:130},
+      {t:'SNOW_GRUNT',x:40,y:122},{t:'SNOW_GRUNT',x:58,y:128},
+      {t:'SNOW_GRUNT',x:70,y:132},{t:'SNOW_GRUNT',x:15,y:145},
+      {t:'SNOW_GRUNT',x:35,y:150},{t:'SNOW_GRUNT',x:55,y:155},
+      {t:'SNOW_GRUNT',x:70,y:148},{t:'SNOW_GRUNT',x:20,y:162},
 
-      // ====== Verdant Expanse (Grassland) ======
-      // Bandits near entry (abs x:8-30, y:4-36)
-      {t:'BANDIT',x:10,y:6},{t:'BANDIT',x:18,y:8},{t:'BANDIT',x:26,y:5},
-      {t:'BANDIT',x:12,y:12},{t:'BANDIT',x:22,y:10},{t:'BANDIT',x:28,y:14},
-      {t:'BANDIT',x:14,y:18},{t:'BANDIT',x:24,y:20},{t:'BANDIT',x:10,y:25},
-      // Vine Lurkers in the middle (abs x:35-90, y:4-36)
-      {t:'VINE_LURKER',x:38,y:7},{t:'VINE_LURKER',x:50,y:5},{t:'VINE_LURKER',x:62,y:8},
-      {t:'VINE_LURKER',x:44,y:18},{t:'VINE_LURKER',x:58,y:22},{t:'VINE_LURKER',x:72,y:10},
-      {t:'VINE_LURKER',x:80,y:16},{t:'VINE_LURKER',x:88,y:20},{t:'VINE_LURKER',x:76,y:28},
-      // Bandit Archers in mid-east (abs x:60-115, y:4-36)
-      {t:'BANDIT_ARCHER',x:66,y:6},{t:'BANDIT_ARCHER',x:78,y:12},{t:'BANDIT_ARCHER',x:92,y:8},
-      {t:'BANDIT_ARCHER',x:105,y:14},{t:'BANDIT_ARCHER',x:112,y:20},{t:'BANDIT_ARCHER',x:98,y:28},
-      // Forest Knights near boss approach (abs x:100-125, y:4-36)
-      {t:'FOREST_KNIGHT',x:102,y:6},{t:'FOREST_KNIGHT',x:112,y:10},{t:'FOREST_KNIGHT',x:118,y:18},
-      {t:'FOREST_KNIGHT',x:108,y:26},{t:'FOREST_KNIGHT',x:120,y:28},
+      // ====== Verdant Expanse (x:65-172, y:3-64) ======
+      {t:'BANDIT',x:70,y:8},{t:'BANDIT',x:80,y:6},{t:'BANDIT',x:90,y:10},
+      {t:'BANDIT',x:74,y:18},{t:'BANDIT',x:86,y:14},{t:'BANDIT',x:96,y:20},
+      {t:'VINE_LURKER',x:100,y:8},{t:'VINE_LURKER',x:112,y:12},{t:'VINE_LURKER',x:108,y:22},
+      {t:'VINE_LURKER',x:118,y:28},{t:'VINE_LURKER',x:100,y:35},{t:'VINE_LURKER',x:115,y:42},
+      {t:'BANDIT_ARCHER',x:72,y:30},{t:'BANDIT_ARCHER',x:84,y:38},{t:'BANDIT_ARCHER',x:96,y:45},
+      {t:'BANDIT_ARCHER',x:108,y:50},{t:'BANDIT_ARCHER',x:120,y:55},
+      {t:'FOREST_KNIGHT',x:130,y:10},{t:'FOREST_KNIGHT',x:138,y:20},
+      {t:'FOREST_KNIGHT',x:132,y:35},{t:'FOREST_KNIGHT',x:140,y:48},
 
-      // ====== Scorched Sands (Desert) ======
-      {t:'SCORPION',x:246,y:82},{t:'SCORPION',x:252,y:88},{t:'SCORPION',x:260,y:84},
-      {t:'SCORPION',x:248,y:96},{t:'SCORPION',x:256,y:102},{t:'SCORPION',x:265,y:94},
+      // ====== Scorched Sands (x:170-273, y:76-151) — NOT inside boss room (y>152) ======
+      {t:'SCORPION',x:178,y:82},{t:'SCORPION',x:192,y:88},{t:'SCORPION',x:208,y:84},
+      {t:'SCORPION',x:224,y:92},{t:'SCORPION',x:240,y:86},{t:'SCORPION',x:256,y:94},
       {t:'SCORPION',x:268,y:108},
-      {t:'MUMMY',x:250,y:90},{t:'MUMMY',x:263,y:100},
-      {t:'SAND_WARRIOR',x:253,y:86},{t:'SAND_WARRIOR',x:261,y:92},{t:'SAND_WARRIOR',x:249,y:104},
-      {t:'SAND_ARCHER',x:247,y:84},{t:'SAND_ARCHER',x:266,y:96},
+      {t:'MUMMY',x:186,y:100},{t:'MUMMY',x:212,y:112},{t:'MUMMY',x:250,y:120},
+      {t:'SAND_WARRIOR',x:198,y:90},{t:'SAND_WARRIOR',x:228,y:102},{t:'SAND_WARRIOR',x:260,y:98},
+      {t:'SAND_ARCHER',x:182,y:96},{t:'SAND_ARCHER',x:244,y:116},
 
       // ====== Scorched Wastes (Volcanic) ======
       {t:'ASH_SPAWN',x:15,y:210},{t:'ASH_SPAWN',x:30,y:215},{t:'ASH_SPAWN',x:50,y:208},
@@ -5662,10 +5600,11 @@ const Enemies = {
   spawnDesertBoss(){
     const db=GS.desertBoss;
     if(db.defeated||db.active) return;
-    const b=ZONES.DESERT.bounds;
-    const boss=this.spawn('SAND_SERPENT', b.x+b.w/2|0, b.y+b.h/2|0, true);
+    // Boss room interior: abs x:172-272, y:153-182 — spawn at center
+    const bx=222, by=167;
+    const boss=this.spawn('SAND_SERPENT', bx, by, true);
     if(boss){
-      boss.x=(b.x+b.w/2)*TILE_SIZE; boss.y=(b.y+b.h/2)*TILE_SIZE;
+      boss.x=bx*TILE_SIZE; boss.y=by*TILE_SIZE;
       boss.isDesertBoss=true; db.ref=boss; db.active=true;
     }
   },
@@ -5687,10 +5626,14 @@ const Enemies = {
     const cfg=ENEMY_TYPES[type]; if(!cfg) return;
     // Place in center of zone bounds
     let bounds;
-    if(zone==='swamp') bounds=ZONES.SWAMP.bounds;
-    else if(zone==='mountain') bounds=ZONES.MOUNTAIN.bounds;
+    if(zone==='swamp'){ bounds=null; }      // use fixed spawn inside boss chamber
+    else if(zone==='mountain'){ bounds=null; } // use fixed spawn inside boss chamber
     else if(zone==='grassland'){ bounds=null; } // use fixed spawn for grassland
-    const tx=bounds?(bounds.x+bounds.w/2)|0:138, ty=bounds?(bounds.y+bounds.h/2)|0:18;
+    // swamp boss center: abs x:260, y:15; mountain boss center: abs x:42, y:185; grassland: x:138, y:18
+    const fixedX={swamp:260,mountain:42,grassland:138};
+    const fixedY={swamp:15, mountain:185,grassland:18};
+    const tx=bounds?(bounds.x+bounds.w/2)|0:(fixedX[zone]||138);
+    const ty=bounds?(bounds.y+bounds.h/2)|0:(fixedY[zone]||18);
     const e=this.spawn(type, tx, ty, false);
     if(e){
       e.isMiniBoss=true;
