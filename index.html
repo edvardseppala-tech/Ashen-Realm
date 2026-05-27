@@ -644,7 +644,6 @@ const LOOT_TABLES = {
   YETI:[
     {item:'YETI_PELT',      chance:1.0},
     {item:'SOVEREIGN_RING', chance:1.0},
-    {item:'DESERT_KEY',     chance:1.0},
   ],
   // Grassland enemies
   BANDIT:[
@@ -1599,8 +1598,6 @@ const World = {
     for(let fx=253;fx<=266;fx++) this._set(fx,24,T.FOG_GATE);
     // Mountain boss room entry — west edge of boss clearing (tx=234, ty=140..158)
     for(let fy=140;fy<=158;fy++) this._set(234,fy,T.FOG_GATE);
-    // Desert gate — south wall of swamp (requires Desert Key), row y=76-77
-    for(let fx=253;fx<=266;fx++){ this._set(fx,76,T.FOG_GATE); this._set(fx,77,T.FOG_GATE); }
     // Desert boss arena entry — south end of desert (row y=129-130)
     for(let fx=253;fx<=266;fx++){ this._set(fx,129,T.FOG_GATE); this._set(fx,130,T.FOG_GATE); }
     // Endgame gate — south of Boss Arena
@@ -1698,23 +1695,23 @@ const World = {
     // Bonfire clearing (local 40,40 → abs 110,45) — open 14×14 area
     lf(36,36,16,12);
 
-    // Dead-end exploration pockets (original forest width)
-    lf(4,4,6,12);    // NW dead end
-    lf(22,6,5,10);   // N pocket
-    lf(50,2,7,14);   // N-center pocket
-    lf(73,5,5,11);   // NE pocket
-    lf(9,26,5,10);   // W-mid pocket
-    lf(52,28,5,8);   // mid pocket
-    lf(76,24,5,12);  // E-mid pocket
-    lf(18,52,5,8);   // SW pocket
-    lf(48,55,5,6);   // south pocket
-    lf(72,50,5,8);   // SE pocket
-    lf(25,72,6,8);   // deep S pocket
-    // New exploration pockets in extended east forest
-    lf(98,6,5,10);   // far-NE pocket
-    lf(104,28,5,10); // far-E pocket
-    lf(100,52,5,8);  // far-SE pocket
-    lf(101,47,3,22); // connector: bridges far-SE pocket north gap (y=47-51) and south gap (y=60-68)
+    // Exploration alcoves — each connected to a main artery or horizontal path
+    lf(4,4,12,12);   // NW alcove  → extends east to touch artery x=15
+    lf(22,6,5,13);   // N alcove   → extends south to touch horizontal y=18
+    lf(50,2,7,17);   // N-center   → extends south to touch horizontal y=18
+    lf(73,5,5,14);   // NE alcove  → extends south to touch horizontal y=18
+    lf(9,26,10,10);  // W-mid      → extends east to touch artery x=15-18
+    lf(52,28,12,8);  // mid alcove → extends east to touch artery x=62-65
+    lf(76,24,12,12); // E-mid      → extends east to touch artery x=84-87
+    lf(15,52,8,8);   // SW alcove  → extends west to touch artery x=15-18
+    lf(40,55,13,6);  // S alcove   → extends west to touch artery x=40-43
+    lf(62,50,18,8);  // SE alcove  → extends west to touch artery x=62-65
+    lf(15,72,16,8);  // deep S     → extends west to touch artery x=15-18
+    // Extended east forest alcoves
+    lf(98,6,12,10);  // far-NE     → extends east to touch artery x=108-111
+    lf(104,28,5,10); // far-E      → already touches artery x=108
+    lf(100,52,12,8); // far-SE     → extends east to touch artery x=108-111
+    lf(101,47,10,22);// far connector → extends east to touch artery x=108-111
 
     // Village connector entry (local x=95-114, y=16-47 → bridge to new village x=185)
     lf(95,16,20,32);
@@ -3667,11 +3664,7 @@ const Altars = {
       if(GS.desertBoss.defeated){
         UI.msg('The Sand Serpent is slain. The sands are still.','rune',3); return;
       }
-      if(!GS.desertGateOpen){
-        UI.msg("Desert Obelisk: 'The passage to the serpent\\'s lair is sealed. Seek the Desert Key.'", 'rune', 4);
-      } else {
-        UI.msg("Desert Obelisk: 'The passage is open. The Sand Serpent awaits in the deep arena.'", 'rune', 3);
-      }
+      UI.msg("Desert Obelisk: 'The Sand Serpent coils in the deep arena. Enter at your peril.'", 'rune', 4);
     }
   },
 
@@ -3894,6 +3887,24 @@ const BossRooms = {
 // PLAYER SYSTEM
 // ============================================================
 let atkHitbox=null; // {x,y,w,h,dmg,type,timer,hit:Set}
+
+function _openEndgameGate(){
+  if(GS.endgameUnlocked) return;
+  GS.endgameUnlocked=true;
+  for(let gx=125;gx<=133;gx++)
+    for(let gy=197;gy<=204;gy++)
+      if(World.map[gy]&&World.map[gy][gx]===T.FOG_GATE) World.map[gy][gx]=T.VOLCANIC_FLOOR;
+  UI.msg('THE GATE OF RECKONING OPENS','boss',5);
+  ScreenFX.flash('#8040ff',0.7,1.2);
+}
+
+function _checkAndOpenEndgame(){
+  if(GS.endgameUnlocked) return;
+  if(GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
+     GS.miniBosses.mountain.defeated&&GS.desertBoss.defeated){
+    _openEndgameGate();
+  }
+}
 
 const Player = {
   update(dt){
@@ -4176,41 +4187,15 @@ const Player = {
     if(World.tile(p.x,p.y)!==T.FOG_GATE) return;
     const tx=p.x/TILE_SIZE|0, ty=p.y/TILE_SIZE|0;
 
-    // === DESERT KEY GATE — south wall of swamp ===
-    if(tx>=253&&tx<=266&&(ty===76||ty===77)){
-      if(GS.desertGateOpen) return; // already unlocked, passable
-      if(p.consumables.includes('DESERT_KEY')){
-        p.consumables=p.consumables.filter(k=>k!=='DESERT_KEY');
-        GS.desertGateOpen=true;
-        // Clear fog gate tiles to passable desert floor
-        for(let gx=251;gx<=268;gx++){
-          if(World.map[76]&&World.map[76][gx]===T.FOG_GATE) World.map[76][gx]=T.SWAMP_FLOOR;
-          if(World.map[77]&&World.map[77][gx]===T.FOG_GATE) World.map[77][gx]=T.DESERT_FLOOR;
-        }
-        UI.msg('Desert Passage Unsealed!','boss',3.5);
-        ScreenFX.flash('#d4a030',0.5,0.8);
-      } else {
-        UI.msg('Sealed Gate — Desert Passage Key required','rune',2);
-        p.y-=56;
-      }
-      return;
-    }
-
     // === END-GAME GATE — south of Boss Arena ===
     if(tx>=127&&tx<=131&&(ty>=197&&ty<=202)){
       if(GS.endgameUnlocked) return;
-      const all5=GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
-        GS.miniBosses.mountain.defeated&&GS.miniBosses.grassland.defeated&&
-        GS.desertBoss.defeated;
-      if(all5){
-        GS.endgameUnlocked=true;
-        for(let gx=125;gx<=133;gx++)
-          for(let gy=197;gy<=204;gy++)
-            if(World.map[gy]&&World.map[gy][gx]===T.FOG_GATE) World.map[gy][gx]=T.VOLCANIC_FLOOR;
-        UI.msg('THE GATE OF RECKONING OPENS','boss',5);
-        ScreenFX.flash('#8040ff',0.7,1.2);
+      const all4=GS.bossDefeated&&GS.miniBosses.swamp.defeated&&
+        GS.miniBosses.mountain.defeated&&GS.desertBoss.defeated;
+      if(all4){
+        _openEndgameGate();
       } else {
-        UI.msg('Five rulers must fall to break this seal','rune',2.5);
+        UI.msg('Four rulers must fall to break this seal','rune',2.5);
         p.y-=56;
       }
       return;
@@ -4235,7 +4220,6 @@ const Player = {
     if(tx>=241&&tx<=277&&ty>=128&&ty<=132){
       if(GS.desertBoss.defeated) return;
       if(GS.desertBoss.active) return;
-      if(!GS.desertGateOpen){ UI.msg('Desert passage is sealed','rune',2); if(ty>=130) p.y+=40; else p.y-=40; return; }
       BossRooms.enter('desert');
       return;
     }
@@ -5753,6 +5737,7 @@ const Enemies = {
       ScreenFX.flash('#FFD060',0.6,1.2); ScreenFX.shake(12,0.6);
       for(let i=0;i<8;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*90,e.y+(Math.random()-0.5)*70),i*200);
       setTimeout(()=>BossRooms.unlock(true),1200);
+      setTimeout(()=>_checkAndOpenEndgame(),2500);
     }
     // Mini-boss handling
     if(e.isMiniBoss){
@@ -5764,6 +5749,7 @@ const Enemies = {
       ScreenFX.flash('#FFD060',0.5,1.0); ScreenFX.shake(10,0.5);
       for(let i=0;i<6;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*80,e.y+(Math.random()-0.5)*60),i*200);
       setTimeout(()=>BossRooms.unlock(true),1000);
+      if(isSwamp||isMtn) setTimeout(()=>_checkAndOpenEndgame(),2200);
     }
     // Desert boss
     if(e.isDesertBoss){
@@ -5772,6 +5758,7 @@ const Enemies = {
       ScreenFX.flash('#d4a030',0.6,1.2); ScreenFX.shake(12,0.6);
       for(let i=0;i<8;i++) setTimeout(()=>Particles.rune(e.x+(Math.random()-0.5)*90,e.y+(Math.random()-0.5)*70),i*200);
       setTimeout(()=>BossRooms.unlock(true),1200);
+      setTimeout(()=>_checkAndOpenEndgame(),2500);
     }
     // End-game bosses
     if(e.isEndBoss){
