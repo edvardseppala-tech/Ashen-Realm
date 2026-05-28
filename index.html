@@ -952,12 +952,15 @@ const GS = {
   playerClass: null,  // 'SWORDSMAN' | 'ASSASSIN' | 'ARCHER' | 'MAGE'
   bonfireRestTimer:0,
   bonfireRestName:'',
+  bonfireMenuOpen:false, bonfireMenuCursor:0, bonfireMenuSection:'main', bonfireTravelCursor:0,
+  bonfireMenuRef:null,
+  visitedBonfires: new Set(),
   time:0,
 
   player:{
     x:PLAYER_CONFIG.startX, y:PLAYER_CONFIG.startY,
     hp:PLAYER_CONFIG.maxHP, fp:PLAYER_CONFIG.maxFP, stamina:PLAYER_CONFIG.maxStamina,
-    level:1, runes:0, totalRunes:0, pendingLevelUps:0,
+    level:1, runes:0, totalRunes:0, pendingLevelUps:0, // unused - kept for save compat
     flaskCharges:PLAYER_CONFIG.flaskCharges,
     vx:0, vy:0, facing:{x:1,y:0},
     isRolling:false, rollTimer:0, rollITimer:0, rollDx:0, rollDy:0,
@@ -3103,8 +3106,19 @@ const Bonfires = {
       ||GS.endgameBoss.volcanic.active||GS.endgameBoss.abyssal.active
       ||GS.endgameBoss.crystal.active||GS.endgameBoss.corrupted.active;
     if(anyBoss){ UI.msg('Cannot rest during a boss fight!','rune',2); return false; }
-    for(const bf of this.list)
-      if(Math.hypot(px-bf.x,py-bf.y)<50){ this.rest(bf); return true; }
+    for(const bf of this.list){
+      if(Math.hypot(px-bf.x,py-bf.y)<50){
+        bf.lit=true;
+        GS.visitedBonfires.add(bf.id);
+        GS.bonfireMenuOpen=true;
+        GS.bonfireMenuCursor=0;
+        GS.bonfireMenuSection='main';
+        GS.bonfireTravelCursor=0;
+        GS.bonfireMenuRef=bf;
+        GS.phase='bonfire_menu';
+        return true;
+      }
+    }
     return false;
   },
 
@@ -3172,10 +3186,193 @@ const Bonfires = {
         ctx.fillStyle='#1a1208'; ctx.fillRect(sx-2,sy-4,4,2);
       }
       // Interaction prompt
-      if(GS.phase==='playing'){
+      if(GS.phase==='playing'||GS.phase==='bonfire_menu'){
         const dist=Math.hypot(GS.player.x-bf.x,GS.player.y-bf.y);
         if(dist<55) R.text('[E] Rest',sx,sy-(bf.lit?34:24),'#c8a060',10,'center');
       }
+    }
+  },
+};
+
+// ============================================================
+// BONFIRE MENU
+// ============================================================
+const BonfireMenu = {
+  handleInput(){
+    const bf=GS.bonfireMenuRef;
+    if(!bf) return;
+
+    if(GS.bonfireMenuSection==='main'){
+      const opts=4; // REST, LEVEL UP, TRAVEL, CLOSE
+      if(Input.just('KeyW')||Input.just('ArrowUp'))   GS.bonfireMenuCursor=Math.max(0,GS.bonfireMenuCursor-1);
+      if(Input.just('KeyS')||Input.just('ArrowDown')) GS.bonfireMenuCursor=Math.min(opts-1,GS.bonfireMenuCursor+1);
+      if(Input.just('Escape')){ this.close(); return; }
+      if(Input.just('KeyE')||Input.just('KeyJ')||Input.just('Space')){
+        switch(GS.bonfireMenuCursor){
+          case 0: this._doRest(bf); break;
+          case 1: GS.bonfireMenuSection='levelup'; GS.player.levelupCursor=0; break;
+          case 2: GS.bonfireMenuSection='travel'; GS.bonfireTravelCursor=0; break;
+          case 3: this.close(); break;
+        }
+      }
+    } else if(GS.bonfireMenuSection==='travel'){
+      const visited=[...GS.visitedBonfires].map(id=>GS.bonfires.find(b=>b.id===id)).filter(Boolean);
+      if(Input.just('KeyW')||Input.just('ArrowUp'))   GS.bonfireTravelCursor=Math.max(0,GS.bonfireTravelCursor-1);
+      if(Input.just('KeyS')||Input.just('ArrowDown')) GS.bonfireTravelCursor=Math.min(Math.max(0,visited.length-1),GS.bonfireTravelCursor+1);
+      if(Input.just('Escape')){ GS.bonfireMenuSection='main'; return; }
+      if(Input.just('KeyE')||Input.just('KeyJ')||Input.just('Space')){
+        const dest=visited[GS.bonfireTravelCursor];
+        if(dest){ this._doTravel(dest); }
+      }
+    } else if(GS.bonfireMenuSection==='levelup'){
+      const p=GS.player;
+      const cost=BonfireMenu.levelCost(p.level);
+      if(Input.just('Escape')){ GS.bonfireMenuSection='main'; return; }
+      if(Input.just('KeyW')||Input.just('ArrowUp'))   p.levelupCursor=Math.max(0,p.levelupCursor-1);
+      if(Input.just('KeyS')||Input.just('ArrowDown')) p.levelupCursor=Math.min(STAT_CHOICES.length-1,p.levelupCursor+1);
+      for(let i=1;i<=STAT_CHOICES.length;i++) if(Input.just(`Digit${i}`)) p.levelupCursor=i-1;
+      if(Input.just('KeyE')||Input.just('KeyJ')||Input.just('Space')){
+        if(p.runes>=cost && p.level<STAT_CHOICES.length*6+1){
+          p.runes-=cost;
+          p.level++;
+          const ch=STAT_CHOICES[p.levelupCursor];
+          p.statPoints[ch.key]+=ch.val;
+          if(ch.key==='hp')      p.hp=Math.min(Stats.maxHP(),p.hp+ch.val);
+          if(ch.key==='fp')      p.fp=Math.min(Stats.maxFP(),p.fp+ch.val);
+          if(ch.key==='stamina') p.stamina=Math.min(Stats.maxStamina(),p.stamina+ch.val);
+          UI.msg(`Lv.${p.level} — ${ch.label.split(' ')[0]} increased!`,'levelup',2.5);
+          ScreenFX.flash('#c8a060',0.30,0.4);
+          // Announce ability upgrade at milestones
+          if(GS.playerClass&&[5,10,15,20].includes(p.level)){
+            const ab=CLASS_DEFS[GS.playerClass].ability;
+            const t=abilityTier(p.level);
+            setTimeout(()=>UI.msg(`Ability upgraded: ${ab.upgrades[t].name}!`,'levelup',3),400);
+            ScreenFX.flash(CLASS_DEFS[GS.playerClass].color,0.35,0.6);
+          }
+        } else if(p.runes<cost){
+          UI.msg('Not enough runes!','rune',1.2);
+        }
+      }
+    }
+  },
+
+  levelCost(level){
+    return Math.round(400*Math.pow(level,1.6)/50)*50;
+  },
+
+  _doRest(bf){
+    const p=GS.player;
+    p.hp=Stats.maxHP(); p.fp=Stats.maxFP(); p.stamina=Stats.maxStamina();
+    p.flaskCharges=PLAYER_CONFIG.flaskCharges;
+    p.bonfireX=bf.x; p.bonfireY=bf.y;
+    Enemies.respawnAll();
+    ScreenFX.flash('#FFA020',0.45,0.6);
+    for(let i=0;i<25;i++) Particles.embers(bf.x,bf.y);
+    UI.msg('Rested at '+bf.name,'levelup',2);
+    this.close();
+  },
+
+  _doTravel(dest){
+    const p=GS.player;
+    ScreenFX.flash('#000000',1.0,0.5);
+    setTimeout(()=>{
+      p.x=dest.x; p.y=dest.y;
+      p.bonfireX=dest.x; p.bonfireY=dest.y;
+      UI.msg('Travelled to '+dest.name,'levelup',2.5);
+    },500);
+    this.close();
+  },
+
+  close(){
+    GS.bonfireMenuOpen=false;
+    GS.bonfireMenuSection='main';
+    GS.phase='playing';
+  },
+
+  draw(){
+    const bf=GS.bonfireMenuRef;
+    const p=GS.player;
+    const W=SCREEN_W, H=SCREEN_H;
+
+    // Full-screen dark overlay
+    ctx.fillStyle='rgba(0,0,0,0.75)'; ctx.fillRect(0,0,W,H);
+
+    if(GS.bonfireMenuSection==='main'){
+      // Panel
+      const pw=320, ph=320, px=(W-pw)/2|0, py=(H-ph)/2|0;
+      ctx.fillStyle='#000'; ctx.fillRect(px-4,py-4,pw+8,ph+8);
+      ctx.fillStyle='#080604'; ctx.fillRect(px,py,pw,ph);
+      ctx.fillStyle='#3a2c08'; ctx.fillRect(px,py,pw,3);
+      // Title
+      R.shadow('BONFIRE',W/2,py+28,'#FFA020','#000',20,'center');
+      R.text(bf?bf.name:'Bonfire',W/2,py+46,'#6a5020',11,'center');
+      ctx.fillStyle='#1e1608'; ctx.fillRect(px+16,py+52,pw-32,1);
+      // Options
+      const opts=['REST','LEVEL UP','TRAVEL','CLOSE'];
+      for(let i=0;i<opts.length;i++){
+        const oy=py+70+i*54;
+        const sel=i===GS.bonfireMenuCursor;
+        ctx.fillStyle=sel?'#1a1608':'#0c0a06'; ctx.fillRect(px+16,oy,pw-32,44);
+        if(sel){ ctx.fillStyle='#FFA020'; ctx.fillRect(px+16,oy,3,44); }
+        R.text(opts[i],px+36,oy+26,sel?'#e8c060':'#6a5020',14);
+        // Subtitles
+        const sub=['Heal & respawn enemies','Spend runes to gain power','Teleport to visited bonfire','Return to game'];
+        R.text(sub[i],px+36,oy+38,sel?'#706040':'#3a3020',8);
+      }
+      // Footer
+      ctx.fillStyle='#0a0804'; ctx.fillRect(px,py+ph-18,pw,18);
+      R.text('W/S Navigate    E Confirm    Esc Close',W/2,py+ph-6,'#3a3020',8,'center');
+
+    } else if(GS.bonfireMenuSection==='travel'){
+      const visited=[...GS.visitedBonfires].map(id=>GS.bonfires.find(b=>b.id===id)).filter(Boolean);
+      const pw=340, ph=Math.max(160,60+visited.length*44+40), px=(W-pw)/2|0, py=(H-ph)/2|0;
+      ctx.fillStyle='#000'; ctx.fillRect(px-4,py-4,pw+8,ph+8);
+      ctx.fillStyle='#080604'; ctx.fillRect(px,py,pw,ph);
+      ctx.fillStyle='#3a2c08'; ctx.fillRect(px,py,pw,3);
+      R.shadow('TRAVEL',W/2,py+28,'#FFA020','#000',18,'center');
+      ctx.fillStyle='#1e1608'; ctx.fillRect(px+16,py+36,pw-32,1);
+      if(visited.length===0){
+        R.text('No other bonfires visited yet.',W/2,py+70,'#403828',10,'center');
+      } else {
+        for(let i=0;i<visited.length;i++){
+          const dest=visited[i];
+          const oy=py+46+i*44;
+          const sel=i===GS.bonfireTravelCursor;
+          ctx.fillStyle=sel?'#1a1608':'#0c0a06'; ctx.fillRect(px+16,oy,pw-32,36);
+          if(sel){ ctx.fillStyle='#FFA020'; ctx.fillRect(px+16,oy,3,36); }
+          R.text(dest.name,px+28,oy+22,sel?'#e8c060':'#6a5020',12);
+        }
+      }
+      ctx.fillStyle='#0a0804'; ctx.fillRect(px,py+ph-18,pw,18);
+      R.text('W/S Navigate    E Travel    Esc Back',W/2,py+ph-6,'#3a3020',8,'center');
+
+    } else if(GS.bonfireMenuSection==='levelup'){
+      const cost=BonfireMenu.levelCost(p.level);
+      const canAfford=p.runes>=cost;
+      const pw=360, ph=220+STAT_CHOICES.length*28, px=(W-pw)/2|0, py=(H-ph)/2|0;
+      ctx.fillStyle='#000'; ctx.fillRect(px-4,py-4,pw+8,ph+8);
+      ctx.fillStyle='#08070a'; ctx.fillRect(px,py,pw,ph);
+      ctx.fillStyle='#3a2c08'; ctx.fillRect(px,py,pw,3);
+      R.shadow('LEVEL UP',W/2,py+28,'#c8a060','#000',20,'center');
+      ctx.fillStyle='#2a1c0c'; ctx.fillRect(px+16,py+34,pw-32,1);
+      R.text(`Level ${p.level}  →  Level ${p.level+1}`,W/2,py+50,'#8a7040',12,'center');
+      R.text(`Runes: ${p.runes}`,W/2,py+66,canAfford?'#c8a060':'#804040',11,'center');
+      R.text(`Cost: ${cost}`,W/2,py+80,canAfford?'#80b040':'#604040',10,'center');
+      ctx.fillStyle='#1a1408'; ctx.fillRect(px+16,py+88,pw-32,1);
+      R.text('Choose a stat to increase:',W/2,py+102,'#6a5830',9,'center');
+      for(let i=0;i<STAT_CHOICES.length;i++){
+        const ch=STAT_CHOICES[i];
+        const iy=py+114+i*28;
+        const sel=i===p.levelupCursor;
+        ctx.fillStyle=sel?'#1e1a0a':'#0c0a06'; ctx.fillRect(px+16,iy-20,pw-32,24);
+        if(sel){ ctx.fillStyle='#c8a060'; ctx.fillRect(px+16,iy-20,3,24); }
+        R.text(`${i+1}.`,px+26,iy,sel?'#706040':'#3a3020',10);
+        R.text(ch.label,px+44,iy,sel?'#e8c870':RARITY_COLOR.uncommon,12);
+        const cur=p.statPoints[ch.key]||0;
+        if(cur>0) R.text(`(+${cur})`,px+pw-24,iy,'#504830',9,'right');
+      }
+      ctx.fillStyle='#0e0c08'; ctx.fillRect(px,py+ph-20,pw,20);
+      R.text('W/S Navigate    1-5 Select    E Confirm    Esc Back',W/2,py+ph-6,'#3a3020',8,'center');
     }
   },
 };
@@ -4699,6 +4896,10 @@ const Player = {
   },
 
   _checkLevel(){
+    // Level-up is now manual via bonfire menu — no auto-trigger
+  },
+
+  _checkLevel_unused(){
     const p=GS.player;
     const newLevel=Math.min(LEVEL_THRESHOLDS.length, LEVEL_THRESHOLDS.filter(t=>p.totalRunes>=t).length);
     if(newLevel>p.level){
@@ -5946,9 +6147,14 @@ const Enemies = {
         if(canSpecial&&r<0.50) return 'charge';
         return 'slam_melee';
       case 'BOSS':
-        if(canSpecial&&p2&&r<0.20) return 'crown_beam';
-        if(canSpecial&&r<0.35) return 'dash_slash';
-        if(canSpecial&&r<0.55) return 'sweep';
+        if(canSpecial&&p2&&r<0.20) return 'ashen_charge';
+        if(canSpecial&&r<0.35) return 'ember_burst';
+        if(canSpecial&&r<0.55) return 'greatsword_sweep';
+        return 'slash';
+      case 'SAND_SERPENT':
+        if(canSpecial&&p2&&r<0.20) return 'sand_burial';
+        if(canSpecial&&r<0.38) return 'venom_spit';
+        if(canSpecial&&r<0.55) return 'coil_crush';
         return 'slash';
       case 'BANDIT':
         if(canSpecial&&r<0.30) return 'lunge';
@@ -6197,15 +6403,87 @@ const Enemies = {
         ScreenFX.flash('#101830',0.3,0.45);
         break;}
 
-      case 'dash_slash':
-        // Boss teleports to player, slash
-        e.specialMoveCD=4.5;
-        { const dx5=p.x-e.x,dy5=p.y-e.y,l5=Math.sqrt(dx5*dx5+dy5*dy5)||1;
+      case 'greatsword_sweep':
+        // Wide arc, slow windup (attackTimer extended), moderate damage
+        e.specialMoveCD = 3.2;
+        e.attackTimer = 1.1; // slow windup
+        if (dist < cfg.attackRange * 1.5) {
+          Player.takeDamage(cfg.meleeDmg * dmgM * 1.3);
+          Particles.sparks(p.x, p.y, 16);
+          ScreenFX.shake(6, 0.22);
+          GS.slamIndicators.push({x:e.x,y:e.y,r:0,maxR:cfg.attackRange*1.5,timer:0.3,max:0.3});
+        }
+        break;
+
+      case 'ember_burst':
+        // Short-range fire explosion centered on boss
+        e.specialMoveCD = 4.0;
+        {
+          const ebR = cfg.attackRange * 1.2;
+          GS.slamIndicators.push({x:e.x,y:e.y,r:0,maxR:ebR,timer:0.5,max:0.5,isBlaze:true});
+          if (dist < ebR && !GS.player.isInvincible) {
+            Player.takeDamage(cfg.meleeDmg * dmgM * 1.5);
+            GS.player.rootTimer = Math.max(GS.player.rootTimer, 0.4);
+          }
+          for (let i=0;i<8;i++) {
+            const a=(i/8)*Math.PI*2;
+            GS.projectiles.push({x:e.x,y:e.y,vx:Math.cos(a)*130,vy:Math.sin(a)*130,
+              dmg:cfg.meleeDmg*dmgM*0.5, sz:8, life:0.9, color:'#ff6020', glow:'#ff9040', isPlayerProj:false});
+          }
+          ScreenFX.flash('#400a00', 0.35, 0.5);
+          Particles.sparks(e.x, e.y, 20);
+        }
+        break;
+
+      case 'ashen_charge':
+        // Phase 2 only: dash at player leaving ember trail
+        e.specialMoveCD = 5.5;
+        {
+          const dx5=p.x-e.x, dy5=p.y-e.y, l5=Math.sqrt(dx5*dx5+dy5*dy5)||1;
           e.chargeActive=true; e.chargeDx=dx5/l5; e.chargeDy=dy5/l5;
-          e.chargeTimer=0.35; e.chargeDmg=cfg.meleeDmg*dmgM*1.8;
-          GS.slamIndicators.push({x:p.x,y:p.y,r:0,maxR:80,timer:0.28,max:0.28});
-          e.blazeCD=0; // reset so fire trail starts immediately
-          Particles.sparks(e.x,e.y,18); ScreenFX.flash('#300808',0.2,0.25); }
+          e.chargeTimer=0.4; e.chargeDmg=cfg.meleeDmg*dmgM*2.0;
+          e.blazeCD=0;
+          GS.slamIndicators.push({x:p.x,y:p.y,r:0,maxR:90,timer:0.32,max:0.32});
+          Particles.sparks(e.x,e.y,22);
+          ScreenFX.flash('#300808',0.25,0.3);
+        }
+        break;
+
+      case 'coil_crush':
+        // AOE around serpent — coil constrict
+        e.specialMoveCD = 3.8;
+        {
+          const cR = cfg.attackRange * 1.4;
+          GS.slamIndicators.push({x:e.x,y:e.y,r:0,maxR:cR,timer:0.45,max:0.45});
+          if (dist < cR && !GS.player.isInvincible) {
+            Player.takeDamage(cfg.meleeDmg * dmgM * 1.4);
+            GS.player.rootTimer = Math.max(GS.player.rootTimer, 0.8);
+            Particles.sparks(p.x, p.y, 14);
+          }
+        }
+        break;
+
+      case 'venom_spit':
+        // Tracking ranged projectile
+        e.specialMoveCD = 2.8;
+        {
+          const dx6=p.x-e.x, dy6=p.y-e.y, l6=Math.sqrt(dx6*dx6+dy6*dy6)||1;
+          GS.projectiles.push({x:e.x,y:e.y,
+            vx:(dx6/l6)*165, vy:(dy6/l6)*165,
+            dmg:cfg.meleeDmg*dmgM*1.1, sz:10, life:4.0,
+            color:'#60c020', glow:'#90e040', isPlayerProj:false});
+          Particles.sparks(e.x, e.y, 8);
+        }
+        break;
+
+      case 'sand_burial':
+        // Phase 2: submerge then erupt under player
+        e.specialMoveCD = 7.5;
+        e.submerged = true;
+        e.submergeTimer = 1.4;
+        Particles.death(e.x, e.y, '#c8a020', 18);
+        UI.msg('The Serpent burrows!', 'rune', 1.2);
+        ScreenFX.flash('#201408', 0.2, 0.4);
         break;
 
       case 'smoke_step':
@@ -6261,26 +6539,7 @@ const Enemies = {
         }
         break;
 
-      case 'crown_beam': {
-        // Boss phase 2: aimed beam after telegraph
-        e.specialMoveCD=5.5;
-        const dx6=p.x-e.x,dy6=p.y-e.y,l6=Math.sqrt(dx6*dx6+dy6*dy6)||1;
-        GS.slamIndicators.push({x:p.x,y:p.y,r:0,maxR:50,timer:0.85,max:0.85,isBeam:true,
-          bx:e.x,by:e.y,tx:dx6/l6,ty:dy6/l6});
-        setTimeout(()=>{
-          if(!GS.player.isDead&&!GS.player.isInvincible){
-            const d=Math.hypot(GS.player.x-e.x,GS.player.y-e.y);
-            if(d<260){ // beam range
-              Player.takeDamage(cfg.meleeDmg*dmgM*2.4);
-              ScreenFX.flash('#601010',0.4,0.5);
-              ScreenFX.shake(10,0.35);
-              Particles.sparks(GS.player.x,GS.player.y,20);
-            }
-          }
-        },900);
-        ScreenFX.flash('#300808',0.25,0.4);
-        UI.msg('Crown Beam!','boss',1.0);
-        break;}
+      // crown_beam removed — replaced by ember_burst/ashen_charge/greatsword_sweep
     }
 
     if(e.isBoss||e.isMiniBoss||e.isDesertBoss||e.isEndBoss) Particles.sparks(e.x,e.y,12);
@@ -7114,103 +7373,149 @@ const Enemies = {
   _drawBoss(e,sx,sy){
     const r=e.size, p2=e.phase===2;
     const ba=e.isDead?Math.max(0,e.deathTimer/1.5):1;
+    const ember = p2?'#ff6020':'#c04010';
+    const emberDim = p2?'#801808':'#501008';
 
-    // Dark aura — ember glow in phase 2, cold in phase 1
-    ctx.globalAlpha=ba*0.12; ctx.fillStyle=p2?'#800808':'#302010';
+    // Dark aura — ember glow in phase 2
+    ctx.globalAlpha=ba*0.14; ctx.fillStyle=p2?'#600808':'#200800';
     ctx.fillRect(sx-r*2,sy-r*2,r*4,r*4);
     ctx.globalAlpha=ba;
 
-    // Legs — massive dark iron
-    ctx.fillStyle=p2?'#180806':'#181410';
-    ctx.fillRect(sx-22,sy+12,14,22); ctx.fillRect(sx+8,sy+12,14,22);
-    ctx.fillStyle='#000'; // outline
-    ctx.fillRect(sx-23,sy+12,1,22); ctx.fillRect(sx+22,sy+12,1,22);
-    ctx.fillRect(sx-22,sy+34,14,1); ctx.fillRect(sx+8,sy+34,14,1);
-    // Greave trim
-    ctx.fillStyle=p2?'#400808':'#2a2010';
-    ctx.fillRect(sx-22,sy+12,14,3); ctx.fillRect(sx+8,sy+12,14,3);
-
-    // Main torso (wide) — dark iron plate
-    ctx.fillStyle=p2?'#1a0806':'#141210';
-    ctx.fillRect(sx-22,sy-18,44,32);
-    ctx.fillStyle='#000'; // outline
-    ctx.fillRect(sx-23,sy-18,1,32); ctx.fillRect(sx+22,sy-18,1,32);
-    ctx.fillRect(sx-22,sy-19,44,1); ctx.fillRect(sx-22,sy+14,44,1);
-    // Tarnished gold chest trim
-    ctx.fillStyle=p2?'#601008':'#3a2808';
-    ctx.fillRect(sx-22,sy-18,44,3); ctx.fillRect(sx-22,sy+12,44,3);
-    // Gold rivets
-    ctx.fillStyle=p2?'#803010':'#504010';
-    for(let i=0;i<5;i++) ctx.fillRect(sx-18+i*9,sy-16,3,3);
-
-    // Shoulder plates — enormous
-    ctx.fillStyle=p2?'#140604':'#0e0c0a';
-    ctx.fillRect(sx-34,sy-16,14,16); ctx.fillRect(sx+20,sy-16,14,16);
+    // Legs — massive dark iron greaves
+    ctx.fillStyle=p2?'#1c0c06':'#141210';
+    ctx.fillRect(sx-24,sy+14,15,24); ctx.fillRect(sx+9,sy+14,15,24);
     ctx.fillStyle='#000';
-    ctx.fillRect(sx-35,sy-16,1,16); ctx.fillRect(sx+34,sy-16,1,16);
-    ctx.fillRect(sx-34,sy-17,14,1); ctx.fillRect(sx+20,sy-17,14,1);
-    // Pauldron spikes
-    ctx.fillStyle=p2?'#500808':'#1e1408';
-    ctx.fillRect(sx-28,sy-20,4,6); ctx.fillRect(sx-22,sy-22,4,8);
-    ctx.fillRect(sx+24,sy-22,4,8); ctx.fillRect(sx+30,sy-20,4,6);
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-28,sy-21,4,1); ctx.fillRect(sx-22,sy-23,4,1);
-    ctx.fillRect(sx+24,sy-23,4,1); ctx.fillRect(sx+30,sy-21,4,1);
+    ctx.fillRect(sx-25,sy+14,1,24); ctx.fillRect(sx+24,sy+14,1,24);
+    ctx.fillRect(sx-24,sy+38,15,1); ctx.fillRect(sx+9,sy+38,15,1);
+    // Greave trim — ember-orange
+    ctx.fillStyle=p2?'#6a1a00':'#2e1a08';
+    ctx.fillRect(sx-24,sy+14,15,3); ctx.fillRect(sx+9,sy+14,15,3);
+    // Boot spurs
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(sx-28,sy+34,6,5); ctx.fillRect(sx+22,sy+34,6,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-28,sy+39,6,1); ctx.fillRect(sx+22,sy+39,6,1);
 
-    // Head — king's dark helm
+    // Torso — wide dark iron plate, ember-edged
     ctx.fillStyle=p2?'#180604':'#100e0c';
-    ctx.fillRect(sx-16,sy-38,32,22);
-    ctx.fillStyle='#000'; // helm outline
-    ctx.fillRect(sx-17,sy-38,1,22); ctx.fillRect(sx+16,sy-38,1,22);
-    ctx.fillRect(sx-16,sy-39,32,1); ctx.fillRect(sx-16,sy-16,32,1);
-
-    // Crown — tarnished gold (phase 2: blood-rusted)
-    ctx.fillStyle=p2?'#601010':'#4a3808';
-    ctx.fillRect(sx-14,sy-44,28,8);
+    ctx.fillRect(sx-24,sy-20,48,36);
     ctx.fillStyle='#000';
-    ctx.fillRect(sx-15,sy-44,1,8); ctx.fillRect(sx+14,sy-44,1,8);
-    ctx.fillRect(sx-14,sy-45,28,1);
-    // Crown teeth
-    ctx.fillStyle=p2?'#800808':'#6a5010';
-    for(let i=0;i<5;i++){
-      ctx.fillRect(sx-12+i*6,sy-48,4,6);
-      ctx.fillStyle='#000'; ctx.fillRect(sx-12+i*6,sy-49,4,1); ctx.fillStyle=p2?'#800808':'#6a5010';
-    }
-    // Crown gems
-    ctx.fillStyle=p2?'#c01010':'#a07818';
-    for(let i=0;i<3;i++) ctx.fillRect(sx-6+i*6,sy-46,3,4);
-
-    // Eyes — massive glowing sockets
-    const ec=p2?'#a00808':'#804808';
-    ctx.fillStyle='#050404'; // socket dark
-    ctx.fillRect(sx-12,sy-32,10,7); ctx.fillRect(sx+2,sy-32,10,7);
-    ctx.fillStyle=ec; // eye glow
-    ctx.fillRect(sx-11,sy-31,8,5); ctx.fillRect(sx+3,sy-31,8,5);
-    ctx.fillStyle=p2?'#e01010':'#c07010';
-    ctx.fillRect(sx-10,sy-30,6,3); ctx.fillRect(sx+4,sy-30,6,3);
-    // Glow bleed
-    ctx.globalAlpha=ba*0.30; ctx.fillStyle=ec;
-    ctx.fillRect(sx-13,sy-33,12,9); ctx.fillRect(sx+1,sy-33,12,9);
+    ctx.fillRect(sx-25,sy-20,1,36); ctx.fillRect(sx+24,sy-20,1,36);
+    ctx.fillRect(sx-24,sy-21,48,1); ctx.fillRect(sx-24,sy+16,48,1);
+    // Ember trim on chest plate
+    ctx.fillStyle=p2?'#6a1000':'#2c1800';
+    ctx.fillRect(sx-24,sy-20,48,3); ctx.fillRect(sx-24,sy+14,48,3);
+    // Ember vein cracks running vertically down the chest
+    ctx.fillStyle=ember; ctx.globalAlpha=ba*0.70;
+    ctx.fillRect(sx-2,sy-18,2,30); // left crack
+    ctx.fillRect(sx+4,sy-14,2,22); // right crack
+    ctx.fillRect(sx-6,sy-6,2,14);  // side crack
     ctx.globalAlpha=ba;
 
-    // Greatsword — massive corroded iron
-    const sw=p2?'#3a0808':'#1c1a18';
-    ctx.fillStyle='#000'; // sword outline first
-    ctx.fillRect(sx+r+3,sy-r-27,9,r*2+38);
-    ctx.fillStyle=sw; ctx.fillRect(sx+r+4,sy-r-26,7,r*2+36);
-    ctx.fillStyle=p2?'#601010':'#2a2826'; // blade face
-    ctx.fillRect(sx+r+5,sy-r-26,3,r*2+36);
-    // Crossguard
-    ctx.fillStyle='#000'; ctx.fillRect(sx+r-1,sy-r-4,20,7);
-    ctx.fillStyle=p2?'#500808':'#2a2010';
-    ctx.fillRect(sx+r,sy-r-3,18,5);
-    ctx.fillStyle=p2?'#701010':'#3a2c10';
-    ctx.fillRect(sx+r,sy-r-3,18,1); // trim
+    // ASYMMETRIC PAULDRONS — right shoulder much larger (dominant sword arm)
+    // Left pauldron — smaller
+    ctx.fillStyle='#0c0a08'; ctx.fillRect(sx-36,sy-18,14,16);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-37,sy-18,1,16); ctx.fillRect(sx-22,sy-18,1,16);
+    ctx.fillRect(sx-36,sy-19,14,1);
+    // Left spike — short
+    ctx.fillStyle=p2?'#4a0800':'#201008';
+    ctx.fillRect(sx-32,sy-22,4,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-32,sy-23,4,1);
+    // Right pauldron — MASSIVE, dominates that shoulder
+    ctx.fillStyle='#0e0a06'; ctx.fillRect(sx+22,sy-22,18,22);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+21,sy-22,1,22); ctx.fillRect(sx+40,sy-22,1,22);
+    ctx.fillRect(sx+22,sy-23,18,1); ctx.fillRect(sx+22,sy+0,18,1);
+    // Right pauldron layered plates
+    ctx.fillStyle='#0c0806'; ctx.fillRect(sx+24,sy-26,14,8);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+23,sy-26,1,8); ctx.fillRect(sx+38,sy-26,1,8);
+    ctx.fillRect(sx+24,sy-27,14,1);
+    // Right pauldron spike — tall, imposing
+    ctx.fillStyle=p2?'#600c00':'#301408';
+    ctx.fillRect(sx+28,sy-32,6,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+28,sy-33,6,1);
+    // Ember glow along right pauldron edge
+    ctx.fillStyle=ember; ctx.globalAlpha=ba*0.45;
+    ctx.fillRect(sx+22,sy-22,2,20); ctx.fillRect(sx+38,sy-22,2,16);
+    ctx.globalAlpha=ba;
+
+    // HEAD — full enclosed helm, imposing
+    ctx.fillStyle=p2?'#160806':'#0e0c0a';
+    ctx.fillRect(sx-18,sy-44,36,26);
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-19,sy-44,1,26); ctx.fillRect(sx+18,sy-44,1,26);
+    ctx.fillRect(sx-18,sy-45,36,1); ctx.fillRect(sx-18,sy-18,36,1);
+    // Helm back-plate slightly wider
+    ctx.fillStyle='#0a0806'; ctx.fillRect(sx-20,sy-42,2,22); ctx.fillRect(sx+18,sy-42,2,22);
+    // Full visor — solid dark plate covering the full face
+    ctx.fillStyle='#0c0a0e'; ctx.fillRect(sx-14,sy-38,28,18);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-15,sy-38,1,18); ctx.fillRect(sx+14,sy-38,1,18);
+    ctx.fillRect(sx-14,sy-39,28,1); ctx.fillRect(sx-14,sy-20,28,1);
+    // Visor breathing slits — thin horizontal lines
+    ctx.fillStyle='#060408';
+    for(let i=0;i<4;i++) ctx.fillRect(sx-12,sy-34+i*4,24,1);
+    // Sunken EMBER EYES glowing through the visor slits
+    ctx.fillStyle=p2?'#ff6020':'#d03808';
+    ctx.globalAlpha=ba*0.9;
+    ctx.fillRect(sx-10,sy-34,8,4); ctx.fillRect(sx+2,sy-34,8,4);
+    ctx.globalAlpha=ba*0.4; ctx.fillStyle=ember;
+    ctx.fillRect(sx-12,sy-36,12,8); ctx.fillRect(sx+0,sy-36,12,8);
+    ctx.globalAlpha=ba;
+
+    // CRACKED CROWN — irregular broken points, very tall
+    ctx.fillStyle=p2?'#4a1000':'#2a1400';
+    ctx.fillRect(sx-16,sy-52,32,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-17,sy-52,1,10); ctx.fillRect(sx+16,sy-52,1,10);
+    ctx.fillRect(sx-16,sy-53,32,1);
+    // Crown teeth — irregular heights (cracked/broken)
+    const crownH=[14,8,16,6,18,7,14]; // asymmetric broken crown
+    const crownX=[-14,-8,-2,4,8,12,16];
+    ctx.fillStyle=p2?'#6a1400':'#3c1c08';
+    for(let i=0;i<crownH.length;i++){
+      ctx.fillRect(sx+crownX[i],sy-52-crownH[i],4,crownH[i]);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx+crownX[i],sy-53-crownH[i],4,1);
+      ctx.fillStyle=p2?'#6a1400':'#3c1c08';
+    }
+    // Crack lines in crown (black fissures)
+    ctx.fillStyle='#000';
+    ctx.fillRect(sx-6,sy-52,1,10); ctx.fillRect(sx+2,sy-52,1,6); ctx.fillRect(sx+10,sy-52,1,8);
+    // Crown ember glow — seeping through cracks
+    ctx.globalAlpha=ba*0.55; ctx.fillStyle=ember;
+    ctx.fillRect(sx-6,sy-58,2,6); ctx.fillRect(sx+2,sy-56,2,4); ctx.fillRect(sx+10,sy-58,2,6);
+    ctx.globalAlpha=ba;
+
+    // EMBER-VEIN GREATSWORD — massive, held in the dominant right hand
+    // Hilt / pommel
+    ctx.fillStyle='#0e0c0a'; ctx.fillRect(sx+r+2,sy-r-30,8,8); // pommel
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+1,sy-r-30,1,8); ctx.fillRect(sx+r+10,sy-r-30,1,8);
+    ctx.fillRect(sx+r+2,sy-r-31,8,1);
+    ctx.fillStyle=p2?'#500c00':'#2a1000'; ctx.fillRect(sx+r+3,sy-r-30,6,6); // pommel gem
+    // Grip
+    ctx.fillStyle='#0a0806'; ctx.fillRect(sx+r+3,sy-r-22,6,14);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+2,sy-r-22,1,14); ctx.fillRect(sx+r+9,sy-r-22,1,14);
+    // Crossguard — wide
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r-2,sy-r-9,20,6);
+    ctx.fillStyle=p2?'#401000':'#241208'; ctx.fillRect(sx+r-1,sy-r-8,18,4);
+    // Crossguard ember trim
+    ctx.fillStyle=emberDim; ctx.fillRect(sx+r-1,sy-r-8,18,1);
+    // Blade — wide dark iron
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+2,sy-r-35,12,r*2+50);
+    ctx.fillStyle=p2?'#1a0404':'#121010'; ctx.fillRect(sx+r+3,sy-r-34,10,r*2+48);
+    // Blade face
+    ctx.fillStyle=p2?'#2a0808':'#181614'; ctx.fillRect(sx+r+4,sy-r-34,6,r*2+48);
+    // EMBER VEINS running up the blade — glowing cracks
+    ctx.fillStyle=ember; ctx.globalAlpha=ba*0.80;
+    ctx.fillRect(sx+r+5,sy-r-30,2,r*2+40); // main vein
+    ctx.fillRect(sx+r+7,sy-r-20,2,r*2+25); // secondary vein
+    ctx.globalAlpha=ba*0.40; ctx.fillStyle=p2?'#ff8040':'#e04010';
+    ctx.fillRect(sx+r+3,sy-r-28,10,r*2+44); // glow bleed wide
+    ctx.globalAlpha=ba;
+    // Blade tip — pointed
+    ctx.fillStyle='#000'; ctx.fillRect(sx+r+4,sy+r+14,8,4);
+    ctx.fillStyle=p2?'#2a0808':'#181614'; ctx.fillRect(sx+r+5,sy+r+14,6,3);
 
     // Slam windup warning
     if(e.slamPending){
       const t=1-(e.slamTimer/(ENEMY_TYPES.BOSS.slamDelay||0.9));
-      ctx.globalAlpha=ba*t*0.50; ctx.fillStyle='#800808';
+      ctx.globalAlpha=ba*t*0.55; ctx.fillStyle=p2?'#800808':'#501008';
       ctx.fillRect(sx-r*2,sy-r*2,r*4,2); ctx.fillRect(sx-r*2,sy+r*2,r*4,2);
       ctx.fillRect(sx-r*2,sy-r*2,2,r*4); ctx.fillRect(sx+r*2,sy-r*2,2,r*4);
       ctx.globalAlpha=ba;
@@ -9348,17 +9653,13 @@ const UI = {
     ctx.fillStyle='#000'; ctx.fillRect(mg-4,sy0-28,bw+12,20);
     ctx.fillStyle='#100e0a'; ctx.fillRect(mg-3,sy0-27,bw+10,18);
     ctx.fillStyle='#2a2006'; ctx.fillRect(mg-3,sy0-27,bw+10,2);
-    const nextThresh=LEVEL_THRESHOLDS[p.level]||LEVEL_THRESHOLDS[LEVEL_THRESHOLDS.length-1];
-    const prevThresh=LEVEL_THRESHOLDS[p.level-1]||0;
-    const xpFrac=p.level>=LEVEL_THRESHOLDS.length?1:
-      Math.min(1,(p.totalRunes-prevThresh)/Math.max(1,nextThresh-prevThresh));
+    const nxtLvCost=BonfireMenu.levelCost(p.level);
+    const xpFrac=Math.min(1,p.runes/nxtLvCost);
     const xpBarW=Math.max(0,(bw+8)*xpFrac)|0;
     ctx.fillStyle='#181008'; ctx.fillRect(mg-3,sy0-14,bw+10,6);
     ctx.fillStyle='#7a5e10'; ctx.fillRect(mg-3,sy0-14,xpBarW,6);
-    R.text(`Lv.${p.level}/${LEVEL_THRESHOLDS.length}`,mg,sy0-16,'#6a5618',9);
-    const wpnUpg=p.equipment.weapon?(p.weaponUpgrades[p.equipment.weapon]||0):0;
-    if(p.equipment.weapon)
-      R.text(`+${wpnUpg}`,mg+bw-2,sy0-16,'#a08030',9,'right');
+    R.text(`Lv.${p.level}`,mg,sy0-16,'#6a5618',9);
+    R.text(`${p.runes}/${nxtLvCost}`,mg+bw+6,sy0-16,'#5a4810',9,'right');
 
     // Rune counter — dark iron box, tarnished gold rune symbol
     const rw=96;
@@ -9366,8 +9667,10 @@ const UI = {
     ctx.fillStyle='#000'; ctx.fillRect(rx-8,SCREEN_H-42,rw+14,34);
     ctx.fillStyle='#0c0a08'; ctx.fillRect(rx-5,SCREEN_H-40,rw+8,30);
     ctx.fillStyle='#2a2006'; ctx.fillRect(rx-5,SCREEN_H-40,rw+8,3); // gold trim
-    R.text('RUNES',rx,SCREEN_H-28,'#3a2e0e',8);
-    R.bold(`${p.runes}`,rx+rw-2,SCREEN_H-mg-2,'#8a6e18',13,'right');
+    R.text('RUNES',rx,SCREEN_H-32,'#3a2e0e',8);
+    R.bold(`${p.runes}`,rx+rw-2,SCREEN_H-mg-8,'#8a6e18',13,'right');
+    const nxtCost=BonfireMenu.levelCost(p.level);
+    R.text(`next: ${nxtCost}`,rx+rw-2,SCREEN_H-mg+2,'#5a4810',8,'right');
 
     // Flask charges — Terraria-style hotbar, dark iron with gold trim
     const fc=PLAYER_CONFIG.flaskCharges;
@@ -9763,13 +10066,19 @@ function loop(ts){
     Particles.update(dt);
     Bonfires.update(dt);
     if(GS.bonfireRestTimer<=0) GS.phase='playing';
+  } else if(GS.phase==='bonfire_menu'){
+    Particles.update(dt);
+    Bonfires.update(dt);
+    UI.update(dt);
+    BonfireMenu.handleInput();
   } else if(GS.phase==='paused'){
     if(Input.just('Escape')) GS.phase='playing';
   } else if(GS.phase==='equipment'){
     Equipment.handleInput();
     if(Input.just('Tab')||Input.just('Escape')) GS.phase='playing';
   } else if(GS.phase==='levelup'){
-    LevelUp.handleInput();
+    // Old auto-levelup — redirect to bonfire system
+    GS.phase='playing';
   } else if(GS.phase==='shop'){
     Shops.handleInput();
   } else if(GS.phase==='playing'){
@@ -9859,7 +10168,8 @@ function loop(ts){
     ScreenFX.drawFlash();
 
     if(GS.phase==='bonfire_rest') UI.drawBonfireRest();
-    if(GS.phase==='paused')       UI.drawPause();
+    if(GS.phase==='bonfire_menu'){ UI.draw(); BonfireMenu.draw(); }
+    else if(GS.phase==='paused')       UI.drawPause();
     else if(GS.phase==='equipment') Equipment.draw();
     else if(GS.phase==='levelup')   { UI.draw(); LevelUp.draw(); }
     else if(GS.phase==='shop')      { UI.draw(); Shops.drawUI(); }
