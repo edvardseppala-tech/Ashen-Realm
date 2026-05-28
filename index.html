@@ -4115,8 +4115,16 @@ const Player = {
       UI.msg(`Recovered ${p.bloodstainRunes} Runes`,'rune',2);
       Particles.rune(p.x,p.y);
       p.bloodstainX=null; p.bloodstainY=null; p.bloodstainRunes=0;
+      return;
     }
-    // TODO: NPC interaction, shop, lore items
+    // Item pickup — pick up the nearest item within 60px
+    let nearest=null, nearDist=60;
+    for(const item of GS.items){
+      if(item.collected) continue;
+      const d=Math.hypot(p.x-item.x,p.y-item.y);
+      if(d<nearDist){ nearDist=d; nearest=item; }
+    }
+    if(nearest) this._collectItem(nearest);
   },
 
   _flask(){
@@ -4205,23 +4213,22 @@ const Player = {
   },
 
   _checkItems(){
+    // Item pickup now handled via [E] in _interact — this is a no-op
+  },
+
+  _collectItem(item){
     const p=GS.player;
-    for(const item of GS.items){
-      if(item.collected) continue;
-      if(Math.hypot(p.x-item.x,p.y-item.y)<20){
-        item.collected=true;
-        if(item.isEquipment){
-          p.inventory.push(item.equipId);
-          UI.msg(`${RARITY_LABEL[EQUIPMENT_ITEMS[item.equipId]?.rarity||'common']}: ${item.name}`,'item',2);
-        } else if(item.effect==='flask'){ p.flaskCharges=Math.min(9,p.flaskCharges+item.value); UI.msg(`+1 ${item.name}`,'item',2); }
-        else if(item.effect==='runes'){ p.runes+=item.value; p.totalRunes+=item.value; UI.msg(`+${item.value} Runes`,'rune',2); }
-        else if(item.effect==='key'||item.effect==='summon'){
-          if(!p.consumables.includes(item.ikey)) p.consumables.push(item.ikey);
-          UI.msg(`Found: ${item.name}`,'item',3.5);
-        }
-        Particles.rune(p.x,p.y);
-      }
+    item.collected=true;
+    if(item.isEquipment){
+      p.inventory.push(item.equipId);
+      UI.msg(`${RARITY_LABEL[EQUIPMENT_ITEMS[item.equipId]?.rarity||'common']}: ${item.name}`,'item',2);
+    } else if(item.effect==='flask'){ p.flaskCharges=Math.min(9,p.flaskCharges+item.value); UI.msg(`+1 ${item.name}`,'item',2); }
+    else if(item.effect==='runes'){ p.runes+=item.value; p.totalRunes+=item.value; UI.msg(`+${item.value} Runes`,'rune',2); }
+    else if(item.effect==='key'||item.effect==='summon'){
+      if(!p.consumables.includes(item.ikey)) p.consumables.push(item.ikey);
+      UI.msg(`Found: ${item.name}`,'item',3.5);
     }
+    Particles.rune(p.x,p.y);
   },
 
   _abilityTier(){ return abilityTier(GS.player.level); },
@@ -5432,114 +5439,135 @@ const Enemies = {
 
   init(){
     this.spawnCfg=[
-      // ====== Crumbling Ruins (x:2-66, y:5-98) ======
-      {t:'GRUNT', x:16,y:15},{t:'GRUNT', x:28,y:12},{t:'GRUNT', x:42,y:18},
-      {t:'GRUNT', x:55,y:14},{t:'GRUNT', x:20,y:30},{t:'GRUNT', x:38,y:38},
-      {t:'GRUNT', x:58,y:34},{t:'GRUNT', x:48,y:22},{t:'GRUNT', x:25,y:48},
-      {t:'GRUNT', x:12,y:55},{t:'GRUNT', x:32,y:58},{t:'GRUNT', x:52,y:62},
-      {t:'GRUNT', x:18,y:70},{t:'GRUNT', x:44,y:75},{t:'GRUNT', x:60,y:80},
-      {t:'ARCHER',x:35,y:25},{t:'ARCHER',x:55,y:45},{t:'ARCHER',x:60,y:16},
-      {t:'ARCHER',x:22,y:40},{t:'ARCHER',x:48,y:60},{t:'ARCHER',x:58,y:70},
-      {t:'HOLLOW',x:14,y:20},{t:'HOLLOW',x:30,y:18},{t:'HOLLOW',x:46,y:28},
-      {t:'HOLLOW',x:56,y:50},{t:'HOLLOW',x:22,y:65},{t:'HOLLOW',x:40,y:85},
-      {t:'GRAVE_KNIGHT',x:25,y:35},{t:'GRAVE_KNIGHT',x:45,y:42},
-      {t:'GRAVE_KNIGHT',x:55,y:72},{t:'GRAVE_KNIGHT',x:30,y:82},
+      // ====== Crumbling Ruins (x:2-66, y:5-98) — sentinels at doors, archers on high ground ======
+      // Entry sentinels guarding doorways / passages
+      {t:'GRUNT', x:8,  y:18},   // west entry guard
+      {t:'GRUNT', x:30, y:10},   // north corridor sentinel
+      {t:'GRUNT', x:50, y:16},   // east passage guard
+      {t:'GRUNT', x:14, y:42},   // mid-west chokepoint
+      {t:'GRUNT', x:58, y:36},   // mid-east chokepoint
+      {t:'GRUNT', x:36, y:65},   // south hall guard
+      // Archers on elevated positions / corners
+      {t:'ARCHER', x:62, y:8},   // NE corner overlook
+      {t:'ARCHER', x:5,  y:52},  // west wall sniper
+      {t:'ARCHER', x:60, y:60},  // east balcony
+      {t:'ARCHER', x:28, y:88},  // south lookout
+      // Hollows patrolling inner corridors
+      {t:'HOLLOW', x:20, y:25},
+      {t:'HOLLOW', x:42, y:48},
+      {t:'HOLLOW', x:18, y:72},
+      {t:'HOLLOW', x:54, y:80},
+      // Grave Knights as deep-dungeon wardens
+      {t:'GRAVE_KNIGHT', x:36, y:58},
+      {t:'GRAVE_KNIGHT', x:22, y:82},
+      {t:'GRAVE_KNIGHT', x:52, y:90},
+      {t:'GRAVE_KNIGHT', x:10, y:94},
 
-      // ====== Darkroot Forest (x:62-173, y:62-139) — sparse, one per room ======
-      // R1 NW (abs x:64, y:64)
-      {t:'HOLLOW', x:68,y:66},
-      // R2 SW (abs x:64, y:106)
-      {t:'GRUNT',  x:66,y:108},
-      // R3 Center-W hub (abs x:84, y:86)
-      {t:'HOLLOW', x:86,y:88},
-      // R4 Center main (abs x:106, y:74)
-      {t:'GRUNT',  x:108,y:76},
-      // R5 NE Village area (abs x:132, y:67)
-      {t:'ARCHER', x:134,y:69},
-      // R6 SE exit (abs x:106, y:124)
-      {t:'HOLLOW', x:108,y:126},
-      // R7 East hub (abs x:136, y:98)
-      {t:'BEAST_KNIGHT',x:138,y:100},
-      // R8 SE dead-end (abs x:154, y:124)
-      {t:'ARCHER', x:154,y:126},
-      // Extra — corridor areas
-      {t:'HOLLOW', x:72,y:80},
-      {t:'GRUNT',  x:116,y:90},
+      // ====== Darkroot Forest (x:62-173, y:62-139) — VINE_LURKER ambush clusters ======
+      {t:'VINE_LURKER', x:70,  y:72},   // NW entry pair — lurk in corner
+      {t:'VINE_LURKER', x:74,  y:76},
+      {t:'VINE_LURKER', x:92,  y:82},   // mid-corridor ambush
+      {t:'VINE_LURKER', x:116, y:72},   // north passage flanker
+      {t:'VINE_LURKER', x:122, y:102},  // east hub flanker
+      {t:'VINE_LURKER', x:106, y:128},  // south path lurk
+      {t:'BEAST_KNIGHT', x:140, y:100}, // east hub guardian
+      {t:'HOLLOW', x:86, y:112},        // south wanderer
 
-      // ====== Castle Approach (x:80-175, y:136-197, exclude BOSS_ARENA x:106-151, y:166-197) ======
-      {t:'GRUNT', x:88,y:142},{t:'GRUNT', x:100,y:148},{t:'GRUNT', x:155,y:140},
-      {t:'GRUNT', x:165,y:148},{t:'GRUNT', x:88,y:158},{t:'GRUNT', x:170,y:158},
-      {t:'GRUNT', x:100,y:162},{t:'GRUNT', x:158,y:162},
-      {t:'ARCHER',x:92,y:145},{t:'ARCHER',x:160,y:145},{t:'ARCHER',x:168,y:155},
-      {t:'BEAST_KNIGHT',x:96,y:152},{t:'BEAST_KNIGHT',x:162,y:152},
-      {t:'HOLLOW',x:84,y:140},{t:'HOLLOW',x:170,y:140},{t:'HOLLOW',x:104,y:158},
-      {t:'HOLLOW',x:155,y:162},
+      // ====== Castle Approach (x:80-175, y:136-165) — dense GRUNT+GRAVE_KNIGHT formations ======
+      // West gate formation
+      {t:'GRUNT',        x:85,  y:143},
+      {t:'GRUNT',        x:92,  y:152},
+      {t:'GRAVE_KNIGHT', x:88,  y:160},
+      // Centre column
+      {t:'GRUNT',        x:102, y:145},
+      {t:'GRUNT',        x:108, y:160},
+      {t:'GRAVE_KNIGHT', x:104, y:155},
+      // East flank
+      {t:'GRUNT',        x:162, y:143},
+      {t:'GRUNT',        x:168, y:154},
+      {t:'GRAVE_KNIGHT', x:164, y:162},
+      // BEAST_KNIGHTs blocking the fog gate
+      {t:'BEAST_KNIGHT', x:118, y:148},
+      {t:'BEAST_KNIGHT', x:140, y:148},
+      // Archers on ramparts
+      {t:'ARCHER', x:82,  y:139},
+      {t:'ARCHER', x:172, y:140},
+      // Hollows scavenging near the walls
+      {t:'HOLLOW', x:96,  y:158},
+      {t:'HOLLOW', x:155, y:158},
 
-      // ====== Graveyard (x:85-132, y:140-183) ======
-      {t:'GRAVE_KNIGHT',x:90,y:146},{t:'GRAVE_KNIGHT',x:100,y:152},
-      {t:'GRAVE_KNIGHT',x:112,y:148},{t:'GRAVE_KNIGHT',x:92,y:162},
-      {t:'GRAVE_KNIGHT',x:105,y:168},{t:'GRAVE_KNIGHT',x:118,y:158},
-      {t:'ARCHER',x:95,y:155},{t:'ARCHER',x:115,y:165},
-      {t:'HOLLOW',x:98,y:148},{t:'HOLLOW',x:108,y:155},{t:'HOLLOW',x:120,y:162},
-      {t:'BEAST_KNIGHT',x:105,y:160},
+      // ====== Festering Swamp (x:170-273, y:32-78) — SWAMP_BEASTs near water edges ======
+      {t:'SWAMP_BEAST', x:176, y:38},  // entry shallows — flanking pair
+      {t:'SWAMP_BEAST', x:180, y:44},
+      {t:'SWAMP_BEAST', x:198, y:40},  // mid-swamp cluster
+      {t:'SWAMP_BEAST', x:204, y:48},
+      {t:'SWAMP_BEAST', x:228, y:56},  // far water edge
+      {t:'SWAMP_BEAST', x:244, y:50},
+      {t:'SWAMP_BEAST', x:218, y:70},  // south bank patrol
 
-      // ====== Festering Swamp (x:170-273, y:1-78) — NOT inside boss room (y<30) ======
-      {t:'SWAMP_BEAST',x:178,y:38},{t:'SWAMP_BEAST',x:192,y:45},{t:'SWAMP_BEAST',x:208,y:38},
-      {t:'SWAMP_BEAST',x:222,y:50},{t:'SWAMP_BEAST',x:238,y:42},{t:'SWAMP_BEAST',x:182,y:58},
-      {t:'SWAMP_BEAST',x:200,y:62},{t:'SWAMP_BEAST',x:220,y:68},{t:'SWAMP_BEAST',x:240,y:58},
+      // ====== Frosted Peaks (x:2-83, y:118-170) — SNOW_GRUNTs at tight chokepoints ======
+      {t:'SNOW_GRUNT', x:12,  y:126},  // pass entry sentinel
+      {t:'SNOW_GRUNT', x:28,  y:128},  // ridge chokepoint pair
+      {t:'SNOW_GRUNT', x:32,  y:124},
+      {t:'SNOW_GRUNT', x:52,  y:136},  // mid-path guard
+      {t:'SNOW_GRUNT', x:66,  y:144},  // east chokepoint
+      {t:'SNOW_GRUNT', x:42,  y:158},  // lower path patrol
+      {t:'SNOW_GRUNT', x:24,  y:168},  // pre-boss narrows
 
-      // ====== Frosted Peaks (x:2-83, y:118-197) — NOT inside boss room (y>174) ======
-      {t:'SNOW_GRUNT',x:10,y:125},{t:'SNOW_GRUNT',x:25,y:130},
-      {t:'SNOW_GRUNT',x:40,y:122},{t:'SNOW_GRUNT',x:58,y:128},
-      {t:'SNOW_GRUNT',x:70,y:132},{t:'SNOW_GRUNT',x:15,y:145},
-      {t:'SNOW_GRUNT',x:35,y:150},{t:'SNOW_GRUNT',x:55,y:155},
-      {t:'SNOW_GRUNT',x:70,y:148},{t:'SNOW_GRUNT',x:20,y:162},
+      // ====== Verdant Expanse (x:65-143, y:3-61) — bandit ambush + vine lurk ======
+      {t:'BANDIT',        x:72,  y:10},  // trail ambush pair
+      {t:'BANDIT',        x:78,  y:16},
+      {t:'BANDIT_ARCHER', x:88,  y:8},   // elevated lookout
+      {t:'BANDIT',        x:100, y:22},  // mid-path patrol
+      {t:'BANDIT_ARCHER', x:120, y:14},  // far scout
+      {t:'VINE_LURKER',   x:112, y:10},  // forest corner lurk pair
+      {t:'VINE_LURKER',   x:118, y:28},
+      {t:'FOREST_KNIGHT', x:134, y:22},  // heavy path guard
+      {t:'FOREST_KNIGHT', x:138, y:44},
+      {t:'BANDIT',        x:128, y:50},  // south patrol
 
-      // ====== Verdant Expanse (x:65-172, y:3-64) ======
-      {t:'BANDIT',x:70,y:8},{t:'BANDIT',x:80,y:6},{t:'BANDIT',x:90,y:10},
-      {t:'BANDIT',x:74,y:18},{t:'BANDIT',x:86,y:14},{t:'BANDIT',x:96,y:20},
-      {t:'VINE_LURKER',x:100,y:8},{t:'VINE_LURKER',x:112,y:12},{t:'VINE_LURKER',x:108,y:22},
-      {t:'VINE_LURKER',x:118,y:28},{t:'VINE_LURKER',x:100,y:35},{t:'VINE_LURKER',x:115,y:42},
-      {t:'BANDIT_ARCHER',x:72,y:30},{t:'BANDIT_ARCHER',x:84,y:38},{t:'BANDIT_ARCHER',x:96,y:45},
-      {t:'BANDIT_ARCHER',x:108,y:50},{t:'BANDIT_ARCHER',x:120,y:55},
-      {t:'FOREST_KNIGHT',x:130,y:10},{t:'FOREST_KNIGHT',x:138,y:20},
-      {t:'FOREST_KNIGHT',x:132,y:35},{t:'FOREST_KNIGHT',x:140,y:48},
-
-      // ====== Scorched Sands (x:170-273, y:76-151) — NOT inside boss room (y>152) ======
-      {t:'SCORPION',x:178,y:82},{t:'SCORPION',x:192,y:88},{t:'SCORPION',x:208,y:84},
-      {t:'SCORPION',x:224,y:92},{t:'SCORPION',x:240,y:86},{t:'SCORPION',x:256,y:94},
-      {t:'SCORPION',x:268,y:108},
-      {t:'MUMMY',x:186,y:100},{t:'MUMMY',x:212,y:112},{t:'MUMMY',x:250,y:120},
-      {t:'SAND_WARRIOR',x:198,y:90},{t:'SAND_WARRIOR',x:228,y:102},{t:'SAND_WARRIOR',x:260,y:98},
-      {t:'SAND_ARCHER',x:182,y:96},{t:'SAND_ARCHER',x:244,y:116},
+      // ====== Scorched Sands (x:170-273, y:76-148) — MUMMY/SAND_WARRIOR pairs at ruin entrances ======
+      {t:'MUMMY',        x:178, y:86},   // entry ruin pair
+      {t:'SAND_WARRIOR', x:184, y:90},
+      {t:'MUMMY',        x:208, y:96},   // mid-desert ruin pair
+      {t:'SAND_WARRIOR', x:214, y:100},
+      {t:'SCORPION',     x:225, y:92},   // patrol
+      {t:'MUMMY',        x:250, y:108},  // far ruin pair
+      {t:'SAND_WARRIOR', x:255, y:112},
+      {t:'SCORPION',     x:242, y:124},
+      {t:'SAND_ARCHER',  x:268, y:118},
 
       // ====== Scorched Wastes (Volcanic) ======
-      {t:'ASH_SPAWN',x:15,y:210},{t:'ASH_SPAWN',x:30,y:215},{t:'ASH_SPAWN',x:50,y:208},
-      {t:'ASH_SPAWN',x:70,y:212},{t:'ASH_SPAWN',x:90,y:215},{t:'ASH_SPAWN',x:110,y:210},
-      {t:'ASH_SPAWN',x:20,y:225},{t:'ASH_SPAWN',x:45,y:222},{t:'ASH_SPAWN',x:80,y:228},
-      {t:'LAVA_BRUTE',x:35,y:210},{t:'LAVA_BRUTE',x:65,y:218},{t:'LAVA_BRUTE',x:100,y:225},
-      {t:'LAVA_BRUTE',x:120,y:215},{t:'LAVA_BRUTE',x:25,y:228},
+      {t:'ASH_SPAWN',  x:15,  y:210},{t:'ASH_SPAWN',  x:32,  y:214},
+      {t:'ASH_SPAWN',  x:55,  y:208},{t:'ASH_SPAWN',  x:78,  y:212},
+      {t:'ASH_SPAWN',  x:100, y:216},{t:'ASH_SPAWN',  x:22,  y:226},
+      {t:'ASH_SPAWN',  x:60,  y:222},
+      {t:'LAVA_BRUTE', x:40,  y:212},{t:'LAVA_BRUTE', x:80,  y:220},
+      {t:'LAVA_BRUTE', x:115, y:214},
 
       // ====== Abyssal Depths ======
-      {t:'DEPTH_WRAITH',x:150,y:210},{t:'DEPTH_WRAITH',x:165,y:215},{t:'DEPTH_WRAITH',x:185,y:208},
-      {t:'DEPTH_WRAITH',x:205,y:212},{t:'DEPTH_WRAITH',x:225,y:215},{t:'DEPTH_WRAITH',x:245,y:210},
-      {t:'DEPTH_WRAITH',x:155,y:225},{t:'DEPTH_WRAITH',x:195,y:222},{t:'DEPTH_WRAITH',x:240,y:228},
-      {t:'ABYSSAL_STALKER',x:170,y:210},{t:'ABYSSAL_STALKER',x:200,y:218},{t:'ABYSSAL_STALKER',x:230,y:225},
-      {t:'ABYSSAL_STALKER',x:260,y:215},{t:'ABYSSAL_STALKER',x:145,y:228},
+      {t:'DEPTH_WRAITH',    x:155, y:210},{t:'DEPTH_WRAITH',    x:175, y:214},
+      {t:'DEPTH_WRAITH',    x:200, y:208},{t:'DEPTH_WRAITH',    x:228, y:212},
+      {t:'DEPTH_WRAITH',    x:252, y:216},{t:'DEPTH_WRAITH',    x:162, y:226},
+      {t:'DEPTH_WRAITH',    x:238, y:222},
+      {t:'ABYSSAL_STALKER', x:185, y:210},{t:'ABYSSAL_STALKER', x:215, y:218},
+      {t:'ABYSSAL_STALKER', x:245, y:224},
 
       // ====== Crystal Caverns ======
-      {t:'CRYSTAL_DRONE',x:15,y:248},{t:'CRYSTAL_DRONE',x:30,y:252},{t:'CRYSTAL_DRONE',x:50,y:246},
-      {t:'CRYSTAL_DRONE',x:70,y:250},{t:'CRYSTAL_DRONE',x:90,y:254},{t:'CRYSTAL_DRONE',x:110,y:248},
-      {t:'CRYSTAL_DRONE',x:20,y:262},{t:'CRYSTAL_DRONE',x:60,y:260},{t:'CRYSTAL_DRONE',x:100,y:265},
-      {t:'PRISM_GOLEM',x:35,y:248},{t:'PRISM_GOLEM',x:65,y:256},{t:'PRISM_GOLEM',x:95,y:262},
-      {t:'PRISM_GOLEM',x:120,y:250},{t:'PRISM_GOLEM',x:25,y:268},
+      {t:'CRYSTAL_DRONE', x:18,  y:248},{t:'CRYSTAL_DRONE', x:38,  y:252},
+      {t:'CRYSTAL_DRONE', x:62,  y:246},{t:'CRYSTAL_DRONE', x:88,  y:250},
+      {t:'CRYSTAL_DRONE', x:108, y:254},{t:'CRYSTAL_DRONE', x:28,  y:264},
+      {t:'CRYSTAL_DRONE', x:75,  y:262},
+      {t:'PRISM_GOLEM',   x:48,  y:250},{t:'PRISM_GOLEM',   x:100, y:258},
+      {t:'PRISM_GOLEM',   x:22,  y:270},
 
       // ====== Corrupted Citadel ======
-      {t:'CORRUPTED_HOLLOW',x:150,y:248},{t:'CORRUPTED_HOLLOW',x:165,y:252},{t:'CORRUPTED_HOLLOW',x:185,y:246},
-      {t:'CORRUPTED_HOLLOW',x:205,y:250},{t:'CORRUPTED_HOLLOW',x:225,y:254},{t:'CORRUPTED_HOLLOW',x:245,y:248},
-      {t:'CORRUPTED_HOLLOW',x:155,y:262},{t:'CORRUPTED_HOLLOW',x:200,y:260},{t:'CORRUPTED_HOLLOW',x:250,y:265},
-      {t:'SHADOW_KNIGHT',x:170,y:248},{t:'SHADOW_KNIGHT',x:200,y:256},{t:'SHADOW_KNIGHT',x:235,y:262},
-      {t:'SHADOW_KNIGHT',x:260,y:250},{t:'SHADOW_KNIGHT',x:145,y:268},
+      {t:'CORRUPTED_HOLLOW', x:155, y:248},{t:'CORRUPTED_HOLLOW', x:178, y:252},
+      {t:'CORRUPTED_HOLLOW', x:205, y:246},{t:'CORRUPTED_HOLLOW', x:232, y:250},
+      {t:'CORRUPTED_HOLLOW', x:255, y:254},{t:'CORRUPTED_HOLLOW', x:162, y:264},
+      {t:'CORRUPTED_HOLLOW', x:245, y:260},
+      {t:'SHADOW_KNIGHT',    x:188, y:250},{t:'SHADOW_KNIGHT',    x:218, y:258},
+      {t:'SHADOW_KNIGHT',    x:148, y:268},
     ];
     this.respawnAll();
   },
@@ -6402,24 +6430,197 @@ const Enemies = {
       ctx.globalAlpha=1;
     }
 
-    // Items — pixel diamond shape, no arcs
+    // Items — type-specific silhouettes, bob animation, glow halo, proximity [E] label
+    const _px=GS.player.x, _py=GS.player.y;
     for(const item of GS.items){
       if(item.collected) continue;
       const sx=(item.x-cx)|0, sy=(item.y-cy)|0;
-      if(sx<-25||sx>SCREEN_W+25||sy<-25||sy>SCREEN_H+25) continue;
-      item.pt=(item.pt||0)+0.05;
-      const bob=Math.sin(item.pt)*3|0;
-      // Glow (solid rect, no gradient)
-      ctx.globalAlpha=0.25; ctx.fillStyle=item.glow;
-      ctx.fillRect(sx-10,sy-10+bob,20,20);
+      if(sx<-40||sx>SCREEN_W+40||sy<-40||sy>SCREEN_H+40) continue;
+      const bob=(Math.sin(Date.now()/400)*2)|0;
+      const iy=sy+bob;
+      const c=item.color||'#c0c0d0', gl=item.glow||'#888898';
+      const slot=item.slot||'';
+      const eff=item.effect||'';
+      // Glow halo — rarity-matched soft rectangle behind silhouette
+      const glowR=item.rarity==='rare'?14:item.rarity==='uncommon'?12:10;
+      ctx.globalAlpha=0.28; ctx.fillStyle=gl;
+      ctx.fillRect(sx-glowR,iy-glowR,glowR*2,glowR*2);
       ctx.globalAlpha=1;
-      // Diamond body (3 stacked rects)
-      ctx.fillStyle=item.color;
-      ctx.fillRect(sx-2,sy-8+bob,4,14);
-      ctx.fillRect(sx-5,sy-4+bob,10,6);
-      ctx.fillRect(sx-7,sy-1+bob,14,2);
-      // Highlight
-      ctx.fillStyle='#ffffff'; ctx.fillRect(sx-1,sy-6+bob,2,3);
+
+      if(slot==='weapon'){
+        // Tiny sword lying flat — blade horizontal, hilt to left
+        ctx.fillStyle=c;
+        ctx.fillRect(sx-10,iy-1,16,3);   // blade
+        ctx.fillRect(sx-12,iy-2,3,5);    // hilt
+        ctx.fillStyle='#000';
+        ctx.fillRect(sx-12,iy-3,3,1); ctx.fillRect(sx-12,iy+3,3,1);
+        ctx.fillRect(sx+6,iy-1,1,3);     // blade tip outline
+        ctx.fillRect(sx-13,iy-2,1,5);    // hilt left
+        // Crossguard
+        ctx.fillStyle=c; ctx.fillRect(sx-8,iy-3,2,7);
+        ctx.fillStyle='#000'; ctx.fillRect(sx-9,iy-3,1,7); ctx.fillRect(sx-6,iy-3,1,7);
+        // Blade highlight
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.5;
+        ctx.fillRect(sx-8,iy-1,8,1);
+        ctx.globalAlpha=1;
+
+      } else if(slot==='armor'){
+        // Small chest-piece — rectangular torso with shoulder tabs
+        ctx.fillStyle=c;
+        ctx.fillRect(sx-6,iy-4,12,9);   // torso plate
+        ctx.fillStyle='#000';
+        ctx.fillRect(sx-7,iy-4,1,9); ctx.fillRect(sx+6,iy-4,1,9);
+        ctx.fillRect(sx-6,iy-5,12,1); ctx.fillRect(sx-6,iy+5,12,1);
+        // Shoulder tabs
+        ctx.fillStyle=c; ctx.fillRect(sx-8,iy-6,4,4); ctx.fillRect(sx+4,iy-6,4,4);
+        ctx.fillStyle='#000'; ctx.fillRect(sx-9,iy-6,1,4); ctx.fillRect(sx+8,iy-6,1,4);
+        ctx.fillRect(sx-8,iy-7,4,1); ctx.fillRect(sx+4,iy-7,4,1);
+        // Centre seam
+        ctx.fillStyle='#000'; ctx.fillRect(sx-1,iy-4,2,9);
+        // Shine on plate
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.4;
+        ctx.fillRect(sx-5,iy-3,3,4);
+        ctx.globalAlpha=1;
+
+      } else if(slot==='ring'){
+        // Tiny oval ring with gem dot on top
+        ctx.fillStyle=c;
+        ctx.fillRect(sx-4,iy-5,8,2);   // top arc
+        ctx.fillRect(sx-5,iy-3,10,6);  // band body
+        ctx.fillRect(sx-4,iy+3,8,2);   // bottom arc
+        ctx.fillStyle='#000'; // ring outline
+        ctx.fillRect(sx-5,iy-5,1,10); ctx.fillRect(sx+4,iy-5,1,10);
+        ctx.fillRect(sx-4,iy-6,8,1);   ctx.fillRect(sx-4,iy+5,8,1);
+        // Hollow centre
+        ctx.fillStyle='#060608'; ctx.fillRect(sx-3,iy-2,6,4);
+        // Gem setting on top
+        ctx.fillStyle=item.rarity==='rare'?'#FFD040':item.rarity==='uncommon'?'#6090FF':'#c0c0d0';
+        ctx.fillRect(sx-2,iy-8,4,4);   // gem stone
+        ctx.fillStyle='#000'; ctx.fillRect(sx-3,iy-8,1,4); ctx.fillRect(sx+2,iy-8,1,4);
+        ctx.fillRect(sx-2,iy-9,4,1); ctx.fillRect(sx-2,iy-4,4,1);
+        // Gem gleam
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.6;
+        ctx.fillRect(sx-2,iy-8,2,2);
+        ctx.globalAlpha=1;
+
+      } else if(slot==='talisman'){
+        // Small pendant teardrop with a dot — hangs from chain
+        // Chain
+        ctx.fillStyle='#888888'; ctx.fillRect(sx-1,iy-10,2,5);
+        ctx.fillStyle='#000'; ctx.fillRect(sx-2,iy-10,1,5); ctx.fillRect(sx+1,iy-10,1,5);
+        // Teardrop body
+        ctx.fillStyle=c;
+        ctx.fillRect(sx-3,iy-5,6,5);  // teardrop rounded body
+        ctx.fillRect(sx-2,iy-7,4,3);  // narrowed top
+        ctx.fillRect(sx-1,iy-8,2,2);  // tip
+        ctx.fillRect(sx-2,iy+0,4,4);  // wider bottom
+        ctx.fillRect(sx-1,iy+4,2,2);  // tapered bottom point
+        ctx.fillStyle='#000';
+        ctx.fillRect(sx-4,iy-5,1,9); ctx.fillRect(sx+3,iy-5,1,9);
+        ctx.fillRect(sx-3,iy-7,6,1); ctx.fillRect(sx-1,iy+6,2,1);
+        // Dot symbol in centre
+        ctx.fillStyle=item.rarity==='rare'?'#FFD040':'#ffffff';
+        ctx.fillRect(sx-1,iy-2,2,2);
+        // Pendant gleam
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.4;
+        ctx.fillRect(sx-2,iy-4,2,3);
+        ctx.globalAlpha=1;
+
+      } else if(eff==='flask'){
+        // Golden teardrop — glowing flask item
+        ctx.globalAlpha=0.40; ctx.fillStyle='#FFD040';
+        ctx.fillRect(sx-7,iy-8,14,14);
+        ctx.globalAlpha=1;
+        ctx.fillStyle='#d4a020';
+        ctx.fillRect(sx-3,iy-6,6,4);   // neck
+        ctx.fillRect(sx-5,iy-2,10,8);  // body
+        ctx.fillRect(sx-4,iy+6,8,3);   // base
+        ctx.fillRect(sx-3,iy+9,6,2);
+        ctx.fillStyle='#000';
+        ctx.fillRect(sx-6,iy-2,1,11); ctx.fillRect(sx+5,iy-2,1,11);
+        ctx.fillRect(sx-5,iy+9,10,1);
+        ctx.fillRect(sx-3,iy-7,6,1);
+        // Stopper
+        ctx.fillStyle='#a07010'; ctx.fillRect(sx-2,iy-9,4,4);
+        ctx.fillStyle='#000'; ctx.fillRect(sx-3,iy-9,1,4); ctx.fillRect(sx+2,iy-9,1,4);
+        // Golden glow fill
+        ctx.fillStyle='#ffe060'; ctx.globalAlpha=0.8;
+        ctx.fillRect(sx-4,iy-1,8,7);
+        ctx.globalAlpha=1;
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.5;
+        ctx.fillRect(sx-4,iy-1,3,5);
+        ctx.globalAlpha=1;
+
+      } else if(eff==='runes'){
+        // Rune arc — angular rune symbol, glowing blue
+        ctx.globalAlpha=0.35; ctx.fillStyle='#4080ff';
+        ctx.fillRect(sx-9,iy-9,18,18);
+        ctx.globalAlpha=1;
+        ctx.fillStyle=c; // angular rune lines
+        // Left upright
+        ctx.fillRect(sx-6,iy-6,2,12);
+        // Right upright
+        ctx.fillRect(sx+4,iy-6,2,12);
+        // Top bar
+        ctx.fillRect(sx-6,iy-6,12,2);
+        // Mid bar
+        ctx.fillRect(sx-4,iy-1,8,2);
+        // Diagonal cross — rune feel
+        ctx.fillRect(sx-3,iy+2,2,5); ctx.fillRect(sx+1,iy+2,2,5);
+        ctx.fillStyle='#000';
+        ctx.fillRect(sx-7,iy-7,1,14); ctx.fillRect(sx+6,iy-7,1,14);
+        ctx.fillRect(sx-6,iy-7,12,1);
+        // Inner glow
+        ctx.fillStyle='#a0c8ff'; ctx.globalAlpha=0.6;
+        ctx.fillRect(sx-5,iy-5,2,10); ctx.fillRect(sx+3,iy-5,2,10);
+        ctx.fillRect(sx-5,iy-5,10,2);
+        ctx.globalAlpha=1;
+
+      } else if(eff==='key'||eff==='summon'){
+        // Key item — bright, unique silhouette — glowing gem shape
+        ctx.globalAlpha=0.45; ctx.fillStyle=item.glow||'#f0c040';
+        ctx.fillRect(sx-10,iy-10,20,20);
+        ctx.globalAlpha=1;
+        ctx.fillStyle=item.color||'#d4a030';
+        // Diamond body
+        ctx.fillRect(sx-2,iy-8,4,16);
+        ctx.fillRect(sx-5,iy-5,10,10);
+        ctx.fillRect(sx-7,iy-2,14,4);
+        ctx.fillStyle='#000'; // diamond outline
+        ctx.fillRect(sx-3,iy-9,6,1); ctx.fillRect(sx-3,iy+8,6,1);
+        ctx.fillRect(sx-8,iy-3,1,6);  ctx.fillRect(sx+7,iy-3,1,6);
+        // Highlight
+        ctx.fillStyle='#ffffff'; ctx.globalAlpha=0.6;
+        ctx.fillRect(sx-4,iy-6,4,4);
+        ctx.globalAlpha=1;
+
+      } else {
+        // Default — original diamond shape
+        ctx.globalAlpha=0.25; ctx.fillStyle=gl;
+        ctx.fillRect(sx-10,iy-10,20,20);
+        ctx.globalAlpha=1;
+        ctx.fillStyle=c;
+        ctx.fillRect(sx-2,iy-8,4,14);
+        ctx.fillRect(sx-5,iy-4,10,6);
+        ctx.fillRect(sx-7,iy-1,14,2);
+        ctx.fillStyle='#ffffff'; ctx.fillRect(sx-1,iy-6,2,3);
+      }
+
+      // Proximity label — show item name + [E] when player is within 60px
+      const dist2=Math.hypot(_px-item.x,_py-item.y);
+      if(dist2<60){
+        const label=(item.name||'Item')+' [E]';
+        ctx.font='bold 11px monospace';
+        ctx.textAlign='center';
+        // Shadow
+        ctx.fillStyle='#000'; ctx.globalAlpha=0.7;
+        ctx.fillText(label,sx+1,iy-18+1);
+        ctx.globalAlpha=1;
+        // Text — rarity colour
+        ctx.fillStyle=item.rarity==='rare'?'#FFD040':item.rarity==='uncommon'?'#88aaff':'#e8e8e8';
+        ctx.fillText(label,sx,iy-18);
+        ctx.textAlign='left';
+      }
     }
 
     // Enemies
@@ -6605,45 +6806,62 @@ const Enemies = {
     const atk=e.isAttacking;
     // --- GRAVE KNIGHT ---
     if(isGK){
-      // Legs — readable dark iron greaves
+      // Legs — dark iron greaves with rust streaks
       ctx.fillStyle='#26263a'; ctx.fillRect(sx-7,sy+4,6,9); ctx.fillRect(sx+1,sy+4,6,9);
-      ctx.fillStyle='#000'; // black outline
+      ctx.fillStyle='#000';
       ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
       ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
       // Boots
       ctx.fillStyle='#1c1a2a'; ctx.fillRect(sx-8,sy+11,8,3); ctx.fillRect(sx+0,sy+11,8,3);
-      // Body — readable dark iron chestplate
+      // Body — dark iron chestplate
       ctx.fillStyle=atk?'#403850':'#302840'; ctx.fillRect(sx-8,sy-7,16,13);
-      ctx.fillStyle='#000'; // outline
+      ctx.fillStyle='#000';
       ctx.fillRect(sx-9,sy-7,1,13); ctx.fillRect(sx+8,sy-7,1,13);
       ctx.fillRect(sx-8,sy-8,16,1); ctx.fillRect(sx-8,sy+6,16,1);
-      // Tarnished silver trim — visible
+      // Tarnished silver trim
       ctx.fillStyle='#606880'; ctx.fillRect(sx-8,sy-7,16,1); ctx.fillRect(sx-8,sy+5,16,1);
-      // Pauldrons
-      ctx.fillStyle='#221e34'; ctx.fillRect(sx-13,sy-7,7,7); ctx.fillRect(sx+6,sy-7,7,7);
-      ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-7,1,7); ctx.fillRect(sx+13,sy-7,1,7);
-      // Helm — readable dark knight helm
-      ctx.fillStyle='#28263c'; ctx.fillRect(sx-7,sy-19,14,13);
-      ctx.fillStyle='#000'; // helm outline
-      ctx.fillRect(sx-8,sy-19,1,13); ctx.fillRect(sx+7,sy-19,1,13);
-      ctx.fillRect(sx-7,sy-20,14,1); ctx.fillRect(sx-7,sy-6,14,1);
-      // Helm crest
-      ctx.fillStyle='#38344e'; ctx.fillRect(sx-4,sy-22,8,4);
-      ctx.fillStyle='#000'; ctx.fillRect(sx-4,sy-23,8,1);
-      // Visor slit
-      ctx.fillStyle='#0c0a18'; ctx.fillRect(sx-5,sy-13,10,4);
-      // Blue soul eye glow — vivid
+      // Rusted pauldrons — larger, pitted with orange rust marks
+      ctx.fillStyle='#221e34'; ctx.fillRect(sx-15,sy-9,9,9); ctx.fillRect(sx+6,sy-9,9,9);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-16,sy-9,1,9); ctx.fillRect(sx+15,sy-9,1,9);
+      ctx.fillRect(sx-15,sy-10,9,1); ctx.fillRect(sx+6,sy-10,9,1);
+      // Rust pitting — visible orange-brown flecks
+      ctx.fillStyle='#5c3010';
+      ctx.fillRect(sx-13,sy-8,2,2); ctx.fillRect(sx-11,sy-5,2,2);
+      ctx.fillRect(sx+9,  sy-7,2,2); ctx.fillRect(sx+11,sy-4,2,2);
+      // Helm — dark knight helm with elongated skull visor
+      ctx.fillStyle='#28263c'; ctx.fillRect(sx-7,sy-20,14,14);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-8,sy-20,1,14); ctx.fillRect(sx+7,sy-20,1,14);
+      ctx.fillRect(sx-7,sy-21,14,1); ctx.fillRect(sx-7,sy-6,14,1);
+      // Helm crest — tall spine
+      ctx.fillStyle='#38344e'; ctx.fillRect(sx-3,sy-24,6,5);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-3,sy-25,6,1);
+      // Skull visor — elaborate bone-face carved into the front plate
+      ctx.fillStyle='#3a3450'; // lighter face-plate area
+      ctx.fillRect(sx-5,sy-18,10,8);
+      // Carved eye sockets cut deep into the visor
+      ctx.fillStyle='#0c0a18'; ctx.fillRect(sx-4,sy-16,4,4); ctx.fillRect(sx+0,sy-16,4,4);
+      // Carved nasal ridge
+      ctx.fillStyle='#26243a'; ctx.fillRect(sx-1,sy-15,2,4);
+      // Carved cheekbone ridges
+      ctx.fillStyle='#2c2840'; ctx.fillRect(sx-4,sy-12,3,2); ctx.fillRect(sx+1,sy-12,3,2);
+      // Blue soul eye glow through the skull visor
       ctx.fillStyle=atk?'#6888f8':'#3858d8';
-      ctx.fillRect(sx-4,sy-12,4,2); ctx.fillRect(sx+0,sy-12,4,2);
-      // Spear (readable dark iron shaft, bright tip)
+      ctx.fillRect(sx-3,sy-15,2,2); ctx.fillRect(sx+1,sy-15,2,2);
+      // Cracked sword — dark iron with energy-dark crack running the blade
       ctx.fillStyle='#28263a'; ctx.fillRect(sx+11,sy-24,3,30);
       ctx.fillStyle='#000'; ctx.fillRect(sx+10,sy-24,1,30); ctx.fillRect(sx+14,sy-24,1,30);
-      ctx.fillStyle='#7888a8'; ctx.fillRect(sx+11,sy-24,3,8); // spear tip — brighter
-      ctx.fillStyle='#a8b0cc'; ctx.fillRect(sx+11,sy-24,2,5); // tip gleam — bright
-      ctx.fillStyle='#38343e'; ctx.fillRect(sx+9,sy-8,7,2);   // crosspiece
+      ctx.fillStyle='#6878a0'; ctx.fillRect(sx+11,sy-24,3,10); // upper blade brighter
+      ctx.fillStyle='#484060'; ctx.fillRect(sx+11,sy-14,3,18); // lower blade darker
+      // Crack line — dark void running down blade centre
+      ctx.fillStyle='#08060e'; ctx.fillRect(sx+12,sy-22,1,26);
+      // Dark energy seeping from crack
+      ctx.fillStyle=atk?'#3030a8':'#1a1860';
+      ctx.fillRect(sx+11,sy-20,1,20); ctx.fillRect(sx+13,sy-18,1,16);
+      ctx.fillStyle='#38343e'; ctx.fillRect(sx+9,sy-8,7,2); // crosspiece
     } else {
       // --- STANDARD GRUNT ---
-      // Rotting hollowed warrior — readable ochre rags, ember eyes
+      // Shambling hollow warrior — torn tabard, dented helm, scuffed shield on left arm
       const col=atk?'#5e3c14':'#4a2e0c';
       const dark='#2e1c0a';
       // Legs — wrapped rags
@@ -6651,23 +6869,49 @@ const Enemies = {
       ctx.fillStyle='#000';
       ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
       ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
-      // Body — rotted leather
+      // Body — rotted leather with torn tabard hanging below
       ctx.fillStyle=col; ctx.fillRect(sx-8,sy-7,16,13);
       ctx.fillStyle='#000';
       ctx.fillRect(sx-9,sy-7,1,13); ctx.fillRect(sx+8,sy-7,1,13);
       ctx.fillRect(sx-8,sy-8,16,1); ctx.fillRect(sx-8,sy+6,16,1);
+      // Torn tabard — ragged cloth hanging in strips below the torso
+      ctx.fillStyle='#3a2808';
+      ctx.fillRect(sx-7,sy+6,4,6); ctx.fillRect(sx-2,sy+6,3,8); ctx.fillRect(sx+2,sy+6,4,5);
+      ctx.fillStyle='#000'; // tabard outline
+      ctx.fillRect(sx-8,sy+6,1,6); ctx.fillRect(sx+6,sy+6,1,5);
+      // Tabard tear marks
+      ctx.fillStyle='#201408';
+      ctx.fillRect(sx-5,sy+7,1,4); ctx.fillRect(sx+0,sy+7,1,6); ctx.fillRect(sx+4,sy+7,1,4);
       // Rough pauldrons
       ctx.fillStyle=dark; ctx.fillRect(sx-12,sy-7,6,6); ctx.fillRect(sx+6,sy-7,6,6);
       ctx.fillStyle='#000';
       ctx.fillRect(sx-13,sy-7,1,6); ctx.fillRect(sx+12,sy-7,1,6);
-      // Skull head — readable dirty bone
+      // Scuffed shield strapped to left arm — round-ish worn iron
+      ctx.fillStyle='#282030'; ctx.fillRect(sx-18,sy-5,10,11);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-19,sy-5,1,11); ctx.fillRect(sx-8,sy-5,1,11);
+      ctx.fillRect(sx-18,sy-6,10,1); ctx.fillRect(sx-18,sy+6,10,1);
+      // Shield dents / scratches
+      ctx.fillStyle='#181420';
+      ctx.fillRect(sx-16,sy-3,2,2); ctx.fillRect(sx-12,sy+1,2,2); ctx.fillRect(sx-14,sy+3,2,1);
+      // Shield boss (centre rivet)
+      ctx.fillStyle='#3e3450'; ctx.fillRect(sx-15,sy-1,4,3);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-1,2,1);
+      // Skull head — dented helmet sitting on top
       ctx.fillStyle='#3e2e18'; ctx.fillRect(sx-5,sy-18,10,12);
-      ctx.fillStyle='#000'; // skull outline
+      ctx.fillStyle='#000';
       ctx.fillRect(sx-6,sy-18,1,12); ctx.fillRect(sx+5,sy-18,1,12);
       ctx.fillRect(sx-5,sy-19,10,1); ctx.fillRect(sx-5,sy-6,10,1);
+      // Dented helmet — dark iron dome with visible dent marks
+      ctx.fillStyle='#2e2820'; ctx.fillRect(sx-5,sy-20,10,5);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-5,sy-21,10,1);
+      // Dent indentations
+      ctx.fillStyle='#1a1610';
+      ctx.fillRect(sx+1,sy-20,2,2); ctx.fillRect(sx-3,sy-19,1,2);
+      // Nasal guard bar
+      ctx.fillStyle='#24201a'; ctx.fillRect(sx-1,sy-17,2,6);
       // Hollow eye sockets
       ctx.fillStyle='#0c0a06'; ctx.fillRect(sx-4,sy-14,3,3); ctx.fillRect(sx+1,sy-14,3,3);
-      // Red ember glow — more visible
+      // Red ember glow
       ctx.fillStyle=atk?'#c01808':'#881408';
       ctx.fillRect(sx-3,sy-13,2,2); ctx.fillRect(sx+2,sy-13,2,2);
       // Corroded sword — readable rust-slate
@@ -6679,39 +6923,57 @@ const Enemies = {
   },
 
   _drawHollow(e,sx,sy){
-    // Fast fragile skeleton — readable bone-ivory, blue soul glow
+    // Gaunt undead — exposed ribcage, asymmetric limbs, drags one leg
     const atk=e.isAttacking;
-    // Thin skeleton legs
-    ctx.fillStyle='#2e2818'; ctx.fillRect(sx-5,sy+4,3,9); ctx.fillRect(sx+2,sy+4,3,9);
-    ctx.fillStyle='#000';
-    ctx.fillRect(sx-6,sy+4,1,9); ctx.fillRect(sx+5,sy+4,1,9);
-    ctx.fillRect(sx-5,sy+13,3,1); ctx.fillRect(sx+2,sy+13,3,1);
-    // Bone feet
-    ctx.fillStyle='#3a3428'; ctx.fillRect(sx-6,sy+12,5,2); ctx.fillRect(sx+1,sy+12,5,2);
-    // Ribcage body — readable yellowed bone
+    // Right leg — normal thin bone
+    ctx.fillStyle='#2e2818'; ctx.fillRect(sx+2,sy+4,3,9);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+5,sy+4,1,9); ctx.fillRect(sx+1,sy+4,1,9);
+    ctx.fillRect(sx+2,sy+13,3,1);
+    // Left leg — dragging, shorter, angled outward (asymmetric)
+    ctx.fillStyle='#282214'; ctx.fillRect(sx-6,sy+6,3,7);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-7,sy+6,1,7); ctx.fillRect(sx-3,sy+6,1,7);
+    ctx.fillRect(sx-6,sy+13,3,1);
+    // Dragged foot — extends further to the side
+    ctx.fillStyle='#3a3428'; ctx.fillRect(sx+1,sy+12,5,2);  // normal foot
+    ctx.fillStyle='#2e2818'; ctx.fillRect(sx-9,sy+12,6,2);  // dragging foot — extended left
+    ctx.fillStyle='#000'; ctx.fillRect(sx-9,sy+14,6,1);
+    // Gaunt ribcage body — very exposed, more angular
     ctx.fillStyle=atk?'#4e4838':'#403c2e'; ctx.fillRect(sx-6,sy-5,12,10);
-    ctx.fillStyle='#000'; // body outline
+    ctx.fillStyle='#000';
     ctx.fillRect(sx-7,sy-5,1,10); ctx.fillRect(sx+6,sy-5,1,10);
     ctx.fillRect(sx-6,sy-6,12,1); ctx.fillRect(sx-6,sy+5,12,1);
-    // Rib lines (bone detail)
+    // Prominent rib bones — gaunt skeleton, wide pronounced ribs
     ctx.fillStyle='#26201a';
     ctx.fillRect(sx-5,sy-3,10,1); ctx.fillRect(sx-5,sy-1,10,1);
     ctx.fillRect(sx-5,sy+1,10,1); ctx.fillRect(sx-5,sy+3,10,1);
-    // Skull — readable yellowed bone
+    // Sternum centre bone — visible spine line
+    ctx.fillStyle='#302a22'; ctx.fillRect(sx-1,sy-4,2,8);
+    // Pelvis bone jut at base
+    ctx.fillStyle='#2e2818'; ctx.fillRect(sx-7,sy+4,4,2); ctx.fillRect(sx+3,sy+4,4,2);
+    // Asymmetric arms — right arm normal, left arm shorter/withered
+    ctx.fillStyle='#2e2818'; ctx.fillRect(sx-9,sy-5,3,7);  // left arm — shorter, thinner
+    ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-5,1,7); ctx.fillRect(sx-6,sy-5,1,7);
+    // Left hand — bony claw reaching out asymmetrically
+    ctx.fillStyle='#3a3028'; ctx.fillRect(sx-11,sy+1,5,2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-12,sy+1,1,2); ctx.fillRect(sx-6,sy+1,1,2);
+    // Skull — bone
     ctx.fillStyle='#3c3428'; ctx.fillRect(sx-5,sy-15,9,10);
-    ctx.fillStyle='#000'; // skull outline
+    ctx.fillStyle='#000';
     ctx.fillRect(sx-6,sy-15,1,10); ctx.fillRect(sx+4,sy-15,1,10);
     ctx.fillRect(sx-5,sy-16,9,1);  ctx.fillRect(sx-5,sy-5,9,1);
-    ctx.fillStyle='#4a4030'; ctx.fillRect(sx-4,sy-15,7,3); // forehead lighter
+    ctx.fillStyle='#4a4030'; ctx.fillRect(sx-4,sy-15,7,3); // forehead
     // Deep hollow eye sockets
     ctx.fillStyle='#050404'; ctx.fillRect(sx-4,sy-12,3,3); ctx.fillRect(sx+1,sy-12,3,3);
-    // Blue soul fire — more visible
+    // Blue soul fire
     ctx.fillStyle=atk?'#4868c8':'#2040a0';
     ctx.fillRect(sx-3,sy-11,2,2); ctx.fillRect(sx+2,sy-11,2,2);
-    // Bone claw weapon — readable yellowed ivory
+    // Bone claw weapon on right arm
     ctx.fillStyle='#2e2818'; ctx.fillRect(sx+7,sy-11,2,18);
     ctx.fillStyle='#000'; ctx.fillRect(sx+6,sy-11,1,18); ctx.fillRect(sx+9,sy-11,1,18);
-    ctx.fillStyle='#3c3428'; ctx.fillRect(sx+7,sy-11,2,10); // pale tip
+    ctx.fillStyle='#3c3428'; ctx.fillRect(sx+7,sy-11,2,10); // tip
+    // Claw tips — three bone fingers
+    ctx.fillStyle='#3a3020'; ctx.fillRect(sx+6,sy+5,2,3); ctx.fillRect(sx+8,sy+6,2,3); ctx.fillRect(sx+10,sy+5,2,3);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+6,sy+8,2,1); ctx.fillRect(sx+8,sy+9,2,1); ctx.fillRect(sx+10,sy+8,2,1);
   },
 
   _drawBeastKnight(e,sx,sy){
@@ -6778,31 +7040,47 @@ const Enemies = {
   },
 
   _drawArcher(e,sx,sy){
-    // Skeletal archer — readable bone-ochre, visible green soul eyes, dark bow
+    // Skeletal archer — quiver on back, bow arm extended asymmetrically, leather vambrace
     const atk=e.isAttacking;
-    // Thin legs — readable bone wrapped in rot
+    // Thin legs — bone wrapped in rot
     ctx.fillStyle='#2a2218'; ctx.fillRect(sx-5,sy+4,4,8); ctx.fillRect(sx+1,sy+4,4,8);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-6,sy+4,1,8); ctx.fillRect(sx+5,sy+4,1,8);
     ctx.fillRect(sx-5,sy+12,4,1); ctx.fillRect(sx+1,sy+12,4,1);
     // Feet
     ctx.fillStyle='#1e1a14'; ctx.fillRect(sx-6,sy+11,6,2); ctx.fillRect(sx+0,sy+11,6,2);
-    // Body — hollow rib cage with tattered cloak, readable
+    // Body — hollow ribcage with tattered cloak
     ctx.fillStyle='#2a2218'; ctx.fillRect(sx-6,sy-6,12,11);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-7,sy-6,1,11); ctx.fillRect(sx+6,sy-6,1,11);
     ctx.fillRect(sx-6,sy-7,12,1); ctx.fillRect(sx-6,sy+5,12,1);
-    // Rib detail — readable
+    // Rib detail
     ctx.fillStyle='#181410';
     ctx.fillRect(sx-5,sy-4,10,1); ctx.fillRect(sx-5,sy-2,10,1);
     ctx.fillRect(sx-5,sy+0,10,1); ctx.fillRect(sx-5,sy+2,10,1);
-    // Quiver — readable dark leather tube
-    ctx.fillStyle='#201810'; ctx.fillRect(sx-10,sy-9,4,13);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-11,sy-9,1,13); ctx.fillRect(sx-6,sy-9,1,13);
-    // Arrows in quiver — visible
-    ctx.fillStyle='#3c2e20'; ctx.fillRect(sx-9,sy-12,2,4); ctx.fillRect(sx-9,sy-8,2,4);
-    ctx.fillStyle='#603a10'; ctx.fillRect(sx-9,sy-13,2,2); // arrow tips
-    // Skull — readable yellowed bone
+    // Quiver on back — full leather tube with visible arrow shafts
+    ctx.fillStyle='#1e1608'; ctx.fillRect(sx-11,sy-10,5,15);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-12,sy-10,1,15); ctx.fillRect(sx-6,sy-10,1,15);
+    ctx.fillRect(sx-11,sy+5,5,1);
+    // Quiver strap across chest — diagonal strap detail
+    ctx.fillStyle='#2a1e0c'; ctx.fillRect(sx-8,sy-8,12,2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-9,12,1);
+    // Arrow shafts sticking out of quiver top
+    ctx.fillStyle='#3a2a16'; ctx.fillRect(sx-10,sy-14,2,5); ctx.fillRect(sx-8,sy-13,2,4); ctx.fillRect(sx-9,sy-15,1,5);
+    // Arrow tips (iron)
+    ctx.fillStyle='#705a30'; ctx.fillRect(sx-10,sy-15,2,2); ctx.fillRect(sx-8,sy-14,2,2);
+    // Bow arm extended forward asymmetrically (left arm reaches forward for bow)
+    ctx.fillStyle='#2a2218'; ctx.fillRect(sx-6,sy-5,5,4); // left shoulder connection
+    ctx.fillRect(sx-11,sy-5,6,3); // extended forearm
+    ctx.fillStyle='#000'; ctx.fillRect(sx-12,sy-5,1,3); ctx.fillRect(sx-6,sy-5,1,3);
+    // Leather vambrace on bow arm (left forearm) — wrapped strips
+    ctx.fillStyle='#3c2a10'; ctx.fillRect(sx-12,sy-5,6,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-13,sy-5,1,5); ctx.fillRect(sx-6,sy-5,1,5);
+    ctx.fillRect(sx-12,sy-6,6,1); ctx.fillRect(sx-12,sy+0,6,1);
+    // Vambrace wrap lines
+    ctx.fillStyle='#2a1c0a';
+    ctx.fillRect(sx-12,sy-4,6,1); ctx.fillRect(sx-12,sy-2,6,1);
+    // Skull — yellowed bone
     ctx.fillStyle='#342c20'; ctx.fillRect(sx-5,sy-17,10,11);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-6,sy-17,1,11); ctx.fillRect(sx+5,sy-17,1,11);
@@ -6810,24 +7088,26 @@ const Enemies = {
     ctx.fillStyle='#42382a'; ctx.fillRect(sx-4,sy-17,8,3); // forehead
     // Eye sockets
     ctx.fillStyle='#050404'; ctx.fillRect(sx-4,sy-13,4,4); ctx.fillRect(sx+0,sy-13,4,4);
-    // Sickly green soul glow — visible
+    // Sickly green soul glow
     ctx.fillStyle=atk?'#386838':'#204c20';
     ctx.fillRect(sx-3,sy-12,2,2); ctx.fillRect(sx+1,sy-12,2,2);
-    // Longbow — readable dark yew wood
+    // Longbow — dark yew, slightly angled in extended bow arm
     ctx.fillStyle='#28200e'; ctx.fillRect(sx+7,sy-14,4,26);
     ctx.fillStyle='#000';
     ctx.fillRect(sx+6,sy-14,1,26); ctx.fillRect(sx+11,sy-14,1,26);
     // Bow limb nocks
     ctx.fillStyle='#1c1a10';
     ctx.fillRect(sx+7,sy-14,6,3); ctx.fillRect(sx+7,sy+9,6,3);
-    // Sinew string — visible
+    // Sinew string
     ctx.fillStyle='#4a3e28'; ctx.fillRect(sx+10,sy-11,1,22);
-    // Arrow drawn if attacking
+    // Arrow drawn when attacking — extended draw position
     if(atk){
-      ctx.fillStyle='#342e1c'; ctx.fillRect(sx+10,sy-2,16,2);
-      ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-2,1,2); ctx.fillRect(sx+26,sy-2,1,2);
-      ctx.fillStyle='#443828'; ctx.fillRect(sx+24,sy-3,3,4); // tip
+      ctx.fillStyle='#342e1c'; ctx.fillRect(sx+10,sy-2,18,2);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-2,1,2); ctx.fillRect(sx+28,sy-2,1,2);
+      ctx.fillStyle='#443828'; ctx.fillRect(sx+26,sy-3,3,4); // iron tip
+      ctx.fillStyle='#604020'; ctx.fillRect(sx+26,sy-3,2,4); // tip gleam
       ctx.fillStyle='#5a3018'; ctx.fillRect(sx+10,sy-4,3,6);  // fletching
+      ctx.fillStyle='#3a1e08'; ctx.fillRect(sx+10,sy-5,2,2); ctx.fillRect(sx+10,sy+1,2,2);
     }
   },
 
@@ -6939,34 +7219,64 @@ const Enemies = {
 
   _drawSwampBeast(e,sx,sy){
     const atk=e.isAttacking;
-    // Hunched swamp creature — readable toxic-green flesh, vivid eyes
+    // Hunched swamp horror — dripping pustules, webbed claws, mottled green flesh
+    // Legs — thick stumps
     ctx.fillStyle='#1c2e0e'; ctx.fillRect(sx-7,sy+4,5,8); ctx.fillRect(sx+2,sy+4,5,8);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-8,sy+4,1,8); ctx.fillRect(sx+7,sy+4,1,8);
     ctx.fillRect(sx-7,sy+12,5,1); ctx.fillRect(sx+2,sy+12,5,1);
-    // Webbed feet
-    ctx.fillStyle='#1e3010'; ctx.fillRect(sx-9,sy+11,6,2); ctx.fillRect(sx+3,sy+11,6,2);
-    // Body — readable dark swamp green flesh
+    // Webbed claws at feet — splayed membrane fingers
+    ctx.fillStyle='#1a2c0c'; ctx.fillRect(sx-11,sy+10,5,3); ctx.fillRect(sx+3,sy+10,5,3);
+    // Webbing membrane between toes
+    ctx.fillStyle='#163008';
+    ctx.fillRect(sx-12,sy+11,3,2); ctx.fillRect(sx-10,sy+11,3,2); ctx.fillRect(sx-8, sy+11,3,2);
+    ctx.fillRect(sx+3,  sy+11,3,2); ctx.fillRect(sx+5, sy+11,3,2); ctx.fillRect(sx+7, sy+11,3,2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-12,sy+13,5,1); ctx.fillRect(sx+3,sy+13,5,1);
+    // Body — dark swamp green with mottled skin patches
     ctx.fillStyle=atk?'#2e4c18':'#244014'; ctx.fillRect(sx-8,sy-6,16,12);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-9,sy-6,1,12); ctx.fillRect(sx+8,sy-6,1,12);
     ctx.fillRect(sx-8,sy-7,16,1); ctx.fillRect(sx-8,sy+6,16,1);
+    // Mottled skin patches — lighter green blotches across body
+    ctx.fillStyle='#304818';
+    ctx.fillRect(sx-6,sy-4,4,4); ctx.fillRect(sx+2,sy-2,3,3); ctx.fillRect(sx-4,sy+1,3,4);
+    ctx.fillStyle='#1e380e';
+    ctx.fillRect(sx+4,sy-5,3,3); ctx.fillRect(sx-7,sy+1,3,3);
     // Scale / skin detail strips
     ctx.fillStyle='#1c3010';
     ctx.fillRect(sx-7,sy-4,14,1); ctx.fillRect(sx-7,sy-1,14,1); ctx.fillRect(sx-7,sy+2,14,1);
-    // Head — readable murky green
+    // Dripping pustules along the back / shoulder line
+    ctx.fillStyle='#4a6018'; // pustule — slightly lighter
+    ctx.fillRect(sx-6,sy-7,3,3); ctx.fillRect(sx+0,sy-8,3,4); ctx.fillRect(sx+4,sy-7,3,3);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-8,3,1); ctx.fillRect(sx+0,sy-9,3,1); ctx.fillRect(sx+4,sy-8,3,1);
+    // Drip lines from pustules
+    ctx.fillStyle='#38500e';
+    ctx.fillRect(sx-5,sy-4,1,4); // left drip
+    ctx.fillRect(sx+1,sy-4,1,5); // centre drip
+    ctx.fillRect(sx+5,sy-4,1,4); // right drip
+    // Pustule glow tips
+    ctx.fillStyle='#6a8830';
+    ctx.fillRect(sx-6,sy-8,2,2); ctx.fillRect(sx+0,sy-9,2,2); ctx.fillRect(sx+4,sy-8,2,2);
+    // Head — flat wide face
     ctx.fillStyle='#2a3e18'; ctx.fillRect(sx-5,sy-16,10,10);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-6,sy-16,1,10); ctx.fillRect(sx+5,sy-16,1,10);
     ctx.fillRect(sx-5,sy-17,10,1); ctx.fillRect(sx-5,sy-6,10,1);
-    // Toxic yellow slit eyes — vivid
+    // Mottled head patches
+    ctx.fillStyle='#304818'; ctx.fillRect(sx-4,sy-15,3,3); ctx.fillRect(sx+2,sy-13,2,3);
+    // Toxic yellow slit eyes
     ctx.fillStyle='#060a04'; ctx.fillRect(sx-4,sy-13,3,3); ctx.fillRect(sx+1,sy-13,3,3);
     ctx.fillStyle=atk?'#aace18':'#78a010';
     ctx.fillRect(sx-3,sy-12,2,2); ctx.fillRect(sx+2,sy-12,2,2);
-    // Claw weapon — readable dark green
-    ctx.fillStyle='#1a2410'; ctx.fillRect(sx+9,sy-10,3,16);
-    ctx.fillStyle='#000'; ctx.fillRect(sx+8,sy-10,1,16); ctx.fillRect(sx+12,sy-10,1,16);
-    ctx.fillStyle='#344828'; ctx.fillRect(sx+9,sy-10,3,8);
+    // Webbed claw weapon — dark green with bone claw tips
+    ctx.fillStyle='#1a2410'; ctx.fillRect(sx+9,sy-10,4,16);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+8,sy-10,1,16); ctx.fillRect(sx+13,sy-10,1,16);
+    ctx.fillStyle='#344828'; ctx.fillRect(sx+9,sy-10,3,8); // claw upper
+    // Three claw tips splayed
+    ctx.fillStyle='#304020'; ctx.fillRect(sx+8,sy+4,2,4); ctx.fillRect(sx+10,sy+5,2,4); ctx.fillRect(sx+12,sy+4,2,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+8,sy+8,2,1); ctx.fillRect(sx+10,sy+9,2,1); ctx.fillRect(sx+12,sy+8,2,1);
+    // Webbing between claw fingers
+    ctx.fillStyle='#1e2e10'; ctx.fillRect(sx+9,sy+5,2,3); ctx.fillRect(sx+11,sy+6,2,3);
   },
 
   _drawSwampMonster(e,sx,sy){
@@ -7045,44 +7355,74 @@ const Enemies = {
 
   _drawSnowGrunt(e,sx,sy){
     const atk=e.isAttacking;
-    // Frost Walker — readable blue-slate armor, bright ice details
+    // Frosted patroller — fur-lined hood, ice crystal weapon, breath-fog puff
+    // Legs — thick frost-plate
     ctx.fillStyle='#28304a'; ctx.fillRect(sx-7,sy+4,6,9); ctx.fillRect(sx+1,sy+4,6,9);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
     ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
-    // Fur-lined boots — readable grey-white
+    // Fur-lined boots — thick grey-white fur cuff at top
     ctx.fillStyle='#3c4860'; ctx.fillRect(sx-8,sy+11,8,3); ctx.fillRect(sx,sy+11,8,3);
-    // Body — thick fur-and-ice armor, more readable
+    ctx.fillStyle='#c8d4e8'; // fur lining — bright white-grey
+    ctx.fillRect(sx-8,sy+11,8,2); ctx.fillRect(sx,sy+11,8,2);
+    ctx.fillStyle='#e0ecff'; // fur highlight
+    ctx.fillRect(sx-7,sy+11,3,1); ctx.fillRect(sx+1,sy+11,3,1);
+    // Body — thick fur-and-ice armor
     ctx.fillStyle=atk?'#3e5070':'#30405c'; ctx.fillRect(sx-8,sy-7,16,13);
     ctx.fillStyle='#000';
     ctx.fillRect(sx-9,sy-7,1,13); ctx.fillRect(sx+8,sy-7,1,13);
     ctx.fillRect(sx-8,sy-8,16,1); ctx.fillRect(sx-8,sy+6,16,1);
-    // Ice plate trim — vivid ice blue
+    // Ice plate trim
     ctx.fillStyle='#5878a0'; ctx.fillRect(sx-8,sy-7,16,2); ctx.fillRect(sx-8,sy+5,16,2);
-    // Pauldrons — wide fur
+    // Wide fur pauldrons with visible fur strands
     ctx.fillStyle='#28384e'; ctx.fillRect(sx-13,sy-7,7,7); ctx.fillRect(sx+6,sy-7,7,7);
     ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-7,1,7); ctx.fillRect(sx+13,sy-7,1,7);
-    // Fur texture — visible
+    // Fur texture strips
     ctx.fillStyle='rgba(100,130,180,0.35)';
     ctx.fillRect(sx-8,sy-4,16,1); ctx.fillRect(sx-8,sy-1,16,1); ctx.fillRect(sx-8,sy+2,16,1);
-    // Horned ice helmet — readable
-    ctx.fillStyle='#2e3c58'; ctx.fillRect(sx-6,sy-18,12,12);
+    // Pauldron fur edging — bright
+    ctx.fillStyle='#b8cce0';
+    ctx.fillRect(sx-14,sy-7,3,2); ctx.fillRect(sx+11,sy-7,3,2);
+    // Fur-lined hood helm — helm sits on top of visible fur fringe
+    // Fur fringe around helm base — most distinctive feature
+    ctx.fillStyle='#b0c4dc'; // pale fur fringe
+    ctx.fillRect(sx-8,sy-9,3,4); ctx.fillRect(sx+5,sy-9,3,4); // side fur tufts
+    ctx.fillRect(sx-5,sy-9,10,2); // front fur brim
+    ctx.fillStyle='#d4e4f4'; // fur highlight
+    ctx.fillRect(sx-7,sy-9,2,2); ctx.fillRect(sx+5,sy-9,2,2);
+    // Helm dome above the fur
+    ctx.fillStyle='#2e3c58'; ctx.fillRect(sx-6,sy-20,12,12);
     ctx.fillStyle='#000';
-    ctx.fillRect(sx-7,sy-18,1,12); ctx.fillRect(sx+6,sy-18,1,12);
-    ctx.fillRect(sx-6,sy-19,12,1); ctx.fillRect(sx-6,sy-6,12,1);
-    // Ice horn spikes — bright
-    ctx.fillStyle='#5070a0'; ctx.fillRect(sx-9,sy-22,4,6); ctx.fillRect(sx+5,sy-22,4,6);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-9,sy-23,4,1); ctx.fillRect(sx+5,sy-23,4,1);
-    // Hollow pale eye slots
-    ctx.fillStyle='#0a0e18'; ctx.fillRect(sx-4,sy-14,8,4);
+    ctx.fillRect(sx-7,sy-20,1,12); ctx.fillRect(sx+6,sy-20,1,12);
+    ctx.fillRect(sx-6,sy-21,12,1); ctx.fillRect(sx-6,sy-8,12,1);
+    // Ice horn spikes
+    ctx.fillStyle='#5070a0'; ctx.fillRect(sx-9,sy-24,4,6); ctx.fillRect(sx+5,sy-24,4,6);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-9,sy-25,4,1); ctx.fillRect(sx+5,sy-25,4,1);
+    // Horn gleam — icy
+    ctx.fillStyle='#a0c8e8'; ctx.fillRect(sx-8,sy-24,2,4); ctx.fillRect(sx+6,sy-24,2,4);
+    // Eye slot
+    ctx.fillStyle='#0a0e18'; ctx.fillRect(sx-4,sy-16,8,4);
     ctx.fillStyle=atk?'#78a8e0':'#4878b0';
-    ctx.fillRect(sx-3,sy-13,3,2); ctx.fillRect(sx+0,sy-13,3,2);
-    // Ice spear
+    ctx.fillRect(sx-3,sy-15,3,2); ctx.fillRect(sx+0,sy-15,3,2);
+    // Ice spear — shaft with ice crystal tip
     ctx.fillStyle='#242e48'; ctx.fillRect(sx+11,sy-22,3,28);
     ctx.fillStyle='#000'; ctx.fillRect(sx+10,sy-22,1,28); ctx.fillRect(sx+14,sy-22,1,28);
-    ctx.fillStyle='#6898c8'; ctx.fillRect(sx+11,sy-22,3,9); // ice tip bright
-    ctx.fillStyle='#a0c8f0'; ctx.fillRect(sx+11,sy-22,2,6); // gleam bright
+    // Ice crystal tip — faceted
+    ctx.fillStyle='#6898c8'; ctx.fillRect(sx+11,sy-25,3,9);
+    ctx.fillStyle='#a0c8f0'; ctx.fillRect(sx+11,sy-25,2,6); // gleam
+    ctx.fillStyle='#c8e4ff'; ctx.fillRect(sx+11,sy-25,1,3); // tip gleam
+    // Crystal facets — angular cuts
+    ctx.fillStyle='#4060a0'; ctx.fillRect(sx+12,sy-23,1,5); ctx.fillRect(sx+11,sy-21,1,3);
     ctx.fillStyle='#3a5070'; ctx.fillRect(sx+9,sy-7,7,2); // crosspiece
+    // Breath-fog puff — white dot above head (always visible, idle sign of cold)
+    const fogA = atk ? 0.5 : 0.35;
+    ctx.globalAlpha=fogA; ctx.fillStyle='#e8f0ff';
+    ctx.fillRect(sx-2,sy-27,4,3);  // main puff
+    ctx.fillRect(sx-4,sy-28,2,2);  // left wisp
+    ctx.fillRect(sx+2,sy-28,3,2);  // right wisp
+    ctx.globalAlpha=0.18; ctx.fillStyle='#ffffff';
+    ctx.fillRect(sx-3,sy-29,6,2);  // faint dissipating top
+    ctx.globalAlpha=1;
   },
 
   _drawYeti(e,sx,sy){
@@ -7175,7 +7515,7 @@ const Enemies = {
   },
 
   _drawBandit(e,sx,sy){
-    // Bandit Thug / Forest Knight — readable earthy rogues
+    // Bandit / Forest Knight — hood pulled low, twin daggers, cloak edge
     const atk=e.isAttacking;
     const isFK=e.type==='FOREST_KNIGHT';
     const bc=isFK?'#304020':'#4a3010';
@@ -7185,6 +7525,13 @@ const Enemies = {
     ctx.fillStyle='#000';
     ctx.fillRect(sx-8,sy+4,1,9); ctx.fillRect(sx+7,sy+4,1,9);
     ctx.fillRect(sx-7,sy+13,6,1); ctx.fillRect(sx+1,sy+13,6,1);
+    // Cloak edge fringe — ragged hem hanging below the body
+    if(!isFK){
+      ctx.fillStyle='#2c1c08';
+      ctx.fillRect(sx-8,sy+6,3,5); ctx.fillRect(sx-4,sy+6,3,7); ctx.fillRect(sx+0,sy+6,3,5); ctx.fillRect(sx+4,sy+6,3,6);
+      ctx.fillStyle='#000';
+      ctx.fillRect(sx-8,sy+11,3,1); ctx.fillRect(sx-4,sy+13,3,1); ctx.fillRect(sx+0,sy+11,3,1); ctx.fillRect(sx+4,sy+12,3,1);
+    }
     // Body
     ctx.fillStyle=atk?(isFK?'#3e5030':'#5e4018'):bc; ctx.fillRect(sx-9,sy-7,18,13);
     ctx.fillStyle='#000';
@@ -7193,13 +7540,33 @@ const Enemies = {
     // Pauldrons
     ctx.fillStyle=dc; ctx.fillRect(sx-13,sy-7,6,7); ctx.fillRect(sx+7,sy-7,6,7);
     ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-7,1,7); ctx.fillRect(sx+13,sy-7,1,7);
-    // Head / hood
+    // Twin daggers at hips — two hilts visible at left & right hip
+    if(!isFK){
+      // Left hip dagger
+      ctx.fillStyle='#2a1a08'; ctx.fillRect(sx-14,sy-2,3,12);
+      ctx.fillStyle='#000'; ctx.fillRect(sx-15,sy-2,1,12); ctx.fillRect(sx-11,sy-2,1,12);
+      ctx.fillStyle='#402808'; ctx.fillRect(sx-14,sy-2,2,7); // blade
+      ctx.fillStyle='#3a2c10'; ctx.fillRect(sx-15,sy+2,5,2); // guard
+      // Right hip dagger
+      ctx.fillStyle='#2a1a08'; ctx.fillRect(sx+11,sy-2,3,12);
+      ctx.fillStyle='#000'; ctx.fillRect(sx+10,sy-2,1,12); ctx.fillRect(sx+14,sy-2,1,12);
+      ctx.fillStyle='#402808'; ctx.fillRect(sx+11,sy-2,2,7);
+      ctx.fillStyle='#3a2c10'; ctx.fillRect(sx+10,sy+2,5,2);
+    }
+    // Head / hood — pulled low, deep shadow across face
     ctx.fillStyle=isFK?'#283a18':'#3a2808'; ctx.fillRect(sx-6,sy-20,12,13);
     ctx.fillStyle='#000'; ctx.fillRect(sx-7,sy-20,1,13); ctx.fillRect(sx+6,sy-20,1,13);
     ctx.fillRect(sx-6,sy-21,12,1); ctx.fillRect(sx-6,sy-7,12,1);
-    // Eyes
+    // Hood pulled low — dark brim shadow covering top of face
+    ctx.fillStyle=isFK?'#1a2810':'#241608'; // deep hood shadow
+    ctx.fillRect(sx-6,sy-20,12,6); // shadow band across forehead + upper eyes
+    ctx.fillStyle='#000'; ctx.fillRect(sx-6,sy-21,12,1); // top edge
+    // Visible jaw/chin below the shadow
+    ctx.fillStyle=isFK?'#304820':'#4a3018';
+    ctx.fillRect(sx-4,sy-13,8,4); // lower face — just barely visible chin
+    // Eyes — glinting in the hood shadow, barely visible
     ctx.fillStyle=atk?(isFK?'#80c040':'#e06010'):(isFK?'#508030':'#a04010');
-    ctx.fillRect(sx-4,sy-15,3,2); ctx.fillRect(sx+1,sy-15,3,2);
+    ctx.fillRect(sx-4,sy-16,3,2); ctx.fillRect(sx+1,sy-16,3,2);
     // Weapon
     if(isFK){
       // Sword
@@ -7208,38 +7575,90 @@ const Enemies = {
       ctx.fillStyle='#304a20'; ctx.fillRect(sx+11,sy-22,3,18);
       ctx.fillStyle='#283818'; ctx.fillRect(sx+8,sy-10,10,3);
     } else {
-      // Dagger
+      // Main dagger — right hand raised
       ctx.fillStyle='#281808'; ctx.fillRect(sx+10,sy-16,3,20);
       ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-16,1,20); ctx.fillRect(sx+13,sy-16,1,20);
-      ctx.fillStyle='#3a2c18'; ctx.fillRect(sx+10,sy-16,2,12);
+      ctx.fillStyle='#3a2c18'; ctx.fillRect(sx+10,sy-16,2,12); // blade
+      ctx.fillStyle='#2e2010'; ctx.fillRect(sx+8,sy-8,7,2);  // crossguard
     }
   },
 
   _drawVineLurker(e,sx,sy){
-    // Vine Lurker — camouflaged plant-creature, dark greens
+    // Vine Lurker — root-tendril legs, flower bud on shoulder, bark-textured torso
     const atk=e.isAttacking;
-    // Vine-wrapped legs
-    ctx.fillStyle='#1a3008'; ctx.fillRect(sx-7,sy+4,5,10); ctx.fillRect(sx+2,sy+4,5,10);
-    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy+4,1,10); ctx.fillRect(sx+7,sy+4,1,10);
-    // Body — bulky plant mass
+    // Root tendrils instead of legs — branching, gnarled
+    // Left leg: thick root with secondary tendril
+    ctx.fillStyle='#1a3008'; ctx.fillRect(sx-7,sy+4,4,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy+4,1,10); ctx.fillRect(sx-3,sy+4,1,10);
+    // Left tendril — branch sprouting sideways
+    ctx.fillStyle='#142804'; ctx.fillRect(sx-10,sy+8,5,2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-11,sy+8,1,2); ctx.fillRect(sx-5,sy+8,1,2);
+    ctx.fillRect(sx-10,sy+10,5,1);
+    // Root tip left
+    ctx.fillStyle='#1e3c0a'; ctx.fillRect(sx-8,sy+13,3,3); ctx.fillRect(sx-11,sy+11,2,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy+16,3,1); ctx.fillRect(sx-11,sy+15,2,1);
+    // Right leg: thick root
+    ctx.fillStyle='#1a3008'; ctx.fillRect(sx+2,sy+4,5,10);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+1,sy+4,1,10); ctx.fillRect(sx+7,sy+4,1,10);
+    // Right tendril
+    ctx.fillStyle='#142804'; ctx.fillRect(sx+6,sy+9,5,2);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+5,sy+9,1,2); ctx.fillRect(sx+11,sy+9,1,2);
+    ctx.fillRect(sx+6,sy+11,5,1);
+    // Root tip right
+    ctx.fillStyle='#1e3c0a'; ctx.fillRect(sx+4,sy+13,3,3); ctx.fillRect(sx+8,sy+12,2,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+4,sy+16,3,1); ctx.fillRect(sx+8,sy+16,2,1);
+    // Body — bark-textured plant torso
     ctx.fillStyle=atk?'#204010':'#183408'; ctx.fillRect(sx-9,sy-8,18,14);
     ctx.fillStyle='#000'; ctx.fillRect(sx-10,sy-8,1,14); ctx.fillRect(sx+9,sy-8,1,14);
     ctx.fillRect(sx-9,sy-9,18,1); ctx.fillRect(sx-9,sy+6,18,1);
-    // Vine tendrils
+    // Bark texture — horizontal ridges like tree bark
+    ctx.fillStyle='#102808';
+    ctx.fillRect(sx-8,sy-6,16,1); ctx.fillRect(sx-8,sy-3,16,1);
+    ctx.fillRect(sx-8,sy+0,16,1); ctx.fillRect(sx-8,sy+3,16,1);
+    // Bark plate highlights — lighter ridge tops
+    ctx.fillStyle='#243a10';
+    ctx.fillRect(sx-8,sy-7,8,1); ctx.fillRect(sx+0,sy-4,6,1);
+    ctx.fillRect(sx-6,sy-1,10,1); ctx.fillRect(sx-8,sy+2,7,1);
+    // Vine tendrils from body sides
     ctx.fillStyle='#103008';
-    ctx.fillRect(sx-12,sy-4,5,3); ctx.fillRect(sx+7,sy-2,5,3);
-    ctx.fillRect(sx-11,sy+2,4,3); ctx.fillRect(sx+8,sy+4,4,3);
+    ctx.fillRect(sx-14,sy-4,6,2); ctx.fillRect(sx+8,sy-2,6,2);
+    ctx.fillRect(sx-13,sy+1,5,2); ctx.fillRect(sx+8,sy+3,5,2);
+    // Tendril tips
+    ctx.fillStyle='#1e4008';
+    ctx.fillRect(sx-15,sy-4,2,4); ctx.fillRect(sx+14,sy-2,2,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-15,sy+0,2,1); ctx.fillRect(sx+14,sy+2,2,1);
+    // Flower bud on left shoulder — distinctive silhouette
+    ctx.fillStyle='#183808'; ctx.fillRect(sx-14,sy-8,6,5);  // bud stem/base
+    ctx.fillStyle='#000'; ctx.fillRect(sx-15,sy-8,1,5); ctx.fillRect(sx-8,sy-8,1,5);
+    // Bud petals — closed bud, teardrop shape
+    ctx.fillStyle='#2a5018'; ctx.fillRect(sx-13,sy-12,4,5);
+    ctx.fillStyle='#000'; ctx.fillRect(sx-14,sy-12,1,5); ctx.fillRect(sx-9,sy-12,1,5);
+    ctx.fillRect(sx-13,sy-13,4,1); ctx.fillRect(sx-13,sy-7,4,1);
+    // Bud tip — slightly open, pale interior
+    ctx.fillStyle='#4a6820'; ctx.fillRect(sx-12,sy-12,2,3);
+    ctx.fillStyle='#3c8010'; // inner glow if attacking
+    if(atk){ ctx.fillRect(sx-12,sy-11,2,2); }
     // Head — mossy mass
     ctx.fillStyle='#182c0c'; ctx.fillRect(sx-7,sy-21,14,13);
     ctx.fillStyle='#000'; ctx.fillRect(sx-8,sy-21,1,13); ctx.fillRect(sx+7,sy-21,1,13);
     ctx.fillRect(sx-7,sy-22,14,1); ctx.fillRect(sx-7,sy-8,14,1);
-    // Glowing eyes
+    // Moss texture on head
+    ctx.fillStyle='#102008';
+    ctx.fillRect(sx-6,sy-19,5,1); ctx.fillRect(sx+0,sy-17,5,1); ctx.fillRect(sx-5,sy-14,4,1);
+    // Glowing eyes — bright green
     ctx.fillStyle=atk?'#70d020':'#40a010';
     ctx.fillRect(sx-5,sy-16,4,3); ctx.fillRect(sx+1,sy-16,4,3);
-    // Claw
+    // Eye glow halo
+    ctx.globalAlpha=0.30; ctx.fillStyle=atk?'#70d020':'#30880a';
+    ctx.fillRect(sx-6,sy-17,6,5); ctx.fillRect(sx+0,sy-17,6,5);
+    ctx.globalAlpha=1;
+    // Vine claw weapon
     ctx.fillStyle='#102008'; ctx.fillRect(sx+10,sy-14,4,20);
     ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy-14,1,20); ctx.fillRect(sx+14,sy-14,1,20);
-    ctx.fillStyle='#285010'; ctx.fillRect(sx+10,sy-14,3,10);
+    ctx.fillStyle='#285010'; ctx.fillRect(sx+10,sy-14,3,10); // upper claw
+    // Claw tips — curved vine thorns
+    ctx.fillStyle='#1e3e0a'; ctx.fillRect(sx+9,sy+4,2,4); ctx.fillRect(sx+11,sy+5,2,4); ctx.fillRect(sx+13,sy+4,2,4);
+    ctx.fillStyle='#000'; ctx.fillRect(sx+9,sy+8,2,1); ctx.fillRect(sx+11,sy+9,2,1); ctx.fillRect(sx+13,sy+8,2,1);
   },
 
   _drawVerdantWarden(e,sx,sy){
